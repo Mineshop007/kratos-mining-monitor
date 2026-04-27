@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../main.dart';
 import '../models/miner.dart';
 import '../services/cgminer_api.dart';
+import '../services/esp_miner_api.dart';
 import '../services/miner_store.dart';
 import 'pool_editor_screen.dart';
 import 'oc_screen.dart';
@@ -10,6 +12,27 @@ import 'oc_screen.dart';
 class MinerDetailScreen extends StatelessWidget {
   final Miner miner;
   const MinerDetailScreen({super.key, required this.miner});
+
+  Future<bool> _restart() async {
+    if (miner.type.apiType == ApiType.espMinerHttp) {
+      return EspMinerAPI.instance.restart(miner.ip, miner.port);
+    }
+    return CGMinerAPI.instance.restart(miner.ip, miner.port);
+  }
+
+  Future<bool> _pause() async {
+    if (miner.type.apiType == ApiType.espMinerHttp) {
+      return EspMinerAPI.instance.pause(miner.ip, miner.port);
+    }
+    return false;
+  }
+
+  Future<bool> _resume() async {
+    if (miner.type.apiType == ApiType.espMinerHttp) {
+      return EspMinerAPI.instance.resume(miner.ip, miner.port);
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +42,8 @@ class MinerDetailScreen extends StatelessWidget {
         backgroundColor: KratosTheme.bg,
         appBar: AppBar(
           backgroundColor: KratosTheme.bg,
-          title: Text(miner.name, style: const TextStyle(color: KratosTheme.textPrim)),
+          title: Text(miner.name,
+              style: const TextStyle(color: KratosTheme.textPrim)),
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh, color: KratosTheme.muted),
@@ -30,10 +54,17 @@ class MinerDetailScreen extends StatelessWidget {
         body: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-
             // Hero hashrate
             _HashrateHero(stats: s),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            // Hashrate sparkline chart (24h history)
+            if (s != null && s.hashrateHistory.length >= 2) ...[
+              _SectionLabel('HASHRATE HISTORY'),
+              const SizedBox(height: 8),
+              _HashrateChart(history: s.hashrateHistory),
+              const SizedBox(height: 16),
+            ],
 
             // Stats grid
             GridView.count(
@@ -44,23 +75,102 @@ class MinerDetailScreen extends StatelessWidget {
               mainAxisSpacing: 12,
               childAspectRatio: 1.6,
               children: [
-                _StatCard('OUTLET TEMP', s?.outTemp != null && s!.outTemp > 0 ? '${s.outTemp.toInt()}°C' : '--',
-                  Icons.thermostat, _tempColor(s?.outTemp ?? 0)),
-                _StatCard('FAN SPEED', s?.fanRPM != null && s!.fanRPM > 0 ? '${s.fanRPM} RPM' : '--',
-                  Icons.air, KratosTheme.blue),
-                _StatCard('ACCEPTED', '${s?.accepted ?? 0}', Icons.check_circle, const Color(0xFF3FB950)),
-                _StatCard('REJECTED', '${s?.rejected ?? 0}', Icons.cancel,
-                  (s?.rejected ?? 0) > 0 ? KratosTheme.red : KratosTheme.muted),
-                _StatCard('HW ERRORS', '${s?.hardwareErrors ?? 0}', Icons.warning_amber,
-                  (s?.hardwareErrors ?? 0) > 0 ? KratosTheme.red : KratosTheme.muted),
-                _StatCard('UPTIME', s?.uptimeFormatted ?? '--', Icons.access_time, KratosTheme.purple),
+                _StatCard(
+                  'OUTLET TEMP',
+                  s?.outTemp != null && s!.outTemp > 0
+                      ? '${s.outTemp.toInt()}°C'
+                      : '--',
+                  Icons.thermostat,
+                  _tempColor(s?.outTemp ?? 0),
+                ),
+                _StatCard(
+                  'FAN',
+                  s?.fanRPM != null && s!.fanRPM > 0
+                      ? '${s.fanRPM} RPM'
+                      : (s?.fanPercent != null && s!.fanPercent > 0
+                          ? '${s.fanPercent}%'
+                          : '--'),
+                  Icons.air,
+                  KratosTheme.blue,
+                ),
+                _StatCard('ACCEPTED', '${s?.accepted ?? 0}',
+                    Icons.check_circle, const Color(0xFF3FB950)),
+                _StatCard(
+                  'REJECTED',
+                  '${s?.rejected ?? 0}',
+                  Icons.cancel,
+                  (s?.rejected ?? 0) > 0
+                      ? KratosTheme.red
+                      : KratosTheme.muted,
+                ),
+                _StatCard(
+                  'HW ERRORS',
+                  '${s?.hardwareErrors ?? 0}',
+                  Icons.warning_amber,
+                  (s?.hardwareErrors ?? 0) > 0
+                      ? KratosTheme.red
+                      : KratosTheme.muted,
+                ),
+                _StatCard('UPTIME', s?.uptimeFormatted ?? '--',
+                    Icons.access_time, KratosTheme.purple),
               ],
             ),
             const SizedBox(height: 16),
 
+            // Power + earnings row
+            if ((s?.powerDraw ?? 0) > 0) ...[
+              Row(children: [
+                Expanded(
+                  child: _InfoCard(
+                    'POWER',
+                    '${s!.powerDraw.toInt()} W',
+                    icon: Icons.bolt,
+                    color: KratosTheme.orange,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _InfoCard(
+                    'EFFICIENCY',
+                    '${s.efficiency.toStringAsFixed(1)} MH/J',
+                    icon: Icons.speed,
+                    color: KratosTheme.blue,
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 12),
+            ],
+
+            // Earnings & cost
+            if (store.btcPrice > 0) ...[
+              Row(children: [
+                Expanded(
+                  child: _InfoCard(
+                    'EARN/DAY',
+                    '\$${store.minerDailyEarningsUsd(miner.id).toStringAsFixed(3)}',
+                    icon: Icons.attach_money,
+                    color: const Color(0xFF39d353),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _InfoCard(
+                    'COST/DAY',
+                    '\$${store.minerDailyCostUsd(miner.id).toStringAsFixed(3)}',
+                    icon: Icons.electric_bolt,
+                    color: KratosTheme.red,
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 4),
+              _NetProfitRow(store: store, minerId: miner.id),
+              const SizedBox(height: 16),
+            ],
+
             // Best share
             if ((s?.bestShare ?? 0) > 0) ...[
-              _InfoCard('🎯 BEST SHARE', s!.bestShare.toStringAsFixed(0)),
+              _InfoCard('BEST SHARE', s!.bestShare.toStringAsFixed(0),
+                  icon: Icons.emoji_events, color: KratosTheme.orange),
               const SizedBox(height: 12),
             ],
 
@@ -69,41 +179,79 @@ class MinerDetailScreen extends StatelessWidget {
               _SectionLabel('POOLS'),
               const SizedBox(height: 8),
               ...s.pools.map((p) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _PoolRow(pool: p),
-              )),
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _PoolRow(pool: p),
+                  )),
               const SizedBox(height: 8),
             ],
 
             // Device info
             _SectionLabel('DEVICE INFO'),
             const SizedBox(height: 8),
-            _InfoRow('Model', s?.model.isNotEmpty == true ? s!.model : 'Unknown'),
-            _InfoRow('Firmware', s?.firmware.isNotEmpty == true ? s!.firmware : 'Unknown'),
+            _InfoRow('Model',
+                s?.model.isNotEmpty == true ? s!.model : 'Unknown'),
+            _InfoRow('Firmware',
+                s?.firmware.isNotEmpty == true ? s!.firmware : 'Unknown'),
+            _InfoRow('Type', miner.type.displayName),
+            _InfoRow('API',
+                miner.type.apiType == ApiType.espMinerHttp
+                    ? 'ESP-Miner HTTP'
+                    : 'CGMiner TCP'),
             _InfoRow('IP Address', miner.ip),
             _InfoRow('Port', '${miner.port}'),
-            if ((s?.frequency ?? 0) > 0) _InfoRow('Frequency', '${s!.frequency.toInt()} MHz'),
-            if ((s?.powerDraw ?? 0) > 0) _InfoRow('Power Draw', '${s!.powerDraw.toInt()} W'),
-            if ((s?.efficiency ?? 0) > 0)
-              _InfoRow('Efficiency', '${s!.efficiency.toStringAsFixed(2)} MH/J'),
+            if ((s?.frequency ?? 0) > 0)
+              _InfoRow(
+                  'Frequency', '${s!.frequency.toInt()} MHz'),
             const SizedBox(height: 20),
 
             // Actions
             _SectionLabel('ACTIONS'),
             const SizedBox(height: 8),
-            _ActionBtn('Configure Pools', Icons.dns, KratosTheme.orange, () =>
-              Navigator.push(context, MaterialPageRoute(
-                builder: (_) => PoolEditorScreen(miner: miner, currentPools: s?.pools ?? [])))),
+            _ActionBtn(
+              'Configure Pools',
+              Icons.dns,
+              KratosTheme.orange,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PoolEditorScreen(
+                    miner: miner,
+                    currentPools: s?.pools ?? [],
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 8),
-            _ActionBtn('OC Settings', Icons.bolt, KratosTheme.purple, () =>
-              Navigator.push(context, MaterialPageRoute(
-                builder: (_) => OCScreen(miner: miner, stats: s)))),
+            _ActionBtn(
+              'OC Settings',
+              Icons.bolt,
+              KratosTheme.purple,
+              () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OCScreen(miner: miner, stats: s),
+                ),
+              ),
+            ),
             const SizedBox(height: 8),
-            _ActionBtn('Restart Miner', Icons.restart_alt, KratosTheme.red, () =>
-              _confirmRestart(context)),
-            const SizedBox(height: 8),
-            _ActionBtn('Stop Mining', Icons.stop_circle_outlined, KratosTheme.muted, () =>
-              _confirmStop(context)),
+            _ActionBtn('Restart Miner', Icons.restart_alt, KratosTheme.red,
+                () => _confirmRestart(context)),
+            if (miner.type.apiType == ApiType.espMinerHttp) ...[
+              const SizedBox(height: 8),
+              _ActionBtn(
+                'Pause Mining',
+                Icons.pause_circle_outline,
+                KratosTheme.muted,
+                () => _confirmAction(context, 'Pause', _pause),
+              ),
+              const SizedBox(height: 8),
+              _ActionBtn(
+                'Resume Mining',
+                Icons.play_circle_outline,
+                KratosTheme.neon,
+                () => _confirmAction(context, 'Resume', _resume),
+              ),
+            ],
             const SizedBox(height: 32),
           ],
         ),
@@ -112,64 +260,53 @@ class MinerDetailScreen extends StatelessWidget {
   }
 
   void _confirmRestart(BuildContext ctx) {
-    showDialog(context: ctx, builder: (_) => AlertDialog(
-      backgroundColor: KratosTheme.surface,
-      title: const Text('Restart Miner?', style: TextStyle(color: KratosTheme.textPrim)),
-      content: Text('Restart ${miner.name}? It will be offline for ~60 seconds.',
-        style: const TextStyle(color: KratosTheme.muted)),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx),
-          child: const Text('Cancel', style: TextStyle(color: KratosTheme.muted))),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: KratosTheme.red),
-          onPressed: () async {
-            Navigator.pop(ctx);
-            await CGMinerAPI.instance.restart(miner.ip, miner.port);
-            if (ctx.mounted) {
-              ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
-                content: Text('✅ Restart sent — back online in ~60s'),
-                backgroundColor: KratosTheme.surface,
-              ));
-            }
-          },
-          child: const Text('Restart'),
+    showDialog(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        backgroundColor: KratosTheme.surface,
+        title: const Text('Restart Miner?',
+            style: TextStyle(color: KratosTheme.textPrim)),
+        content: Text(
+          'Restart ${miner.name}? It will be offline for ~60 seconds.',
+          style: const TextStyle(color: KratosTheme.muted),
         ),
-      ],
-    ));
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel',
+                style: TextStyle(color: KratosTheme.muted)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: KratosTheme.red),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final ok = await _restart();
+              if (ctx.mounted) {
+                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                  content: Text(ok
+                      ? 'Restart sent — back online in ~60s'
+                      : 'Restart failed'),
+                  backgroundColor: KratosTheme.surface,
+                ));
+              }
+            },
+            child: const Text('Restart'),
+          ),
+        ],
+      ),
+    );
   }
 
-  void _confirmStop(BuildContext ctx) {
-    showModalBottomSheet(context: ctx, backgroundColor: KratosTheme.surface,
-      builder: (_) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Mining Control', style: TextStyle(
-            fontSize: 18, fontWeight: FontWeight.bold, color: KratosTheme.textPrim)),
-          const SizedBox(height: 20),
-          SizedBox(width: double.infinity, child: FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: KratosTheme.muted.withOpacity(0.2),
-              foregroundColor: KratosTheme.muted, padding: const EdgeInsets.symmetric(vertical: 14)),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await CGMinerAPI.instance.setFanSpeed(miner.ip, miner.port, 0);
-            },
-            icon: const Icon(Icons.stop_circle_outlined),
-            label: const Text('Stop Mining', style: TextStyle(fontWeight: FontWeight.bold)),
-          )),
-          const SizedBox(height: 10),
-          SizedBox(width: double.infinity, child: FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: KratosTheme.neon.withOpacity(0.15),
-              foregroundColor: KratosTheme.neon, padding: const EdgeInsets.symmetric(vertical: 14)),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await CGMinerAPI.instance.restart(miner.ip, miner.port);
-            },
-            icon: const Icon(Icons.play_circle_outline),
-            label: const Text('Resume Mining', style: TextStyle(fontWeight: FontWeight.bold)),
-          )),
-          const SizedBox(height: 10),
-        ]),
-    ));
+  void _confirmAction(
+      BuildContext ctx, String label, Future<bool> Function() fn) async {
+    final ok = await fn();
+    if (ctx.mounted) {
+      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+        content: Text(ok ? '$label sent' : '$label failed'),
+        backgroundColor: KratosTheme.surface,
+      ));
+    }
   }
 
   Color _tempColor(double t) {
@@ -179,7 +316,143 @@ class MinerDetailScreen extends StatelessWidget {
   }
 }
 
-// ── Widgets ──────────────────────────────────────────────────────────────────
+// ── Hashrate chart ────────────────────────────────────────────────────────────
+
+class _HashrateChart extends StatelessWidget {
+  final List<double> history;
+  const _HashrateChart({required this.history});
+
+  @override
+  Widget build(BuildContext context) {
+    if (history.length < 2) return const SizedBox.shrink();
+
+    final spots = history.asMap().entries
+        .map((e) => FlSpot(e.key.toDouble(), e.value))
+        .toList();
+    final minY = history.reduce((a, b) => a < b ? a : b) * 0.95;
+    final maxY = history.reduce((a, b) => a > b ? a : b) * 1.05;
+
+    return Container(
+      height: 120,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: KratosTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KratosTheme.border),
+      ),
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(
+            show: true,
+            horizontalInterval: (maxY - minY) / 4,
+            getDrawingHorizontalLine: (_) =>
+                FlLine(color: KratosTheme.border, strokeWidth: 0.5),
+            drawVerticalLine: false,
+          ),
+          titlesData: FlTitlesData(
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 48,
+                getTitlesWidget: (val, _) => Text(
+                  _formatHashrate(val),
+                  style: const TextStyle(
+                      fontSize: 9, color: Color(0xFF6e7681)),
+                ),
+              ),
+            ),
+            rightTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false)),
+            topTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: const AxisTitles(
+                sideTitles: SideTitles(showTitles: false)),
+          ),
+          borderData: FlBorderData(show: false),
+          minY: minY,
+          maxY: maxY,
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: KratosTheme.neon,
+              barWidth: 2,
+              isStrokeCapRound: true,
+              dotData: const FlDotData(show: false),
+              belowBarData: BarAreaData(
+                show: true,
+                color: KratosTheme.neon.withOpacity(0.1),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatHashrate(double v) {
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}T';
+    if (v >= 1) return '${v.toStringAsFixed(0)}G';
+    return '${(v * 1000).toStringAsFixed(0)}M';
+  }
+}
+
+// ── Net profit row ────────────────────────────────────────────────────────────
+
+class _NetProfitRow extends StatelessWidget {
+  final MinerStore store;
+  final String minerId;
+  const _NetProfitRow({required this.store, required this.minerId});
+
+  @override
+  Widget build(BuildContext context) {
+    final earn = store.minerDailyEarningsUsd(minerId);
+    final cost = store.minerDailyCostUsd(minerId);
+    final net = earn - cost;
+    final positive = net >= 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: positive
+            ? const Color(0xFF39d353).withOpacity(0.06)
+            : KratosTheme.red.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: positive
+              ? const Color(0xFF39d353).withOpacity(0.25)
+              : KratosTheme.red.withOpacity(0.25),
+        ),
+      ),
+      child: Row(children: [
+        Icon(
+          positive ? Icons.trending_up : Icons.trending_down,
+          size: 16,
+          color: positive ? const Color(0xFF39d353) : KratosTheme.red,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'Net ${positive ? "profit" : "loss"}/day:',
+          style: const TextStyle(
+              fontSize: 12, color: Color(0xFF8b949e)),
+        ),
+        const Spacer(),
+        Text(
+          '${positive ? "+" : ""}\$${net.abs().toStringAsFixed(3)}',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: positive
+                ? const Color(0xFF39d353)
+                : KratosTheme.red,
+            fontFamily: 'Courier',
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+// ── Widgets ───────────────────────────────────────────────────────────────────
 
 class _HashrateHero extends StatelessWidget {
   final MinerStats? stats;
@@ -187,25 +460,51 @@ class _HashrateHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(vertical: 24),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(colors: [
-        KratosTheme.neon.withOpacity(0.05), Colors.transparent
-      ], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-    ),
-    child: Column(children: [
-      Text(stats?.hashrateFormatted ?? '--',
-        style: const TextStyle(fontSize: 44, fontWeight: FontWeight.w900,
-          color: KratosTheme.neon, fontFamily: 'Courier')),
-      const Text('AVG HASHRATE', style: TextStyle(fontSize: 11,
-        color: KratosTheme.muted, letterSpacing: 2)),
-      if (stats != null && stats!.hashrate5s > 0)
-        Padding(padding: const EdgeInsets.only(top: 4), child:
-          Text('5s: ${stats!.hashrate5s >= 1000 ? "${(stats!.hashrate5s/1000).toStringAsFixed(3)} TH/s" : "${stats!.hashrate5s.toStringAsFixed(1)} GH/s"}',
-            style: const TextStyle(fontSize: 13, color: KratosTheme.muted))),
-    ]),
-  );
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [
+            KratosTheme.neon.withOpacity(0.05),
+            Colors.transparent
+          ], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+        ),
+        child: Column(children: [
+          Text(
+            stats?.hashrateFormatted ?? '--',
+            style: const TextStyle(
+              fontSize: 44,
+              fontWeight: FontWeight.w900,
+              color: KratosTheme.neon,
+              fontFamily: 'Courier',
+            ),
+          ),
+          const Text('AVG HASHRATE',
+              style: TextStyle(
+                  fontSize: 11,
+                  color: KratosTheme.muted,
+                  letterSpacing: 2)),
+          if (stats != null && stats!.hashrate5s > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '5s: ${_fmtHashrate(stats!.hashrate5s)}  ·  trend: ${_trendLabel(stats!.trendDirection)}',
+                style: const TextStyle(
+                    fontSize: 12, color: KratosTheme.muted),
+              ),
+            ),
+        ]),
+      );
+
+  String _fmtHashrate(double v) {
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(3)} TH/s';
+    return '${v.toStringAsFixed(1)} GH/s';
+  }
+
+  String _trendLabel(int d) {
+    if (d > 0) return 'rising';
+    if (d < 0) return 'falling';
+    return 'stable';
+  }
 }
 
 class _StatCard extends StatelessWidget {
@@ -216,21 +515,70 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: KratosTheme.surface,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: KratosTheme.border),
-    ),
-    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      Icon(icon, color: color, size: 22),
-      const SizedBox(height: 6),
-      Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
-        color: KratosTheme.textPrim, fontFamily: 'Courier')),
-      const SizedBox(height: 2),
-      Text(label, style: const TextStyle(fontSize: 9, color: KratosTheme.muted, letterSpacing: 1)),
-    ]),
-  );
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: KratosTheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: KratosTheme.border),
+        ),
+        child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 6),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: KratosTheme.textPrim,
+                  fontFamily: 'Courier')),
+          const SizedBox(height: 2),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 9,
+                  color: KratosTheme.muted,
+                  letterSpacing: 1)),
+        ]),
+      );
+}
+
+class _InfoCard extends StatelessWidget {
+  final String label, value;
+  final IconData icon;
+  final Color color;
+  const _InfoCard(this.label, this.value,
+      {required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: color.withOpacity(0.2)),
+        ),
+        child: Row(children: [
+          Icon(icon, color: color, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 9,
+                      color: KratosTheme.muted,
+                      letterSpacing: 1)),
+              Text(value,
+                  style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                      fontFamily: 'Courier')),
+            ]),
+          ),
+        ]),
+      );
 }
 
 class _PoolRow extends StatelessWidget {
@@ -239,33 +587,52 @@ class _PoolRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    decoration: BoxDecoration(
-      color: KratosTheme.surface,
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: KratosTheme.border),
-    ),
-    child: Row(children: [
-      Container(width: 7, height: 7,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: pool.active ? KratosTheme.neon : KratosTheme.muted,
-          shape: BoxShape.circle,
-        )),
-      const SizedBox(width: 10),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(pool.cleanUrl, style: const TextStyle(fontSize: 13,
-          color: KratosTheme.textPrim, fontFamily: 'Courier'),
-          overflow: TextOverflow.ellipsis),
-        Text(pool.user, style: const TextStyle(fontSize: 11, color: KratosTheme.muted)),
-      ])),
-      Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        Text(pool.status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-          color: pool.status == 'Alive' ? KratosTheme.neon : KratosTheme.red)),
-        Text('${pool.accepted}A / ${pool.rejected}R',
-          style: const TextStyle(fontSize: 10, color: KratosTheme.muted, fontFamily: 'Courier')),
-      ]),
-    ]),
-  );
+          color: KratosTheme.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: KratosTheme.border),
+        ),
+        child: Row(children: [
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(
+              color: pool.active ? KratosTheme.neon : KratosTheme.muted,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+            Text(pool.cleanUrl,
+                style: const TextStyle(
+                    fontSize: 13,
+                    color: KratosTheme.textPrim,
+                    fontFamily: 'Courier'),
+                overflow: TextOverflow.ellipsis),
+            Text(pool.user,
+                style: const TextStyle(
+                    fontSize: 11, color: KratosTheme.muted)),
+          ])),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(pool.status,
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: pool.active
+                        ? KratosTheme.neon
+                        : KratosTheme.red)),
+            Text('${pool.accepted}A / ${pool.rejected}R',
+                style: const TextStyle(
+                    fontSize: 10,
+                    color: KratosTheme.muted,
+                    fontFamily: 'Courier')),
+          ]),
+        ]),
+      );
 }
 
 class _SectionLabel extends StatelessWidget {
@@ -274,8 +641,11 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(text,
-    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-      color: KratosTheme.muted, letterSpacing: 1.5));
+      style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: KratosTheme.muted,
+          letterSpacing: 1.5));
 }
 
 class _InfoRow extends StatelessWidget {
@@ -284,37 +654,24 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 4),
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    decoration: BoxDecoration(color: KratosTheme.surface, borderRadius: BorderRadius.circular(8)),
-    child: Row(children: [
-      Text(label, style: const TextStyle(fontSize: 13, color: KratosTheme.muted)),
-      const Spacer(),
-      Text(value, style: const TextStyle(fontSize: 13,
-        color: KratosTheme.textPrim, fontFamily: 'Courier')),
-    ]),
-  );
-}
-
-class _InfoCard extends StatelessWidget {
-  final String label, value;
-  const _InfoCard(this.label, this.value);
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: KratosTheme.orange.withOpacity(0.08),
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: KratosTheme.orange.withOpacity(0.2)),
-    ),
-    child: Row(children: [
-      Text(label, style: const TextStyle(fontSize: 11, color: KratosTheme.muted, letterSpacing: 1)),
-      const Spacer(),
-      Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
-        color: KratosTheme.orange, fontFamily: 'Courier')),
-    ]),
-  );
+        margin: const EdgeInsets.only(bottom: 4),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+            color: KratosTheme.surface,
+            borderRadius: BorderRadius.circular(8)),
+        child: Row(children: [
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 13, color: KratosTheme.muted)),
+          const Spacer(),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 13,
+                  color: KratosTheme.textPrim,
+                  fontFamily: 'Courier')),
+        ]),
+      );
 }
 
 class _ActionBtn extends StatelessWidget {
@@ -326,18 +683,21 @@ class _ActionBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    child: OutlinedButton.icon(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: color,
-        side: BorderSide(color: color.withOpacity(0.3)),
-        backgroundColor: color.withOpacity(0.07),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-    ),
-  );
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: color,
+            side: BorderSide(color: color.withOpacity(0.3)),
+            backgroundColor: color.withOpacity(0.07),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+          ),
+          onPressed: onPressed,
+          icon: Icon(icon, size: 18),
+          label: Text(label,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, fontSize: 15)),
+        ),
+      );
 }

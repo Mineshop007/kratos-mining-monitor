@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../models/miner.dart';
 import '../services/cgminer_api.dart';
-import '../services/avalon_api.dart';
+import '../services/esp_miner_api.dart';
 import '../services/miner_store.dart';
 
 class AddMinerScreen extends StatefulWidget {
@@ -15,7 +15,7 @@ class AddMinerScreen extends StatefulWidget {
 
 class _AddMinerScreenState extends State<AddMinerScreen> {
   final _nameCtrl = TextEditingController();
-  final _ipCtrl   = TextEditingController();
+  final _ipCtrl = TextEditingController();
   final _portCtrl = TextEditingController(text: '4028');
 
   MinerType _selectedType = MinerType.generic;
@@ -24,14 +24,13 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
   String? _testResult;
   List<String> _discovered = [];
 
-  // Pool presets
-  static const presets = [
-    ('CKPool Solo',    'stratum+tcp://solo.ckpool.org:3333'),
-    ('Public Pool',    'stratum+tcp://public-pool.io:21496'),
-    ('ViaBTC',         'stratum+tcp://btc.viabtc.io:3333'),
-    ('Braiins',        'stratum+tcp://stratum.braiins.com:3333'),
-    ('Ocean',          'stratum+tcp://mine.ocean.xyz:3334'),
-    ('NiceHash',       'stratum+tcp://sha256.eu.nicehash.com:3334'),
+  static const _presets = [
+    ('CKPool Solo', 'stratum+tcp://solo.ckpool.org:3333'),
+    ('Public Pool', 'stratum+tcp://public-pool.io:21496'),
+    ('ViaBTC', 'stratum+tcp://btc.viabtc.io:3333'),
+    ('Braiins', 'stratum+tcp://stratum.braiins.com:3333'),
+    ('Ocean', 'stratum+tcp://mine.ocean.xyz:3334'),
+    ('NiceHash', 'stratum+tcp://sha256.eu.nicehash.com:3334'),
   ];
 
   void _onTypeChanged(MinerType? type) {
@@ -42,13 +41,29 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
     });
   }
 
+  String get _ipHint {
+    if (_selectedType.apiType == ApiType.espMinerHttp) {
+      return '192.168.1.108';
+    }
+    return '192.168.1.104';
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _ipCtrl.dispose();
+    _portCtrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: KratosTheme.bg,
       appBar: AppBar(
         backgroundColor: KratosTheme.bg,
-        title: const Text('Add Miner', style: TextStyle(color: KratosTheme.textPrim)),
+        title: const Text('Add Miner',
+            style: TextStyle(color: KratosTheme.textPrim)),
         leading: IconButton(
           icon: const Icon(Icons.close, color: KratosTheme.muted),
           onPressed: () => Navigator.pop(context),
@@ -56,66 +71,117 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
         actions: [
           TextButton(
             onPressed: _ipCtrl.text.isNotEmpty ? _addMiner : null,
-            child: Text('Add', style: TextStyle(
-              color: _ipCtrl.text.isNotEmpty ? KratosTheme.orange : KratosTheme.muted,
-              fontWeight: FontWeight.bold, fontSize: 16)),
+            child: Text('Add',
+                style: TextStyle(
+                  color: _ipCtrl.text.isNotEmpty
+                      ? KratosTheme.orange
+                      : KratosTheme.muted,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                )),
           ),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Manual entry
-          _Section(title: 'MANUAL SETUP', icon: Icons.edit_outlined, children: [
-            _Field('MINER NAME', 'e.g. Nano 3S Living Room', _nameCtrl),
-            const SizedBox(height: 12),
-            _Field('IP ADDRESS', '192.168.1.104', _ipCtrl,
-              type: TextInputType.url,
-              onChanged: (_) => setState(() {})),
-            const SizedBox(height: 12),
-            // Miner type picker
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('MINER TYPE', style: TextStyle(
-                  fontSize: 10, fontWeight: FontWeight.w700,
-                  color: KratosTheme.muted, letterSpacing: 1.5)),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: KratosTheme.bg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: KratosTheme.border),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<MinerType>(
-                      value: _selectedType,
-                      isExpanded: true,
-                      dropdownColor: KratosTheme.surface,
-                      style: const TextStyle(
-                        color: KratosTheme.textPrim,
-                        fontFamily: 'Courier',
-                        fontSize: 14,
+          // Miner type picker (visual chips)
+          _Section(title: 'MINER TYPE', icon: Icons.memory, children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: MinerType.values.map((t) {
+                final selected = t == _selectedType;
+                return GestureDetector(
+                  onTap: () => _onTypeChanged(t),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? KratosTheme.orange.withOpacity(0.15)
+                          : KratosTheme.surface,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: selected
+                            ? KratosTheme.orange
+                            : KratosTheme.border,
                       ),
-                      items: MinerType.values.map((t) => DropdownMenuItem(
-                        value: t,
-                        child: Row(children: [
-                          Text(t.icon, style: const TextStyle(fontSize: 14)),
-                          const SizedBox(width: 8),
-                          Text(t.displayName),
-                        ]),
-                      )).toList(),
-                      onChanged: _onTypeChanged,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(t.icon,
+                            style: const TextStyle(fontSize: 14)),
+                        const SizedBox(width: 6),
+                        Text(
+                          t.displayName,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: selected
+                                ? KratosTheme.orange
+                                : KratosTheme.textPrim,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                );
+              }).toList(),
             ),
-            const SizedBox(height: 12),
-            _Field('PORT', _selectedType.defaultPort.toString(), _portCtrl,
-              type: TextInputType.number),
+            const SizedBox(height: 8),
+            // API type indicator
+            Container(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _selectedType.apiType == ApiType.espMinerHttp
+                    ? KratosTheme.neon.withOpacity(0.08)
+                    : KratosTheme.blue.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _selectedType.apiType == ApiType.espMinerHttp
+                      ? KratosTheme.neon.withOpacity(0.3)
+                      : KratosTheme.blue.withOpacity(0.3),
+                ),
+              ),
+              child: Text(
+                _selectedType.apiType == ApiType.espMinerHttp
+                    ? 'ESP-Miner HTTP API  ·  default port ${_selectedType.defaultPort}'
+                    : 'CGMiner TCP API  ·  default port ${_selectedType.defaultPort}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: _selectedType.apiType == ApiType.espMinerHttp
+                      ? KratosTheme.neon
+                      : KratosTheme.blue,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ]),
+
+          const SizedBox(height: 12),
+
+          // Manual entry
+          _Section(
+              title: 'CONNECTION',
+              icon: Icons.edit_outlined,
+              children: [
+                _Field('MINER NAME', 'e.g. BitAxe Living Room',
+                    _nameCtrl),
+                const SizedBox(height: 12),
+                _Field('IP ADDRESS', _ipHint, _ipCtrl,
+                    type: TextInputType.url,
+                    onChanged: (_) => setState(() {})),
+                const SizedBox(height: 12),
+                _Field(
+                    'PORT',
+                    _selectedType.defaultPort.toString(),
+                    _portCtrl,
+                    type: TextInputType.number),
+              ]),
 
           const SizedBox(height: 12),
 
@@ -137,43 +203,63 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(_testResult!,
-                style: TextStyle(fontSize: 13,
-                  color: _testResult!.startsWith('✅') ? KratosTheme.neon : KratosTheme.red,
-                  fontFamily: 'Courier')),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: _testResult!.startsWith('✅')
+                          ? KratosTheme.neon
+                          : KratosTheme.red,
+                      fontFamily: 'Courier')),
             ),
 
           const SizedBox(height: 16),
 
           // Auto-discover
-          _Section(title: 'AUTO-DISCOVER', icon: Icons.search, children: [
-            _OutlinedButton(
-              icon: Icons.wifi,
-              label: _scanning ? 'Scanning network...' : 'Scan Local Network',
-              color: KratosTheme.blue,
-              loading: _scanning,
-              onPressed: _scanning ? null : _scan,
-            ),
-            if (_discovered.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              ..._discovered.map((ip) => _DiscoveredItem(ip: ip, onTap: () {
-                _ipCtrl.text = ip;
-                _nameCtrl.text = 'Miner at $ip';
-                setState(() {});
-              })),
-            ],
-          ]),
+          _Section(
+              title: 'AUTO-DISCOVER',
+              icon: Icons.search,
+              children: [
+                _OutlinedButton(
+                  icon: Icons.wifi,
+                  label: _scanning
+                      ? 'Scanning network...'
+                      : 'Scan Local Network',
+                  color: KratosTheme.blue,
+                  loading: _scanning,
+                  onPressed: _scanning ? null : _scan,
+                ),
+                if (_discovered.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  ..._discovered.map((ip) => _DiscoveredItem(
+                        ip: ip,
+                        onTap: () {
+                          _ipCtrl.text = ip;
+                          _nameCtrl.text = 'Miner at $ip';
+                          setState(() {});
+                        },
+                      )),
+                ],
+              ]),
 
           const SizedBox(height: 16),
 
           // Pool presets info
-          _Section(title: 'QUICK POOL PRESETS', icon: Icons.pool_outlined, children: [
-            const Text('You can set pools after adding the miner.',
-              style: TextStyle(fontSize: 12, color: KratosTheme.muted)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 8, runSpacing: 8, children: presets.map((p) =>
-              _PresetChip(name: p.$1),
-            ).toList()),
-          ]),
+          _Section(
+              title: 'QUICK POOL PRESETS',
+              icon: Icons.pool_outlined,
+              children: [
+                const Text(
+                  'You can set pools after adding the miner.',
+                  style: TextStyle(fontSize: 12, color: KratosTheme.muted),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _presets
+                      .map((p) => _PresetChip(name: p.$1))
+                      .toList(),
+                ),
+              ]),
 
           const SizedBox(height: 32),
         ],
@@ -182,35 +268,57 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
   }
 
   Future<void> _test() async {
-    setState(() { _testing = true; _testResult = null; });
-    final port = int.tryParse(_portCtrl.text) ?? _selectedType.defaultPort;
+    setState(() {
+      _testing = true;
+      _testResult = null;
+    });
+    final port =
+        int.tryParse(_portCtrl.text) ?? _selectedType.defaultPort;
     final MinerStats s;
-    if (_selectedType.isAvalonHttp) {
-      s = await AvalonAPI.instance.fetchStats(_ipCtrl.text, _selectedType);
+    if (_selectedType.apiType == ApiType.espMinerHttp) {
+      s = await EspMinerAPI.instance.fetchAll(_ipCtrl.text, port);
     } else {
       s = await CGMinerAPI.instance.fetchAll(_ipCtrl.text, port);
     }
     setState(() {
       _testing = false;
       if (s.status != MinerStatus.offline) {
-        _testResult = '✅ Connected! ${s.model.isNotEmpty ? s.model : _selectedType.displayName} · ${s.hashrateFormatted}';
+        final modelStr =
+            s.model.isNotEmpty ? s.model : _selectedType.displayName;
+        _testResult =
+            '✅ Connected! $modelStr · ${s.hashrateFormatted}';
         if (_nameCtrl.text.isEmpty) {
-          _nameCtrl.text = s.model.isNotEmpty ? s.model : _selectedType.displayName;
+          _nameCtrl.text =
+              s.model.isNotEmpty ? s.model : _selectedType.displayName;
         }
       } else {
-        _testResult = '❌ Cannot connect. Check IP and that port ${_portCtrl.text} is reachable.';
+        _testResult =
+            '❌ Cannot connect. Check IP and port ${_portCtrl.text}.';
       }
     });
   }
 
   Future<void> _scan() async {
-    setState(() { _scanning = true; _discovered = []; });
+    setState(() {
+      _scanning = true;
+      _discovered = [];
+    });
     final subnet = _getSubnet();
+    // Try both ESP-Miner (port 80) and CGMiner (port 4028) probes
     final futures = List.generate(254, (i) async {
       final ip = '$subnet.${i + 1}';
-      final s = await CGMinerAPI.instance.fetchAll(ip, 4028)
-        .timeout(const Duration(seconds: 2), onTimeout: () => MinerStats.offline);
-      return s.status != MinerStatus.offline ? ip : null;
+      // Try ESP-Miner first (port 80)
+      final espStats = await EspMinerAPI.instance
+          .fetchAll(ip, 80)
+          .timeout(const Duration(seconds: 2),
+              onTimeout: () => MinerStats.offline);
+      if (espStats.status != MinerStatus.offline) return ip;
+      // Try CGMiner (port 4028)
+      final cgStats = await CGMinerAPI.instance
+          .fetchAll(ip, 4028)
+          .timeout(const Duration(seconds: 2),
+              onTimeout: () => MinerStats.offline);
+      return cgStats.status != MinerStatus.offline ? ip : null;
     });
     final results = await Future.wait(futures);
     setState(() {
@@ -229,7 +337,9 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
 
   void _addMiner() {
     final miner = Miner(
-      name: _nameCtrl.text.isEmpty ? 'Miner at ${_ipCtrl.text}' : _nameCtrl.text,
+      name: _nameCtrl.text.isEmpty
+          ? 'Miner at ${_ipCtrl.text}'
+          : _nameCtrl.text,
       ip: _ipCtrl.text,
       port: int.tryParse(_portCtrl.text) ?? _selectedType.defaultPort,
       type: _selectedType,
@@ -239,31 +349,42 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
   }
 }
 
+// ── Shared sub-widgets ────────────────────────────────────────────────────────
+
 class _Section extends StatelessWidget {
   final String title;
   final IconData icon;
   final List<Widget> children;
-  const _Section({required this.title, required this.icon, required this.children});
+  const _Section(
+      {required this.title,
+      required this.icon,
+      required this.children});
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: KratosTheme.surface,
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: KratosTheme.border),
-    ),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Icon(icon, size: 14, color: KratosTheme.muted),
-        const SizedBox(width: 6),
-        Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-          color: KratosTheme.muted, letterSpacing: 1.5)),
-      ]),
-      const SizedBox(height: 12),
-      ...children,
-    ]),
-  );
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: KratosTheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: KratosTheme.border),
+        ),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(icon, size: 14, color: KratosTheme.muted),
+                const SizedBox(width: 6),
+                Text(title,
+                    style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: KratosTheme.muted,
+                        letterSpacing: 1.5)),
+              ]),
+              const SizedBox(height: 12),
+              ...children,
+            ]),
+      );
 }
 
 class _Field extends StatelessWidget {
@@ -272,42 +393,52 @@ class _Field extends StatelessWidget {
   final TextInputType type;
   final ValueChanged<String>? onChanged;
   const _Field(this.label, this.hint, this.ctrl,
-    {this.type = TextInputType.text, this.onChanged});
+      {this.type = TextInputType.text, this.onChanged});
 
   @override
   Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(label, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
-        color: KratosTheme.muted, letterSpacing: 1.5)),
-      const SizedBox(height: 4),
-      TextField(
-        controller: ctrl,
-        keyboardType: type,
-        style: const TextStyle(color: KratosTheme.textPrim, fontFamily: 'Courier'),
-        onChanged: onChanged,
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(color: KratosTheme.muted),
-          filled: true,
-          fillColor: KratosTheme.bg,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: KratosTheme.border),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: KratosTheme.muted,
+                  letterSpacing: 1.5)),
+          const SizedBox(height: 4),
+          TextField(
+            controller: ctrl,
+            keyboardType: type,
+            style: const TextStyle(
+                color: KratosTheme.textPrim, fontFamily: 'Courier'),
+            onChanged: onChanged,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle:
+                  const TextStyle(color: KratosTheme.muted),
+              filled: true,
+              fillColor: KratosTheme.bg,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide:
+                    const BorderSide(color: KratosTheme.border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide:
+                    const BorderSide(color: KratosTheme.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide:
+                    const BorderSide(color: KratosTheme.orange),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12, vertical: 10),
+            ),
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: KratosTheme.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: KratosTheme.orange),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        ),
-      ),
-    ],
-  );
+        ],
+      );
 }
 
 class _OutlinedButton extends StatelessWidget {
@@ -316,28 +447,37 @@ class _OutlinedButton extends StatelessWidget {
   final Color color;
   final bool loading;
   final VoidCallback? onPressed;
-  const _OutlinedButton({required this.icon, required this.label,
-    required this.color, this.loading = false, this.onPressed});
+  const _OutlinedButton(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      this.loading = false,
+      this.onPressed});
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    child: OutlinedButton.icon(
-      style: OutlinedButton.styleFrom(
-        foregroundColor: color,
-        side: BorderSide(color: color.withOpacity(0.4)),
-        backgroundColor: color.withOpacity(0.08),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-      onPressed: onPressed,
-      icon: loading
-        ? SizedBox(width: 18, height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2, color: color))
-        : Icon(icon, size: 18),
-      label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-    ),
-  );
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: color,
+            side: BorderSide(color: color.withOpacity(0.4)),
+            backgroundColor: color.withOpacity(0.08),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10)),
+          ),
+          onPressed: onPressed,
+          icon: loading
+              ? SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: color))
+              : Icon(icon, size: 18),
+          label: Text(label,
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      );
 }
 
 class _DiscoveredItem extends StatelessWidget {
@@ -347,25 +487,33 @@ class _DiscoveredItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: KratosTheme.bg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: KratosTheme.border),
-      ),
-      child: Row(children: [
-        const Icon(Icons.memory, color: KratosTheme.neon, size: 16),
-        const SizedBox(width: 10),
-        Text(ip, style: const TextStyle(color: KratosTheme.textPrim, fontFamily: 'Courier')),
-        const Spacer(),
-        const Text('TAP TO ADD', style: TextStyle(fontSize: 10,
-          color: KratosTheme.muted, letterSpacing: 0.8)),
-      ]),
-    ),
-  );
+        onTap: onTap,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: KratosTheme.bg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: KratosTheme.border),
+          ),
+          child: Row(children: [
+            const Icon(Icons.memory,
+                color: KratosTheme.neon, size: 16),
+            const SizedBox(width: 10),
+            Text(ip,
+                style: const TextStyle(
+                    color: KratosTheme.textPrim,
+                    fontFamily: 'Courier')),
+            const Spacer(),
+            const Text('TAP TO ADD',
+                style: TextStyle(
+                    fontSize: 10,
+                    color: KratosTheme.muted,
+                    letterSpacing: 0.8)),
+          ]),
+        ),
+      );
 }
 
 class _PresetChip extends StatelessWidget {
@@ -374,12 +522,15 @@ class _PresetChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-    decoration: BoxDecoration(
-      color: KratosTheme.bg,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: KratosTheme.border),
-    ),
-    child: Text(name, style: const TextStyle(fontSize: 12, color: KratosTheme.muted)),
-  );
+        padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: KratosTheme.bg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: KratosTheme.border),
+        ),
+        child: Text(name,
+            style: const TextStyle(
+                fontSize: 12, color: KratosTheme.muted)),
+      );
 }
