@@ -8,6 +8,8 @@ enum MinerType {
   nerdoctaxe,
   avalonNano3s,
   avalonNano3,
+  avalonMini3,
+  avalonQ,
   antminer,
   whatsminer,
   goldshell,
@@ -19,6 +21,8 @@ enum MinerType {
     nerdoctaxe   => 'NerdOctaxe',
     avalonNano3s => 'Avalon Nano 3S',
     avalonNano3  => 'Avalon Nano 3',
+    avalonMini3  => 'Avalon Mini 3',
+    avalonQ      => 'Avalon Q',
     antminer     => 'Antminer',
     whatsminer   => 'Whatsminer',
     goldshell    => 'Goldshell',
@@ -31,11 +35,18 @@ enum MinerType {
     nerdoctaxe   => '🔩',
     avalonNano3s => '🟢',
     avalonNano3  => '🟢',
+    avalonMini3  => '🟢',
+    avalonQ      => '🟢',
     antminer     => '🟠',
     whatsminer   => '🔵',
     goldshell    => '🟡',
     generic      => '⛏️',
   };
+
+  bool get isAvalonHttp =>
+    this == avalonNano3s || this == avalonMini3 || this == avalonQ;
+
+  int get defaultPort => isAvalonHttp ? 80 : 4028;
 
   // Detect type from model string
   static MinerType detect(String model) {
@@ -44,6 +55,8 @@ enum MinerType {
     if (m.contains('nerdqaxe') || m.contains('nerdq')) return nerdqaxe;
     if (m.contains('nerdoct')) return nerdoctaxe;
     if (m.contains('nano3s') || m.contains('nano 3s')) return avalonNano3s;
+    if (m.contains('mini3') || m.contains('mini 3')) return avalonMini3;
+    if (m.contains('avalon q') || m.contains('avalonq')) return avalonQ;
     if (m.contains('nano3') || m.contains('nano 3')) return avalonNano3;
     if (m.contains('antminer') || m.contains('bitmain')) return antminer;
     if (m.contains('whatsminer') || m.contains('microbt')) return whatsminer;
@@ -58,6 +71,7 @@ class Miner {
   String ip;
   int port;
   String notes;
+  MinerType type;
 
   Miner({
     String? id,
@@ -65,15 +79,21 @@ class Miner {
     required this.ip,
     this.port = 4028,
     this.notes = '',
+    this.type = MinerType.generic,
   }) : id = id ?? DateTime.now().millisecondsSinceEpoch.toString();
 
   Map<String, dynamic> toJson() => {
-    'id': id, 'name': name, 'ip': ip, 'port': port, 'notes': notes
+    'id': id, 'name': name, 'ip': ip, 'port': port, 'notes': notes,
+    'type': type.name,
   };
 
   factory Miner.fromJson(Map<String, dynamic> j) => Miner(
     id: j['id'], name: j['name'], ip: j['ip'],
     port: j['port'] ?? 4028, notes: j['notes'] ?? '',
+    type: MinerType.values.firstWhere(
+      (t) => t.name == (j['type'] as String? ?? ''),
+      orElse: () => MinerType.generic,
+    ),
   );
 }
 
@@ -123,7 +143,7 @@ class MinerStats {
   static const MinerStats offline = MinerStats(status: MinerStatus.offline);
 
   // Computed
-  double get efficiency => powerDraw > 0 ? (hashrateAvg * 1000) / powerDraw : 0; // MH/J
+  double get efficiency => powerDraw > 0 ? (hashrateAvg * 1000) / powerDraw : 0;
   double get rejectRate => accepted > 0 ? rejected / (accepted + rejected) * 100 : 0;
   String get uptimeFormatted {
     if (uptime < 60) return '${uptime}s';

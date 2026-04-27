@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../models/miner.dart';
 import '../services/cgminer_api.dart';
+import '../services/avalon_api.dart';
 import '../services/miner_store.dart';
 
 class AddMinerScreen extends StatefulWidget {
@@ -17,6 +18,7 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
   final _ipCtrl   = TextEditingController();
   final _portCtrl = TextEditingController(text: '4028');
 
+  MinerType _selectedType = MinerType.generic;
   bool _testing = false;
   bool _scanning = false;
   String? _testResult;
@@ -31,6 +33,14 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
     ('Ocean',          'stratum+tcp://mine.ocean.xyz:3334'),
     ('NiceHash',       'stratum+tcp://sha256.eu.nicehash.com:3334'),
   ];
+
+  void _onTypeChanged(MinerType? type) {
+    if (type == null) return;
+    setState(() {
+      _selectedType = type;
+      _portCtrl.text = type.defaultPort.toString();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +73,48 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
               type: TextInputType.url,
               onChanged: (_) => setState(() {})),
             const SizedBox(height: 12),
-            _Field('PORT', '4028', _portCtrl, type: TextInputType.number),
+            // Miner type picker
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('MINER TYPE', style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w700,
+                  color: KratosTheme.muted, letterSpacing: 1.5)),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: KratosTheme.bg,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: KratosTheme.border),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<MinerType>(
+                      value: _selectedType,
+                      isExpanded: true,
+                      dropdownColor: KratosTheme.surface,
+                      style: const TextStyle(
+                        color: KratosTheme.textPrim,
+                        fontFamily: 'Courier',
+                        fontSize: 14,
+                      ),
+                      items: MinerType.values.map((t) => DropdownMenuItem(
+                        value: t,
+                        child: Row(children: [
+                          Text(t.icon, style: const TextStyle(fontSize: 14)),
+                          const SizedBox(width: 8),
+                          Text(t.displayName),
+                        ]),
+                      )).toList(),
+                      onChanged: _onTypeChanged,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _Field('PORT', _selectedType.defaultPort.toString(), _portCtrl,
+              type: TextInputType.number),
           ]),
 
           const SizedBox(height: 12),
@@ -116,8 +167,8 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
 
           // Pool presets info
           _Section(title: 'QUICK POOL PRESETS', icon: Icons.pool_outlined, children: [
-            Text('You can set pools after adding the miner.',
-              style: const TextStyle(fontSize: 12, color: KratosTheme.muted)),
+            const Text('You can set pools after adding the miner.',
+              style: TextStyle(fontSize: 12, color: KratosTheme.muted)),
             const SizedBox(height: 8),
             Wrap(spacing: 8, runSpacing: 8, children: presets.map((p) =>
               _PresetChip(name: p.$1),
@@ -132,13 +183,20 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
 
   Future<void> _test() async {
     setState(() { _testing = true; _testResult = null; });
-    final port = int.tryParse(_portCtrl.text) ?? 4028;
-    final s = await CGMinerAPI.instance.fetchAll(_ipCtrl.text, port);
+    final port = int.tryParse(_portCtrl.text) ?? _selectedType.defaultPort;
+    final MinerStats s;
+    if (_selectedType.isAvalonHttp) {
+      s = await AvalonAPI.instance.fetchStats(_ipCtrl.text, _selectedType);
+    } else {
+      s = await CGMinerAPI.instance.fetchAll(_ipCtrl.text, port);
+    }
     setState(() {
       _testing = false;
       if (s.status != MinerStatus.offline) {
-        _testResult = '✅ Connected! ${s.model.isNotEmpty ? s.model : 'Miner'} · ${s.hashrateFormatted}';
-        if (_nameCtrl.text.isEmpty && s.model.isNotEmpty) _nameCtrl.text = s.model;
+        _testResult = '✅ Connected! ${s.model.isNotEmpty ? s.model : _selectedType.displayName} · ${s.hashrateFormatted}';
+        if (_nameCtrl.text.isEmpty) {
+          _nameCtrl.text = s.model.isNotEmpty ? s.model : _selectedType.displayName;
+        }
       } else {
         _testResult = '❌ Cannot connect. Check IP and that port ${_portCtrl.text} is reachable.';
       }
@@ -147,7 +205,6 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
 
   Future<void> _scan() async {
     setState(() { _scanning = true; _discovered = []; });
-    // Scan common home subnet
     final subnet = _getSubnet();
     final futures = List.generate(254, (i) async {
       final ip = '$subnet.${i + 1}';
@@ -174,7 +231,8 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
     final miner = Miner(
       name: _nameCtrl.text.isEmpty ? 'Miner at ${_ipCtrl.text}' : _nameCtrl.text,
       ip: _ipCtrl.text,
-      port: int.tryParse(_portCtrl.text) ?? 4028,
+      port: int.tryParse(_portCtrl.text) ?? _selectedType.defaultPort,
+      type: _selectedType,
     );
     context.read<MinerStore>().add(miner);
     Navigator.pop(context);

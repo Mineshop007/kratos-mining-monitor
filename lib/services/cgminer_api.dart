@@ -109,7 +109,7 @@ class CGMinerAPI {
     // Determine status
     MinerStatus status = MinerStatus.online;
     if (outTemp > 85 || fanRPM < 300 && fanRPM > 0) status = MinerStatus.warning;
-    if (hardwareErrors > 10) status = MinerStatus.warning;
+    if (hwErrors > 10) status = MinerStatus.warning;
 
     return MinerStats(
       hashrate5s: hashrate5s,

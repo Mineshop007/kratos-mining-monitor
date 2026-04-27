@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/miner.dart';
 import 'cgminer_api.dart';
+import 'avalon_api.dart';
 
 class MinerStore extends ChangeNotifier {
   final List<Miner> miners = [];
@@ -28,6 +29,14 @@ class MinerStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Re-insert a miner at a specific index (used for undo delete)
+  void reinsert(Miner miner, int index) {
+    miners.insert(index.clamp(0, miners.length), miner);
+    _save();
+    _startPolling(miner);
+    notifyListeners();
+  }
+
   Future<void> refreshAll() async {
     await Future.wait(miners.map(_fetch));
   }
@@ -35,7 +44,12 @@ class MinerStore extends ChangeNotifier {
   void refreshOne(Miner miner) => _fetch(miner);
 
   Future<void> _fetch(Miner miner) async {
-    final s = await CGMinerAPI.instance.fetchAll(miner.ip, miner.port);
+    final MinerStats s;
+    if (miner.type.isAvalonHttp) {
+      s = await AvalonAPI.instance.fetchStats(miner.ip, miner.type);
+    } else {
+      s = await CGMinerAPI.instance.fetchAll(miner.ip, miner.port);
+    }
     stats[miner.id] = s;
     // Auto-detect name from model if not customised
     if (s.model.isNotEmpty && miner.name.startsWith('Miner at ')) {
@@ -78,6 +92,12 @@ class MinerStore extends ChangeNotifier {
 
   int get onlineCount => stats.values
     .where((s) => s.status == MinerStatus.online).length;
+
+  int get warningCount => stats.values
+    .where((s) => s.status == MinerStatus.warning).length;
+
+  int get offlineCount => stats.values
+    .where((s) => s.status == MinerStatus.offline).length;
 
   @override
   void dispose() {

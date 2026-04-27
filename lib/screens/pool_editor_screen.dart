@@ -35,6 +35,18 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
   void initState() {
     super.initState();
     _prefill();
+    // Listeners so Save button state updates as user types
+    _url1.addListener(() => setState(() {}));
+    _url2.addListener(() => setState(() {}));
+    _url3.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _url1.dispose(); _usr1.dispose();
+    _url2.dispose(); _usr2.dispose();
+    _url3.dispose(); _usr3.dispose();
+    super.dispose();
   }
 
   void _prefill() {
@@ -71,7 +83,7 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Pool 1
+        // Pool entries
         _PoolEntry(index: 1, urlCtrl: _url1, userCtrl: _usr1),
         const SizedBox(height: 12),
         _PoolEntry(index: 2, urlCtrl: _url2, userCtrl: _usr2),
@@ -159,14 +171,37 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
   }
 }
 
-class _PoolEntry extends StatelessWidget {
+// ── StatefulWidget so TextField changes trigger parent rebuild ─────────────────
+
+class _PoolEntry extends StatefulWidget {
   final int index;
   final TextEditingController urlCtrl, userCtrl;
   const _PoolEntry({required this.index, required this.urlCtrl, required this.userCtrl});
 
   @override
+  State<_PoolEntry> createState() => _PoolEntryState();
+}
+
+class _PoolEntryState extends State<_PoolEntry> {
+  @override
+  void initState() {
+    super.initState();
+    widget.urlCtrl.addListener(_rebuild);
+    widget.userCtrl.addListener(_rebuild);
+  }
+
+  @override
+  void dispose() {
+    widget.urlCtrl.removeListener(_rebuild);
+    widget.userCtrl.removeListener(_rebuild);
+    super.dispose();
+  }
+
+  void _rebuild() => setState(() {});
+
+  @override
   Widget build(BuildContext context) {
-    final isActive = index == 1;
+    final isActive = widget.index == 1;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -181,18 +216,18 @@ class _PoolEntry extends StatelessWidget {
             decoration: BoxDecoration(
               color: isActive ? KratosTheme.orange : KratosTheme.border,
               shape: BoxShape.circle),
-            child: Center(child: Text('$index', style: TextStyle(fontSize: 12,
+            child: Center(child: Text('${widget.index}', style: TextStyle(fontSize: 12,
               fontWeight: FontWeight.bold,
               color: isActive ? Colors.black : KratosTheme.muted))),
           ),
           const SizedBox(width: 10),
-          Text('Pool $index${index == 1 ? " (Primary)" : index == 2 ? " (Failover)" : " (Failover 2)"}',
+          Text('Pool ${widget.index}${widget.index == 1 ? " (Primary)" : widget.index == 2 ? " (Failover)" : " (Failover 2)"}',
             style: const TextStyle(fontWeight: FontWeight.w600, color: KratosTheme.textPrim)),
         ]),
         const SizedBox(height: 12),
-        _Input('STRATUM URL', 'stratum+tcp://pool.example.com:3333', urlCtrl),
+        _Input('STRATUM URL', 'stratum+tcp://pool.example.com:3333', widget.urlCtrl),
         const SizedBox(height: 8),
-        _Input('WORKER / USERNAME', 'username.workername', userCtrl),
+        _Input('WORKER / USERNAME', 'username.workername', widget.userCtrl),
       ]),
     );
   }
