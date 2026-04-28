@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../models/miner.dart';
 import '../services/miner_store.dart';
@@ -222,6 +223,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           );
         }),
+        const SizedBox(height: 16),
+        const _DiscordButton(),
         const SizedBox(height: 32),
       ],
     );
@@ -241,7 +244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
@@ -275,6 +278,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
               childCount: store.miners.length,
             ),
+          ),
+        ),
+        const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 32),
+            child: _DiscordButton(),
           ),
         ),
       ],
@@ -472,6 +481,35 @@ class _KratosLogo extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Discord Button ────────────────────────────────────────────────────────────
+
+class _DiscordButton extends StatelessWidget {
+  const _DiscordButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF5865F2),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12)),
+        ),
+        onPressed: () => launchUrl(
+          Uri.parse('https://discord.gg/yWtYegkDJw'),
+          mode: LaunchMode.externalApplication,
+        ),
+        icon: const Icon(Icons.chat_bubble_outline, size: 18),
+        label: const Text('Join Discord — Report Bugs & Suggest Features',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+      ),
     );
   }
 }

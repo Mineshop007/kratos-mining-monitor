@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../models/miner.dart';
 import '../services/cgminer_api.dart';
@@ -252,6 +253,32 @@ class MinerDetailScreen extends StatelessWidget {
                 () => _confirmAction(context, 'Resume', _resume),
               ),
             ],
+            const SizedBox(height: 20),
+
+            // Community
+            _SectionLabel('COMMUNITY'),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 44,
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5865F2),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () => launchUrl(
+                  Uri.parse('https://discord.gg/yWtYegkDJw'),
+                  mode: LaunchMode.externalApplication,
+                ),
+                icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                label: const Text(
+                    'Join Discord — Report Bugs & Suggest Features',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 13)),
+              ),
+            ),
             const SizedBox(height: 32),
           ],
         ),
