@@ -5,6 +5,7 @@ import '../services/miner_store.dart';
 import '../services/cgminer_api.dart';
 import '../services/esp_miner_api.dart';
 import 'sparkline.dart';
+import 'miner_icon.dart';
 
 // ── List Card ─────────────────────────────────────────────────────────────────
 
@@ -167,7 +168,7 @@ class _CardHeader extends StatelessWidget {
             border: Border.all(color: const Color(0xFF30363D)),
           ),
           child: Center(
-            child: Text(miner.type.icon, style: const TextStyle(fontSize: 18)),
+            child: MinerIcon(type: miner.type, size: 26),
           ),
         ),
         const SizedBox(width: 10),
@@ -432,8 +433,7 @@ class _MinerGridCardState extends State<MinerGridCard>
                 children: [
                   // Row 1: icon + name + status dot
                   Row(children: [
-                    Text(widget.miner.type.icon,
-                        style: const TextStyle(fontSize: 14)),
+                    MinerIcon(type: widget.miner.type, size: 18),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(

@@ -35,22 +35,6 @@ enum MinerType {
     generic      => 'Miner',
   };
 
-  String get icon => switch (this) {
-    bitaxeGamma  => '⚡',
-    bitaxeUltra  => '⚡',
-    bitaxeGT     => '⚡',
-    nerdqaxe     => '🔧',
-    nerdoctaxe   => '🔩',
-    avalonNano3s => '🟢',
-    avalonNano3  => '🟢',
-    avalonMini3  => '🟢',
-    avalonQ      => '🟣',
-    antminer     => '🟠',
-    whatsminer   => '🔵',
-    goldshell    => '🟡',
-    generic      => '⛏️',
-  };
-
   // ESP-Miner HTTP (port 80) for BitAxe family; cgminer TCP (port 4028) for everything else
   ApiType get apiType => switch (this) {
     bitaxeGamma || bitaxeUltra || bitaxeGT || nerdqaxe || nerdoctaxe =>

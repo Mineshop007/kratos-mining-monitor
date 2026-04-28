@@ -5,6 +5,7 @@ import '../models/miner.dart';
 import '../services/cgminer_api.dart';
 import '../services/esp_miner_api.dart';
 import '../services/miner_store.dart';
+import '../widgets/miner_icon.dart';
 
 class AddMinerScreen extends StatefulWidget {
   const AddMinerScreen({super.key});
@@ -112,8 +113,7 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(t.icon,
-                            style: const TextStyle(fontSize: 14)),
+                        MinerIcon(type: t, size: 18),
                         const SizedBox(width: 6),
                         Text(
                           t.displayName,

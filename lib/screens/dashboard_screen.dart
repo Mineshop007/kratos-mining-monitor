@@ -7,6 +7,7 @@ import '../models/miner.dart';
 import '../services/miner_store.dart';
 import '../widgets/miner_card.dart';
 import '../widgets/fleet_summary_bar.dart';
+import '../widgets/kratos_logo.dart';
 import 'add_miner_screen.dart';
 import 'miner_detail_screen.dart';
 
@@ -469,8 +470,8 @@ class _KratosLogo extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const Icon(Icons.bolt, color: KratosTheme.orange, size: 22),
-        const SizedBox(width: 6),
+        const KratosShield(size: 28),
+        const SizedBox(width: 8),
         Text(
           'KRATOS',
           style: TextStyle(
