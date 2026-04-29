@@ -453,8 +453,8 @@
     }
   ],
   "generator": "pub",
-  "generatorVersion": "3.11.4",
+  "generatorVersion": "3.11.5",
   "flutterRoot": "file:///opt/homebrew/share/flutter",
-  "flutterVersion": "3.41.6",
+  "flutterVersion": "3.41.8",
   "pubCache": "file:///Users/sofijavitolina/.pub-cache"
 }
