@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../models/miner.dart';
@@ -16,21 +17,21 @@ class MinerDetailScreen extends StatelessWidget {
 
   Future<bool> _restart() async {
     if (miner.type.apiType == ApiType.espMinerHttp) {
-      return EspMinerAPI.instance.restart(miner.ip, miner.port);
+      return EspMinerAPI.instance.restart(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
     }
-    return CGMinerAPI.instance.restart(miner.ip, miner.port);
+    return CGMinerAPI.instance.restart(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
   }
 
   Future<bool> _pause() async {
     if (miner.type.apiType == ApiType.espMinerHttp) {
-      return EspMinerAPI.instance.pause(miner.ip, miner.port);
+      return EspMinerAPI.instance.pause(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
     }
     return false;
   }
 
   Future<bool> _resume() async {
     if (miner.type.apiType == ApiType.espMinerHttp) {
-      return EspMinerAPI.instance.resume(miner.ip, miner.port);
+      return EspMinerAPI.instance.resume(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
     }
     return false;
   }
@@ -116,7 +117,21 @@ class MinerDetailScreen extends StatelessWidget {
                     Icons.access_time, KratosTheme.purple),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
+            // Fan speed control (ESP-Miner only)
+            if (miner.type.apiType == ApiType.espMinerHttp && s != null) ...[
+              _FanSpeedControl(miner: miner, initialFanPercent: s.fanPercent),
+              const SizedBox(height: 12),
+            ],
+
+            // Block ETA
+            if (s != null && s.hashrateAvg > 0) ...[
+              _BlockEtaRow(hashrateGhs: s.hashrateAvg),
+              const SizedBox(height: 12),
+            ],
+
+            const SizedBox(height: 4),
 
             // Power + earnings row
             if ((s?.powerDraw ?? 0) > 0) ...[
@@ -133,7 +148,7 @@ class MinerDetailScreen extends StatelessWidget {
                 Expanded(
                   child: _InfoCard(
                     'EFFICIENCY',
-                    '${s.efficiency.toStringAsFixed(1)} MH/J',
+                    '${s.efficiency.toStringAsFixed(1)} J/TH',
                     icon: Icons.speed,
                     color: KratosTheme.blue,
                   ),
@@ -727,4 +742,167 @@ class _ActionBtn extends StatelessWidget {
                   fontWeight: FontWeight.w600, fontSize: 15)),
         ),
       );
+}
+
+// ── Fan Speed Control (ESP-Miner) ─────────────────────────────────────────────
+
+class _FanSpeedControl extends StatefulWidget {
+  final Miner miner;
+  final int initialFanPercent;
+  const _FanSpeedControl(
+      {required this.miner, required this.initialFanPercent});
+
+  @override
+  State<_FanSpeedControl> createState() => _FanSpeedControlState();
+}
+
+class _FanSpeedControlState extends State<_FanSpeedControl> {
+  late double _value;
+  bool _setting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.initialFanPercent.clamp(0, 100).toDouble();
+  }
+
+  Future<void> _setFan() async {
+    setState(() => _setting = true);
+    await EspMinerAPI.instance.setFanSpeed(
+        widget.miner.ip, widget.miner.port, _value.round(),
+        remoteUrl: widget.miner.remoteUrl);
+    if (mounted) setState(() => _setting = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: KratosTheme.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: KratosTheme.border),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.air, size: 14, color: KratosTheme.muted),
+            const SizedBox(width: 6),
+            const Text('FAN SPEED',
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: KratosTheme.muted,
+                    letterSpacing: 1.5)),
+            const Spacer(),
+            Text('${_value.round()}%',
+                style: const TextStyle(
+                    fontSize: 13,
+                    color: KratosTheme.textPrim,
+                    fontFamily: 'Courier')),
+          ]),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: KratosTheme.blue,
+              thumbColor: KratosTheme.blue,
+              inactiveTrackColor: KratosTheme.border,
+              overlayColor: KratosTheme.blue.withOpacity(0.15),
+            ),
+            child: Slider(
+              value: _value,
+              min: 0,
+              max: 100,
+              divisions: 20,
+              onChanged: (v) => setState(() => _value = v),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: SizedBox(
+              height: 34,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor:
+                      _setting ? KratosTheme.border : KratosTheme.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: _setting ? null : _setFan,
+                child: Text(_setting ? 'Setting...' : 'Set',
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ),
+        ]),
+      );
+}
+
+// ── Block ETA (solo mining expected time) ─────────────────────────────────────
+
+class _BlockEtaRow extends StatefulWidget {
+  final double hashrateGhs;
+  const _BlockEtaRow({required this.hashrateGhs});
+
+  @override
+  State<_BlockEtaRow> createState() => _BlockEtaRowState();
+}
+
+class _BlockEtaRowState extends State<_BlockEtaRow> {
+  static double? _cachedDifficulty;
+  static DateTime? _difficultyFetchTime;
+
+  String _blockEta = '--';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEta();
+  }
+
+  Future<void> _loadEta() async {
+    double diff;
+    final now = DateTime.now();
+    if (_cachedDifficulty != null &&
+        _difficultyFetchTime != null &&
+        now.difference(_difficultyFetchTime!) < const Duration(hours: 1)) {
+      diff = _cachedDifficulty!;
+    } else {
+      try {
+        final r = await http
+            .get(Uri.parse('https://blockchain.info/q/getdifficulty'))
+            .timeout(const Duration(seconds: 10));
+        if (r.statusCode == 200) {
+          diff = double.tryParse(r.body.trim()) ?? 0;
+          if (diff > 0) {
+            _cachedDifficulty = diff;
+            _difficultyFetchTime = now;
+          } else {
+            diff = _cachedDifficulty ?? 0;
+          }
+        } else {
+          diff = _cachedDifficulty ?? 0;
+        }
+      } catch (_) {
+        diff = _cachedDifficulty ?? 0;
+      }
+    }
+    if (!mounted) return;
+    if (diff <= 0 || widget.hashrateGhs <= 0) {
+      setState(() => _blockEta = '--');
+      return;
+    }
+    final hashrateHs = widget.hashrateGhs * 1e9; // GH/s → H/s
+    final days = diff * 4294967296.0 / hashrateHs / 86400.0;
+    setState(() => _blockEta = _formatDays(days));
+  }
+
+  String _formatDays(double days) {
+    if (days < 1) return '~${(days * 24).round()} hours';
+    if (days < 30) return '~${days.round()} days';
+    if (days < 365) return '~${(days / 30.4).round()} months';
+    return '~${(days / 365.25).toStringAsFixed(0)} years';
+  }
+
+  @override
+  Widget build(BuildContext context) => _InfoRow('Block ETA', _blockEta);
 }

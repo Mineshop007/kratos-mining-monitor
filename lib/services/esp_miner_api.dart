@@ -11,10 +11,13 @@ class EspMinerAPI {
 
   static const _timeout = Duration(seconds: 5);
 
-  Future<MinerStats> fetchAll(String ip, int port) async {
+  String _base(String ip, int port, {String remoteUrl = ''}) =>
+      remoteUrl.isNotEmpty ? remoteUrl : 'http://$ip:$port';
+
+  Future<MinerStats> fetchAll(String ip, int port, {String remoteUrl = ''}) async {
     try {
       final res = await http.get(
-        Uri.parse('http://$ip:$port/api/system/info'),
+        Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system/info'),
         headers: {'Accept': 'application/json'},
       ).timeout(_timeout);
       if (res.statusCode != 200) return MinerStats.offline;
@@ -90,13 +93,14 @@ class EspMinerAPI {
       bestShare: 0,
       blockFound: (j['blockFound'] as num?)?.toInt() == 1,
       isUsingFallbackStratum: usingFallback,
+      coreVoltage: (j['coreVoltage'] as num?)?.toInt() ?? 0,
     );
   }
 
-  Future<bool> restart(String ip, int port) async {
+  Future<bool> restart(String ip, int port, {String remoteUrl = ''}) async {
     try {
       final r = await http
-          .post(Uri.parse('http://$ip:$port/api/system/restart'))
+          .post(Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system/restart'))
           .timeout(_timeout);
       return r.statusCode == 200;
     } catch (_) {
@@ -104,10 +108,10 @@ class EspMinerAPI {
     }
   }
 
-  Future<bool> pause(String ip, int port) async {
+  Future<bool> pause(String ip, int port, {String remoteUrl = ''}) async {
     try {
       final r = await http
-          .post(Uri.parse('http://$ip:$port/api/system/pause'))
+          .post(Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system/pause'))
           .timeout(_timeout);
       return r.statusCode == 200;
     } catch (_) {
@@ -115,10 +119,10 @@ class EspMinerAPI {
     }
   }
 
-  Future<bool> resume(String ip, int port) async {
+  Future<bool> resume(String ip, int port, {String remoteUrl = ''}) async {
     try {
       final r = await http
-          .post(Uri.parse('http://$ip:$port/api/system/resume'))
+          .post(Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system/resume'))
           .timeout(_timeout);
       return r.statusCode == 200;
     } catch (_) {
@@ -136,6 +140,7 @@ class EspMinerAPI {
     String? fallbackStratumUrl,
     int? fallbackStratumPort,
     String? fallbackStratumUser,
+    String remoteUrl = '',
   }) async {
     try {
       final hostOnly = _stripScheme(stratumUrl);
@@ -153,7 +158,7 @@ class EspMinerAPI {
       };
       final r = await http
           .patch(
-            Uri.parse('http://$ip:$port/api/system'),
+            Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(body),
           )
@@ -164,11 +169,11 @@ class EspMinerAPI {
     }
   }
 
-  Future<bool> setFanSpeed(String ip, int port, int percent) async {
+  Future<bool> setFanSpeed(String ip, int port, int percent, {String remoteUrl = ''}) async {
     try {
       final r = await http
           .patch(
-            Uri.parse('http://$ip:$port/api/system'),
+            Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'fanSpeed': percent, 'autofanspeed': percent == 0}),
           )
@@ -179,13 +184,28 @@ class EspMinerAPI {
     }
   }
 
-  Future<bool> setFrequency(String ip, int port, int mhz) async {
+  Future<bool> setFrequency(String ip, int port, int mhz, {String remoteUrl = ''}) async {
     try {
       final r = await http
           .patch(
-            Uri.parse('http://$ip:$port/api/system'),
+            Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'frequency': mhz}),
+          )
+          .timeout(_timeout);
+      return r.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> setCoreVoltage(String ip, int port, int millivolts, {String remoteUrl = ''}) async {
+    try {
+      final r = await http
+          .patch(
+            Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'coreVoltage': millivolts}),
           )
           .timeout(_timeout);
       return r.statusCode == 200;

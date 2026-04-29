@@ -29,16 +29,19 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
   bool get _isEspMiner =>
       widget.miner.type.apiType == ApiType.espMinerHttp;
 
+  // (name, url, description, defaultWorker or null)
   static const _presets = [
     ('CKPool Solo', 'stratum+tcp://solo.ckpool.org:3333',
-        'Solo mining — win full block reward'),
+        'Solo mining — win full block reward', null),
     ('Public Pool', 'stratum+tcp://public-pool.io:21496',
-        'Open-source solo pool'),
-    ('ViaBTC', 'stratum+tcp://btc.viabtc.io:3333', 'Pool mining — regular payouts'),
-    ('Braiins', 'stratum+tcp://stratum.braiins.com:3333', 'Braiins pool'),
-    ('Ocean', 'stratum+tcp://mine.ocean.xyz:3334', 'Ocean decentralised pool'),
+        'Open-source solo pool', null),
+    ('Mineshop Solo', 'stratum+tcp://solo.mineshop.eu:3333',
+        'Mineshop solo pool', '13oXC81RKriTDEtAWfr4QaHt7WUpqB6jL2'),
+    ('ViaBTC', 'stratum+tcp://btc.viabtc.io:3333', 'Pool mining — regular payouts', null),
+    ('Braiins', 'stratum+tcp://stratum.braiins.com:3333', 'Braiins pool', null),
+    ('Ocean', 'stratum+tcp://mine.ocean.xyz:3334', 'Ocean decentralised pool', null),
     ('NiceHash', 'stratum+tcp://sha256.eu.nicehash.com:3334',
-        'Sell hashrate for BTC'),
+        'Sell hashrate for BTC', null),
   ];
 
   @override
@@ -160,7 +163,9 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
               child: GestureDetector(
                 onTap: () => setState(() {
                   _url1.text = p.$2;
-                  if (_usr1.text.isEmpty) _usr1.text = 'worker.kratos';
+                  if (_usr1.text.isEmpty) {
+                    _usr1.text = p.$4 ?? 'worker.kratos';
+                  }
                 }),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -272,6 +277,7 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
         fallbackStratumUrl: parsedFallback?.$1,
         fallbackStratumPort: parsedFallback?.$2,
         fallbackStratumUser: parsedFallback != null ? fallbackUser : null,
+        remoteUrl: widget.miner.remoteUrl,
       );
     } else {
       // CGMiner: up to 3 pools
@@ -298,7 +304,7 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
         });
       }
       ok = await CGMinerAPI.instance
-          .setPools(widget.miner.ip, widget.miner.port, pools);
+          .setPools(widget.miner.ip, widget.miner.port, pools, remoteUrl: widget.miner.remoteUrl);
     }
 
     setState(() {

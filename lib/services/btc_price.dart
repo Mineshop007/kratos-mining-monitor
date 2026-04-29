@@ -10,11 +10,15 @@ class BtcPriceService {
   DateTime? _lastFetch;
   static const _cacheDuration = Duration(minutes: 5);
 
-  // ~April 2026 solo/pool estimate: 144 blocks/day × 3.125 BTC / global_hashrate_EH
-  // Simplified to a per-TH/s constant; adjust as network difficulty changes
-  static const double btcPerThPerDay = 0.000022;
+  // Network hashrate-based profitability (live from mempool.space, 10-min cache)
+  double _cachedBtcPerTh = 0.0000005; // fallback
+  DateTime? _lastBtcPerThFetch;
+  static const _btcPerThCacheDuration = Duration(minutes: 10);
 
   double get cachedPrice => _cachedPrice > 0 ? _cachedPrice : 93000;
+
+  /// Live btcPerThPerDay from mempool.space network hashrate
+  double get btcPerThPerDay => _cachedBtcPerTh;
 
   Future<double> getBtcPrice() async {
     final now = DateTime.now();
@@ -39,7 +43,34 @@ class BtcPriceService {
     } catch (_) {
       // Use cached or fallback
     }
+    // Also refresh network hashrate in background
+    _refreshBtcPerTh();
     return _cachedPrice > 0 ? _cachedPrice : 93000;
+  }
+
+  Future<void> _refreshBtcPerTh() async {
+    final now = DateTime.now();
+    if (_lastBtcPerThFetch != null &&
+        now.difference(_lastBtcPerThFetch!) < _btcPerThCacheDuration) {
+      return;
+    }
+    try {
+      final r = await http.get(
+        Uri.parse('https://mempool.space/api/v1/mining/hashrate/3d'),
+      ).timeout(const Duration(seconds: 10));
+      if (r.statusCode == 200) {
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        final currentHashrate = ((j['currentHashrate'] as num?) ?? 0).toDouble();
+        if (currentHashrate > 0) {
+          // (144 blocks/day × 3.125 BTC/block) / (network_hashrate_in_TH/s)
+          final networkTh = currentHashrate / 1e12;
+          _cachedBtcPerTh = (144 * 3.125) / networkTh;
+          _lastBtcPerThFetch = now;
+        }
+      }
+    } catch (_) {
+      // Keep fallback value
+    }
   }
 
   // USD/day for a miner with given hashrate (GH/s)
@@ -52,7 +83,7 @@ class BtcPriceService {
   double dailyEarningsUsdSync(double hashrateGhs, double btcPrice) {
     if (hashrateGhs <= 0 || btcPrice <= 0) return 0;
     final hashrateTh = hashrateGhs / 1000.0;
-    return hashrateTh * btcPerThPerDay * btcPrice;
+    return hashrateTh * _cachedBtcPerTh * btcPrice;
   }
 
   // Daily power cost in USD

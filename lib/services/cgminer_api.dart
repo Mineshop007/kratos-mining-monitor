@@ -8,6 +8,19 @@ class CGMinerAPI {
   static final CGMinerAPI instance = CGMinerAPI._();
   CGMinerAPI._();
 
+  /// Parse host and port from a remoteUrl (e.g. "http://1.2.3.4:4028") or fall back to ip/port.
+  (String, int) _effectiveTarget(String ip, int port, String remoteUrl) {
+    if (remoteUrl.isNotEmpty) {
+      final uri = Uri.tryParse(remoteUrl);
+      if (uri != null) {
+        final h = uri.host.isNotEmpty ? uri.host : ip;
+        final p = uri.hasPort ? uri.port : port;
+        return (h, p);
+      }
+    }
+    return (ip, port);
+  }
+
   Future<Map<String, dynamic>?> sendCommand(
     String command, String ip, int port, {Duration timeout = const Duration(seconds: 5)}
   ) async {
@@ -32,13 +45,14 @@ class CGMinerAPI {
     }
   }
 
-  Future<MinerStats> fetchAll(String ip, int port) async {
+  Future<MinerStats> fetchAll(String ip, int port, {String remoteUrl = ''}) async {
+    final (effectiveIp, effectivePort) = _effectiveTarget(ip, port, remoteUrl);
     // Fetch in parallel for speed
     final results = await Future.wait([
-      sendCommand('{"command":"summary"}', ip, port),
-      sendCommand('{"command":"pools"}', ip, port),
-      sendCommand('{"command":"stats"}', ip, port),
-      sendCommand('{"command":"version"}', ip, port),
+      sendCommand('{"command":"summary"}', effectiveIp, effectivePort),
+      sendCommand('{"command":"pools"}', effectiveIp, effectivePort),
+      sendCommand('{"command":"stats"}', effectiveIp, effectivePort),
+      sendCommand('{"command":"version"}', effectiveIp, effectivePort),
     ]);
 
     final summaryResp = results[0];
@@ -135,34 +149,38 @@ class CGMinerAPI {
 
   // ── Commands ──────────────────────────────────────────────────────────────
 
-  Future<bool> restart(String ip, int port) async {
-    final r = await sendCommand('{"command":"ascset","parameter":"0,reboot,0"}', ip, port);
+  Future<bool> restart(String ip, int port, {String remoteUrl = ''}) async {
+    final (h, p) = _effectiveTarget(ip, port, remoteUrl);
+    final r = await sendCommand('{"command":"ascset","parameter":"0,reboot,0"}', h, p);
     return _isOK(r);
   }
 
-  Future<bool> setFrequency(String ip, int port, int mhz) async {
-    final r = await sendCommand('{"command":"ascset","parameter":"0,frequency,$mhz"}', ip, port);
+  Future<bool> setFrequency(String ip, int port, int mhz, {String remoteUrl = ''}) async {
+    final (h, p) = _effectiveTarget(ip, port, remoteUrl);
+    final r = await sendCommand('{"command":"ascset","parameter":"0,frequency,$mhz"}', h, p);
     return _isOK(r);
   }
 
-  Future<bool> setFanSpeed(String ip, int port, int percent) async {
-    final r = await sendCommand('{"command":"ascset","parameter":"0,fan-spd,$percent"}', ip, port);
+  Future<bool> setFanSpeed(String ip, int port, int percent, {String remoteUrl = ''}) async {
+    final (h, p) = _effectiveTarget(ip, port, remoteUrl);
+    final r = await sendCommand('{"command":"ascset","parameter":"0,fan-spd,$percent"}', h, p);
     return _isOK(r);
   }
 
-  Future<bool> setPools(String ip, int port, List<Map<String, String>> pools) async {
+  Future<bool> setPools(String ip, int port, List<Map<String, String>> pools, {String remoteUrl = ''}) async {
+    final (effectiveIp, effectivePort) = _effectiveTarget(ip, port, remoteUrl);
     // Remove old pools
     for (int i = 0; i < 3; i++) {
-      await sendCommand('{"command":"removepool","parameter":"$i"}', ip, port);
+      await sendCommand('{"command":"removepool","parameter":"$i"}', effectiveIp, effectivePort);
     }
     // Add new pools
     for (final pool in pools) {
       final url  = pool['url'] ?? '';
       final user = pool['user'] ?? 'worker';
       final pass = pool['pass'] ?? 'x';
-      await sendCommand('{"command":"addpool","parameter":"$url,$user,$pass"}', ip, port);
+      await sendCommand('{"command":"addpool","parameter":"$url,$user,$pass"}', effectiveIp, effectivePort);
     }
-    await sendCommand('{"command":"saveconfig"}', ip, port);
+    await sendCommand('{"command":"saveconfig"}', effectiveIp, effectivePort);
     return true;
   }
 

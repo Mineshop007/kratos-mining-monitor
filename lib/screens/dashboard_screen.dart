@@ -166,6 +166,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildList(BuildContext context, MinerStore store) {
     return ListView(
+      key: const ValueKey('list'),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
         const SizedBox(height: 12),
@@ -233,6 +234,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildGrid(BuildContext context, MinerStore store) {
     return CustomScrollView(
+      key: const ValueKey('grid'),
       slivers: [
         SliverToBoxAdapter(
           child: Padding(

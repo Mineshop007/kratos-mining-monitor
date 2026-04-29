@@ -18,6 +18,7 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
   final _nameCtrl = TextEditingController();
   final _ipCtrl = TextEditingController();
   final _portCtrl = TextEditingController(text: '4028');
+  final _remoteUrlCtrl = TextEditingController();
 
   MinerType _selectedType = MinerType.generic;
   bool _testing = false;
@@ -54,6 +55,7 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
     _nameCtrl.dispose();
     _ipCtrl.dispose();
     _portCtrl.dispose();
+    _remoteUrlCtrl.dispose();
     super.dispose();
   }
 
@@ -261,6 +263,42 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
                 ),
               ]),
 
+          const SizedBox(height: 12),
+
+          // Advanced section
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: Container(
+              decoration: BoxDecoration(
+                color: KratosTheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: KratosTheme.border),
+              ),
+              child: ExpansionTile(
+                tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                leading: const Icon(Icons.settings_ethernet, size: 14, color: KratosTheme.muted),
+                title: const Text('ADVANCED',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: KratosTheme.muted,
+                        letterSpacing: 1.5)),
+                iconColor: KratosTheme.muted,
+                collapsedIconColor: KratosTheme.muted,
+                children: [
+                  _Field('REMOTE URL (OPTIONAL)', 'http://yourip:4028',
+                      _remoteUrlCtrl, type: TextInputType.url),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Use when the miner is behind a tunnel or reverse proxy.',
+                    style: TextStyle(fontSize: 11, color: KratosTheme.muted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           const SizedBox(height: 32),
         ],
       ),
@@ -343,6 +381,7 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
       ip: _ipCtrl.text,
       port: int.tryParse(_portCtrl.text) ?? _selectedType.defaultPort,
       type: _selectedType,
+      remoteUrl: _remoteUrlCtrl.text.trim(),
     );
     context.read<MinerStore>().add(miner);
     Navigator.pop(context);

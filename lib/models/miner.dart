@@ -70,6 +70,7 @@ class Miner {
   int port;
   String notes;
   MinerType type;
+  String remoteUrl; // optional override URL (e.g. for tunnels/proxies)
 
   Miner({
     String? id,
@@ -78,16 +79,18 @@ class Miner {
     this.port = 4028,
     this.notes = '',
     this.type = MinerType.generic,
+    this.remoteUrl = '',
   }) : id = id ?? DateTime.now().millisecondsSinceEpoch.toString();
 
   Map<String, dynamic> toJson() => {
     'id': id, 'name': name, 'ip': ip, 'port': port, 'notes': notes,
-    'type': type.name,
+    'type': type.name, 'remoteUrl': remoteUrl,
   };
 
   factory Miner.fromJson(Map<String, dynamic> j) => Miner(
     id: j['id'], name: j['name'], ip: j['ip'],
     port: j['port'] ?? 4028, notes: j['notes'] ?? '',
+    remoteUrl: j['remoteUrl'] as String? ?? '',
     type: MinerType.values.firstWhere(
       (t) => t.name == (j['type'] as String? ?? ''),
       orElse: () => MinerType.generic,
@@ -118,6 +121,7 @@ class MinerStats {
   final List<double> hashrateHistory; // last 30 readings in GH/s
   final bool blockFound;
   final bool isUsingFallbackStratum;
+  final int coreVoltage; // mV (ESP-Miner devices)
 
   MinerStats({
     this.hashrate5s = 0,
@@ -142,6 +146,7 @@ class MinerStats {
     this.hashrateHistory = const [],
     this.blockFound = false,
     this.isUsingFallbackStratum = false,
+    this.coreVoltage = 0,
   }) : lastUpdated = lastUpdated ?? DateTime.now();
 
   static MinerStats get offline => MinerStats(status: MinerStatus.offline);
@@ -169,10 +174,11 @@ class MinerStats {
     hashrateHistory: history,
     blockFound: blockFound,
     isUsingFallbackStratum: isUsingFallbackStratum,
+    coreVoltage: coreVoltage,
   );
 
   // Computed
-  double get efficiency => powerDraw > 0 ? (hashrateAvg * 1000) / powerDraw : 0;
+  double get efficiency => powerDraw > 0 && hashrateAvg > 0 ? powerDraw / (hashrateAvg / 1000.0) : 0;
   double get rejectRate => accepted > 0 ? rejected / (accepted + rejected) * 100 : 0;
 
   String get uptimeFormatted {

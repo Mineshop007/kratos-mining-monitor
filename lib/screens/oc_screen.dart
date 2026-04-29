@@ -16,6 +16,7 @@ class OCScreen extends StatefulWidget {
 class _OCScreenState extends State<OCScreen> {
   late List<_FreqPreset> presets;
   int selectedFreq = 0;
+  int selectedVoltage = 0;
   double powerLimit = 760;
   int workMode = 1; // 0=eco, 1=normal, 2=performance
   bool applying = false;
@@ -37,6 +38,8 @@ class _OCScreenState extends State<OCScreen> {
     } else {
       selectedFreq = presets[1].mhz;
     }
+    selectedVoltage = widget.stats?.coreVoltage ?? 0;
+    if (selectedVoltage == 0) selectedVoltage = 1150; // default STD
   }
 
   void _initPresets() {
@@ -215,6 +218,85 @@ class _OCScreenState extends State<OCScreen> {
         ),
         const SizedBox(height: 20),
 
+        // Voltage presets (ESP-Miner only)
+        if (_isEsp) ...[
+          const Text('CORE VOLTAGE',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: KratosTheme.muted,
+                  letterSpacing: 1.5)),
+          if (widget.stats?.coreVoltage != null && widget.stats!.coreVoltage > 0) ...[
+            const SizedBox(height: 4),
+            Text('Current: ${widget.stats!.coreVoltage} mV',
+                style: const TextStyle(fontSize: 12, color: KratosTheme.muted, fontFamily: 'Courier')),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (final p in [
+                (1100, 'ECO'),
+                (1150, 'STD'),
+                (1200, 'OC'),
+                (1250, 'MAX'),
+              ])
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: GestureDetector(
+                      onTap: () async {
+                        setState(() => selectedVoltage = p.$1);
+                        await EspMinerAPI.instance.setCoreVoltage(
+                            widget.miner.ip, widget.miner.port, p.$1,
+                            remoteUrl: widget.miner.remoteUrl);
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: selectedVoltage == p.$1
+                              ? KratosTheme.orange
+                              : KratosTheme.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                              color: selectedVoltage == p.$1
+                                  ? KratosTheme.orange
+                                  : KratosTheme.border),
+                        ),
+                        child: Column(children: [
+                          Text('${p.$1}',
+                              style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: selectedVoltage == p.$1
+                                      ? Colors.black
+                                      : KratosTheme.textPrim,
+                                  fontFamily: 'Courier')),
+                          Text('mV',
+                              style: TextStyle(
+                                  fontSize: 8,
+                                  color: selectedVoltage == p.$1
+                                      ? Colors.black54
+                                      : KratosTheme.muted)),
+                          const SizedBox(height: 2),
+                          Text(p.$2,
+                              style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                  color: selectedVoltage == p.$1
+                                      ? Colors.black54
+                                      : KratosTheme.muted,
+                                  letterSpacing: 0.5)),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+        ],
+
         // Work mode (fan speed)
         const Text('FAN / WORK MODE',
             style: TextStyle(
@@ -329,16 +411,16 @@ class _OCScreenState extends State<OCScreen> {
 
     if (_isEsp) {
       ok = await EspMinerAPI.instance
-          .setFrequency(widget.miner.ip, widget.miner.port, selectedFreq);
+          .setFrequency(widget.miner.ip, widget.miner.port, selectedFreq, remoteUrl: widget.miner.remoteUrl);
       if (ok) {
         await EspMinerAPI.instance
-            .setFanSpeed(widget.miner.ip, widget.miner.port, fanPct);
+            .setFanSpeed(widget.miner.ip, widget.miner.port, fanPct, remoteUrl: widget.miner.remoteUrl);
       }
     } else {
       ok = await CGMinerAPI.instance
-          .setFrequency(widget.miner.ip, widget.miner.port, selectedFreq);
+          .setFrequency(widget.miner.ip, widget.miner.port, selectedFreq, remoteUrl: widget.miner.remoteUrl);
       await CGMinerAPI.instance
-          .setFanSpeed(widget.miner.ip, widget.miner.port, fanPct);
+          .setFanSpeed(widget.miner.ip, widget.miner.port, fanPct, remoteUrl: widget.miner.remoteUrl);
     }
 
     setState(() {

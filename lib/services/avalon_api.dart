@@ -9,9 +9,10 @@ class AvalonAPI {
 
   static const _timeout = Duration(seconds: 8);
 
-  Future<MinerStats> fetchStats(String ip, MinerType type) async {
+  Future<MinerStats> fetchStats(String ip, MinerType type, {String remoteUrl = ''}) async {
     try {
-      final uri = Uri.parse('http://$ip/cgi-bin/luci/admin/miner/api/status');
+      final baseUrl = remoteUrl.isNotEmpty ? remoteUrl : 'http://$ip';
+      final uri = Uri.parse('$baseUrl/cgi-bin/luci/admin/miner/api/status');
       final resp = await http.get(uri).timeout(_timeout);
       if (resp.statusCode != 200) return MinerStats.offline;
       final data = jsonDecode(resp.body);
@@ -34,11 +35,37 @@ class AvalonAPI {
         hashrate = hrVal > 100000 ? hrVal / 1000.0 : hrVal;
       }
 
-      // Temperature
+      // Temperature — priority-ordered parsing
       double temp = 0;
-      final tempRaw = data['oTemp'] ?? data['temperature'] ?? data['temp'] ??
-          data['outtemp'] ?? data['chip_temp'];
-      if (tempRaw != null) temp = (tempRaw as num).toDouble();
+      // Try CGMiner nested DEVS format
+      final devs = data["DEVS"];
+      if (devs is List && devs.isNotEmpty) {
+        final t = devs[0]["Temperature"] ?? devs[0]["temp"];
+        if (t != null) temp = (t as num).toDouble();
+      }
+      // Try STATS format
+      if (temp == 0) {
+        final stats = data["STATS"];
+        if (stats is List && stats.isNotEmpty) {
+          final t = stats[0]["temp1"] ?? stats[0]["temp2"] ?? stats[0]["Temp"];
+          if (t != null) temp = (t as num).toDouble();
+        }
+      }
+      // Try root-level keys
+      if (temp == 0) {
+        const keys = ["Temp", "oTemp", "temperature", "temp", "outtemp", "chip_temp", "temperature1", "PCB Temp", "temp_chip"];
+        for (final k in keys) {
+          if (data[k] != null) { temp = (data[k] as num).toDouble(); break; }
+        }
+      }
+      // Average of any temp\d+ keys
+      if (temp == 0) {
+        final vals = <double>[];
+        for (final k in data.keys) {
+          if (RegExp(r"^temp\d+$").hasMatch(k) && data[k] != null) vals.add((data[k] as num).toDouble());
+        }
+        if (vals.isNotEmpty) temp = vals.reduce((a, b) => a + b) / vals.length;
+      }
 
       // Fan
       int fanRPM = 0;
