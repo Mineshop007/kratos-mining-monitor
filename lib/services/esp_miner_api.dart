@@ -28,16 +28,25 @@ class EspMinerAPI {
     }
   }
 
+  /// Safe numeric accessor — handles int, double, and unexpected types gracefully.
+  static double _n(dynamic v) => v == null ? 0.0 : (v as num).toDouble();
+  static int _i(dynamic v) => v == null ? 0 : (v as num).toInt();
+
   MinerStats _parseSystemInfo(Map<String, dynamic> j) {
     // hashRate from ESP-Miner is in GH/s (matches MinerStats unit)
-    final hr = ((j['hashRate'] as num?) ?? 0).toDouble();
-    final hr1m = ((j['hashRate_1m'] as num?) ?? 0).toDouble();
-    final hr1h = ((j['hashRate_1h'] as num?) ?? 0).toDouble();
+    // Some firmware (Luckyminer) uses avgHashRate instead of hashRate_1m
+    final hr   = _n(j['hashRate']);
+    final hr1m = _n(j['hashRate_1m'] ?? j['avgHashRate']);
+    final hr1h = _n(j['hashRate_1h']);
 
-    final sharesAccepted = (j['sharesAccepted'] as num?)?.toInt() ?? 0;
-    final sharesRejected = (j['sharesRejected'] as num?)?.toInt() ?? 0;
-    final temp = ((j['temp'] as num?) ?? 0).toDouble();
-    final usingFallback = (j['isUsingFallbackStratum'] as num?)?.toInt() == 1;
+    final sharesAccepted = _i(j['sharesAccepted']);
+    final sharesRejected = _i(j['sharesRejected']);
+    final temp = _n(j['temp']);
+
+    // isUsingFallbackStratum can be bool (newer NerdAxe fw) OR int (0/1) — handle both
+    final rawFallback = j['isUsingFallbackStratum'];
+    final usingFallback = rawFallback == true ||
+        (rawFallback is num && rawFallback.toInt() == 1);
     final stratumUrl = j['stratumURL'] as String? ?? '';
     final stratumPort = (j['stratumPort'] as num?)?.toInt() ?? 0;
     final fallbackUrl = j['fallbackStratumURL'] as String? ?? '';
@@ -76,24 +85,30 @@ class EspMinerAPI {
       hashrateAvg: hr1m > 0 ? hr1m : hr,
       hashRate1h: hr1h,
       outTemp: temp,
-      fanRPM: (j['fanRpm'] as num?)?.toInt() ?? 0,
-      fanPercent: (j['fanSpeed'] as num?)?.toInt() ?? 0,
+      // fanrpm / fanRpm / fanRPM — firmware inconsistency across NerdAxe/BitAxe/Luckyminer
+      fanRPM: _i(j['fanrpm'] ?? j['fanRpm'] ?? j['fanRPM']),
+      // fanspeed (%) — NerdAxe uses lowercase; BitAxe uses camelCase
+      fanPercent: _i(j['fanspeed'] ?? j['fanSpeed'] ?? j['fan_speed']),
       accepted: sharesAccepted,
       rejected: sharesRejected,
       hardwareErrors: 0,
-      uptime: (j['uptimeSeconds'] as num?)?.toInt() ?? 0,
+      uptime: _i(j['uptimeSeconds']),
       pools: pools,
-      frequency: ((j['frequency'] as num?) ?? 0).toDouble(),
-      powerDraw: ((j['power'] as num?) ?? 0).toDouble(),
+      frequency: _n(j['frequency']),
+      powerDraw: _n(j['power']),
       status: status,
       lastUpdated: DateTime.now(),
       firmware: j['version'] as String? ?? '',
-      model: asicModel.isNotEmpty ? asicModel : (j['hostname'] as String? ?? ''),
-      type: MinerType.detect(asicModel),
+      // deviceModel gives human name (NerdOCTAXE-γ); ASICModel gives chip (BM1370)
+      model: (j['deviceModel'] as String? ?? '').isNotEmpty
+          ? j['deviceModel'] as String
+          : asicModel.isNotEmpty ? asicModel : (j['hostname'] as String? ?? ''),
+      type: MinerType.detect(j['deviceModel'] as String? ?? asicModel),
       bestShare: 0,
-      blockFound: (j['blockFound'] as num?)?.toInt() == 1,
+      // blockFound can be bool or int depending on firmware version
+      blockFound: j['blockFound'] == true || _i(j['blockFound']) == 1,
       isUsingFallbackStratum: usingFallback,
-      coreVoltage: (j['coreVoltage'] as num?)?.toInt() ?? 0,
+      coreVoltage: _i(j['coreVoltage']),
     );
   }
 
@@ -175,7 +190,16 @@ class EspMinerAPI {
           .patch(
             Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'fanSpeed': percent, 'autofanspeed': percent == 0}),
+            // CONFIRMED via live API testing:
+            // NerdAxe firmware uses 'manualFanSpeed' (not 'fanspeed') for PATCH.
+            // Must also set autofanspeed=0 (integer) to disable PID/auto mode.
+            // BitAxe legacy uses 'fanSpeed' (camelCase) - send all for compatibility.
+            body: jsonEncode({
+              'manualFanSpeed': percent,  // NerdAxe/NerdOctaxe (primary)
+              'fanSpeed': percent,         // BitAxe legacy
+              'fanspeed': percent,         // older AxeOS
+              'autofanspeed': 0,           // 0=manual, 2=PID (integer NOT boolean)
+            }),
           )
           .timeout(_timeout);
       return r.statusCode == 200;

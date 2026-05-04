@@ -1,2 +1,5 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
+// Exclude x86_64 from simulator builds (arm64 only on Apple Silicon)
+// Prevents FAT-binary codesign failure on macOS Sequoia
+EXCLUDED_ARCHS[sdk=iphonesimulator*]=i386 x86_64

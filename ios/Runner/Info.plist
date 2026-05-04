@@ -24,8 +24,16 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Kratos uses your local network to discover and monitor Bitcoin miners on your WiFi. No GPS or location data is collected.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Kratos uses your local network to discover and monitor Bitcoin miners on your WiFi. No GPS or location data is collected.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Kratos needs local network access to connect to and monitor your Bitcoin miners.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

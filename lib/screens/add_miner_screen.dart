@@ -26,6 +26,15 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
   String? _testResult;
   List<String> _discovered = [];
 
+  @override
+  void initState() {
+    super.initState();
+    // Listen to controller so Add button reacts to typing, paste, autocomplete.
+    _ipCtrl.addListener(_onIpChanged);
+  }
+
+  void _onIpChanged() => setState(() {});
+
   static const _presets = [
     ('CKPool Solo', 'stratum+tcp://solo.ckpool.org:3333'),
     ('Public Pool', 'stratum+tcp://public-pool.io:21496'),
@@ -52,6 +61,7 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
 
   @override
   void dispose() {
+    _ipCtrl.removeListener(_onIpChanged);
     _nameCtrl.dispose();
     _ipCtrl.dispose();
     _portCtrl.dispose();
@@ -73,10 +83,10 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: _ipCtrl.text.isNotEmpty ? _addMiner : null,
+            onPressed: _ipCtrl.text.trim().isNotEmpty ? _addMiner : null,
             child: Text('Add',
                 style: TextStyle(
-                  color: _ipCtrl.text.isNotEmpty
+                  color: _ipCtrl.text.trim().isNotEmpty
                       ? KratosTheme.orange
                       : KratosTheme.muted,
                   fontWeight: FontWeight.bold,
@@ -193,7 +203,7 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
             label: _testing ? 'Testing...' : 'Test Connection',
             color: KratosTheme.orange,
             loading: _testing,
-            onPressed: _ipCtrl.text.isNotEmpty ? _test : null,
+            onPressed: _ipCtrl.text.trim().isNotEmpty ? _test : null,
           ),
 
           if (_testResult != null)
@@ -310,28 +320,53 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
       _testing = true;
       _testResult = null;
     });
-    final port =
-        int.tryParse(_portCtrl.text) ?? _selectedType.defaultPort;
-    final MinerStats s;
+    final ip = _ipCtrl.text.trim();
+    final port = int.tryParse(_portCtrl.text) ?? _selectedType.defaultPort;
+
+    // Try the selected type first, then auto-detect the other protocol
+    MinerStats s;
+    MinerType detectedType = _selectedType;
+
     if (_selectedType.apiType == ApiType.espMinerHttp) {
-      s = await EspMinerAPI.instance.fetchAll(_ipCtrl.text, port);
+      s = await EspMinerAPI.instance.fetchAll(ip, port);
+      if (s.status == MinerStatus.offline) {
+        // Fallback: try CGMiner TCP in case user selected wrong type
+        s = await CGMinerAPI.instance.fetchAll(ip, 4028);
+        if (s.status != MinerStatus.offline) {
+          detectedType = MinerType.detect(s.model);
+          if (detectedType.apiType == ApiType.espMinerHttp) detectedType = MinerType.generic;
+        }
+      } else {
+        detectedType = MinerType.detect(s.model);
+      }
     } else {
-      s = await CGMinerAPI.instance.fetchAll(_ipCtrl.text, port);
+      s = await CGMinerAPI.instance.fetchAll(ip, port);
+      if (s.status == MinerStatus.offline) {
+        // Fallback: try ESP-Miner HTTP in case user selected wrong type
+        s = await EspMinerAPI.instance.fetchAll(ip, 80);
+        if (s.status != MinerStatus.offline) {
+          detectedType = MinerType.detect(s.model);
+          if (detectedType.apiType != ApiType.espMinerHttp) detectedType = MinerType.bitaxeGamma;
+        }
+      }
     }
+
     setState(() {
       _testing = false;
       if (s.status != MinerStatus.offline) {
-        final modelStr =
-            s.model.isNotEmpty ? s.model : _selectedType.displayName;
-        _testResult =
-            '✅ Connected! $modelStr · ${s.hashrateFormatted}';
-        if (_nameCtrl.text.isEmpty) {
-          _nameCtrl.text =
-              s.model.isNotEmpty ? s.model : _selectedType.displayName;
+        final modelStr = s.model.isNotEmpty ? s.model : detectedType.displayName;
+        final switchedType = detectedType != _selectedType;
+        _testResult = '✅ Connected! $modelStr · ${s.hashrateFormatted}'
+            '${switchedType ? '\nAuto-detected as ${detectedType.displayName} — type updated' : ''}';
+        if (_nameCtrl.text.trim().isEmpty) {
+          _nameCtrl.text = modelStr;
+        }
+        // Auto-update the selected type if we detected a different protocol
+        if (switchedType) {
+          _onTypeChanged(detectedType);
         }
       } else {
-        _testResult =
-            '❌ Cannot connect. Check IP and port ${_portCtrl.text}.';
+        _testResult = '❌ Cannot connect. Check IP, port and miner type.';
       }
     });
   }
@@ -366,7 +401,7 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
   }
 
   String _getSubnet() {
-    if (_ipCtrl.text.isNotEmpty) {
+    if (_ipCtrl.text.trim().isNotEmpty) {
       final parts = _ipCtrl.text.split('.');
       if (parts.length >= 3) return '${parts[0]}.${parts[1]}.${parts[2]}';
     }
@@ -374,11 +409,13 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
   }
 
   void _addMiner() {
+    final ip = _ipCtrl.text.trim();
+    if (ip.isEmpty) return;
     final miner = Miner(
-      name: _nameCtrl.text.isEmpty
-          ? 'Miner at ${_ipCtrl.text}'
-          : _nameCtrl.text,
-      ip: _ipCtrl.text,
+      name: _nameCtrl.text.trim().isEmpty
+          ? 'Miner at $ip'
+          : _nameCtrl.text.trim(),
+      ip: ip,
       port: int.tryParse(_portCtrl.text) ?? _selectedType.defaultPort,
       type: _selectedType,
       remoteUrl: _remoteUrlCtrl.text.trim(),

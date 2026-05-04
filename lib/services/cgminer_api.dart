@@ -167,6 +167,13 @@ class CGMinerAPI {
     return _isOK(r);
   }
 
+  /// Avalon work mode: 0=Eco, 1=Normal, 2=Performance
+  Future<bool> setWorkMode(String ip, int port, int mode, {String remoteUrl = ''}) async {
+    final (h, p) = _effectiveTarget(ip, port, remoteUrl);
+    final r = await sendCommand('{"command":"ascset","parameter":"0,workmode,$mode"}', h, p);
+    return _isOK(r);
+  }
+
   Future<bool> setPools(String ip, int port, List<Map<String, String>> pools, {String remoteUrl = ''}) async {
     final (effectiveIp, effectivePort) = _effectiveTarget(ip, port, remoteUrl);
     // Remove old pools
@@ -187,7 +194,8 @@ class CGMinerAPI {
   // ── Helpers ───────────────────────────────────────────────────────────────
 
   double _parseField(String mmid, String key) {
-    final r = RegExp('$key\\[([0-9.\\-]+)\\]');
+    // Allow optional trailing % (e.g. FanR[44%]) and strip it before parsing
+    final r = RegExp('$key\\[([0-9.\\-]+)%?\\]');
     final m = r.firstMatch(mmid);
     return m != null ? double.tryParse(m.group(1)!) ?? 0 : 0;
   }
@@ -205,11 +213,15 @@ class CGMinerAPI {
   }
 
   double _parsePower(String mmid) {
-    // PS field: PS[0 0 27315 5 0 3496 142] — index 5 is power in W*10
+    // Confirmed from live Avalon Nano 3S data:
+    // PS[0 0 27272 5 0 3756 140]  →  parts[6] = 140 W (actual watts)
+    // parts[5] = raw ADC reading (NOT watts), parts[6] = watts
     final r = RegExp(r'PS\[([^\]]+)\]');
     final m = r.firstMatch(mmid);
     if (m == null) return 0;
     final parts = m.group(1)!.trim().split(RegExp(r'\s+'));
+    if (parts.length > 6) return (int.tryParse(parts[6]) ?? 0).toDouble();
+    // Older firmware: only 6 elements, fall back to parts[5] as-is
     if (parts.length > 5) return (int.tryParse(parts[5]) ?? 0).toDouble();
     return 0;
   }

@@ -25,6 +25,19 @@ class _OCScreenState extends State<OCScreen> {
   bool get _isEsp =>
       widget.miner.type.apiType == ApiType.espMinerHttp;
 
+  // Avalon miners only expose Work Modes (Eco/Normal/Turbo) — no raw MHz control
+  // Frequency slider range by miner type (safe operating range in MHz)
+  int get _freqMin => _isEsp ? 300 : 400;
+  int get _freqMax => _isEsp ? 700 : 650;
+
+  bool get _isAvalon {
+    final t = widget.stats?.type ?? widget.miner.type;
+    return t == MinerType.avalonNano3s ||
+        t == MinerType.avalonNano3 ||
+        t == MinerType.avalonMini3 ||
+        t == MinerType.avalonQ;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -122,7 +135,9 @@ class _OCScreenState extends State<OCScreen> {
               child: Text(
                 _isEsp
                     ? 'ESP-Miner device — frequency via PATCH /api/system. Miner restarts automatically.'
-                    : 'CGMiner device — overclocking via ascset commands.',
+                    : _isAvalon
+                        ? 'Avalon miner — work mode change via CGMiner ascset. Takes effect immediately.'
+                        : 'CGMiner device — overclocking via ascset commands.',
                 style: const TextStyle(
                     fontSize: 12, color: KratosTheme.muted),
               ),
@@ -145,78 +160,57 @@ class _OCScreenState extends State<OCScreen> {
           const SizedBox(height: 16),
         ],
 
-        // Frequency selector
-        const Text('FREQUENCY',
-            style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: KratosTheme.muted,
-                letterSpacing: 1.5)),
-        const SizedBox(height: 10),
-        Row(
-          children: presets
-              .map((p) => Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      child: GestureDetector(
-                        onTap: () =>
-                            setState(() => selectedFreq = p.mhz),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 14),
-                          decoration: BoxDecoration(
-                            color: selectedFreq == p.mhz
-                                ? KratosTheme.orange
-                                : KratosTheme.surface,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                                color: selectedFreq == p.mhz
-                                    ? KratosTheme.orange
-                                    : KratosTheme.border),
-                          ),
-                          child: Column(children: [
-                            Text('${p.mhz}',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: selectedFreq == p.mhz
-                                        ? Colors.black
-                                        : KratosTheme.textPrim,
-                                    fontFamily: 'Courier')),
-                            Text('MHz',
-                                style: TextStyle(
-                                    fontSize: 8,
-                                    color: selectedFreq == p.mhz
-                                        ? Colors.black54
-                                        : KratosTheme.muted)),
-                            const SizedBox(height: 2),
-                            Text(p.label,
-                                style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                    color: selectedFreq == p.mhz
-                                        ? Colors.black54
-                                        : KratosTheme.muted,
-                                    letterSpacing: 0.5)),
-                          ]),
-                        ),
-                      ),
-                    ),
-                  ))
-              .toList(),
-        ),
-        const SizedBox(height: 6),
-        Center(
-          child: Text(
-            'Est. ${presets.firstWhere((p) => p.mhz == selectedFreq, orElse: () => presets[1]).estimate}',
-            style: const TextStyle(
-                fontSize: 13,
-                color: KratosTheme.neon,
-                fontFamily: 'Courier'),
+        // Frequency selector — hidden for Avalon miners (work modes only)
+        if (!_isAvalon) ...[         
+        Row(children: [
+          const Text('FREQUENCY',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: KratosTheme.muted,
+                  letterSpacing: 1.5)),
+          const Spacer(),
+          Text('$selectedFreq MHz',
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: KratosTheme.orange,
+                  fontFamily: 'Courier')),
+        ]),
+        const SizedBox(height: 4),
+        // Continuous slider — user can dial any freq from min to max
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: KratosTheme.orange,
+            thumbColor: KratosTheme.orange,
+            inactiveTrackColor: KratosTheme.border,
+            overlayColor: KratosTheme.orange.withOpacity(0.15),
+            valueIndicatorColor: KratosTheme.orange,
+            valueIndicatorTextStyle:
+                const TextStyle(color: Colors.black, fontFamily: 'Courier'),
+          ),
+          child: Slider(
+            value: selectedFreq.clamp(_freqMin, _freqMax).toDouble(),
+            min: _freqMin.toDouble(),
+            max: _freqMax.toDouble(),
+            divisions: (_freqMax - _freqMin) ~/ 5,  // 5 MHz steps
+            label: '$selectedFreq MHz',
+            onChanged: (v) => setState(() => selectedFreq = v.round()),
           ),
         ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('$_freqMin MHz',
+                style: const TextStyle(fontSize: 10, color: KratosTheme.muted)),
+            Text('Default: ${widget.stats?.frequency.toInt() ?? selectedFreq} MHz',
+                style: const TextStyle(fontSize: 10, color: KratosTheme.muted)),
+            Text('$_freqMax MHz',
+                style: const TextStyle(fontSize: 10, color: KratosTheme.muted)),
+          ],
+        ),
         const SizedBox(height: 20),
+        ], // end if (!_isAvalon)
 
         // Voltage presets (ESP-Miner only)
         if (_isEsp) ...[
@@ -297,8 +291,9 @@ class _OCScreenState extends State<OCScreen> {
           const SizedBox(height: 20),
         ],
 
-        // Work mode (fan speed)
-        const Text('FAN / WORK MODE',
+        // Work mode — Avalon only; ESP-Miner (NerdOctaxe/BitAxe) uses fan slider in detail screen
+        if (_isAvalon) ...[        
+        const Text('WORK MODE',
             style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
@@ -353,6 +348,7 @@ class _OCScreenState extends State<OCScreen> {
               ),
             )),
         const SizedBox(height: 24),
+        ], // end if (_isAvalon) work mode
 
         if (result != null) ...[
           Container(
@@ -405,28 +401,38 @@ class _OCScreenState extends State<OCScreen> {
       applying = true;
       result = null;
     });
-    final fanPct =
-        workMode == 0 ? 50 : workMode == 2 ? 100 : 70;
     bool ok;
 
-    if (_isEsp) {
+    if (_isAvalon) {
+      // Avalon: only send work mode, no raw MHz (matches stock Avalon app)
+      ok = await CGMinerAPI.instance
+          .setWorkMode(widget.miner.ip, widget.miner.port, workMode, remoteUrl: widget.miner.remoteUrl);
+    } else if (_isEsp) {
+      // ESP-Miner (NerdOctaxe/BitAxe): frequency + voltage only.
+      // Fan is controlled separately from the miner detail screen.
       ok = await EspMinerAPI.instance
           .setFrequency(widget.miner.ip, widget.miner.port, selectedFreq, remoteUrl: widget.miner.remoteUrl);
-      if (ok) {
+      // Also apply voltage if changed from default
+      if (ok && selectedVoltage > 0) {
         await EspMinerAPI.instance
-            .setFanSpeed(widget.miner.ip, widget.miner.port, fanPct, remoteUrl: widget.miner.remoteUrl);
+            .setCoreVoltage(widget.miner.ip, widget.miner.port, selectedVoltage, remoteUrl: widget.miner.remoteUrl);
       }
     } else {
+      // Generic CGMiner device: frequency + fan
+      const fanPctGeneric = 70;
       ok = await CGMinerAPI.instance
           .setFrequency(widget.miner.ip, widget.miner.port, selectedFreq, remoteUrl: widget.miner.remoteUrl);
       await CGMinerAPI.instance
-          .setFanSpeed(widget.miner.ip, widget.miner.port, fanPct, remoteUrl: widget.miner.remoteUrl);
+          .setFanSpeed(widget.miner.ip, widget.miner.port, fanPctGeneric, remoteUrl: widget.miner.remoteUrl);
     }
 
+    final modeNames = ['Eco', 'Normal', 'Performance'];
     setState(() {
       applying = false;
       result = ok
-          ? '✅ Applied $selectedFreq MHz — updating in ~30s'
+          ? _isAvalon
+              ? '✅ Work mode set to ${modeNames[workMode]} — updating in ~30s'
+              : '✅ Applied $selectedFreq MHz — updating in ~30s'
           : '❌ Failed to apply. Check miner connection.';
     });
     if (ok) {

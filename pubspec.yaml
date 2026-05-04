@@ -1,7 +1,7 @@
 name: kratos
 description: Kratos — Bitcoin Miner Monitor & Control
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.2+11
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -14,13 +14,14 @@ dependencies:
   http: ^1.1.0
   web_socket_channel: ^2.4.0
   fl_chart: ^0.66.0
-  flutter_local_notifications: ^16.0.0
+  flutter_local_notifications: ^18.0.0
   network_info_plus: ^4.1.0
   dart_ping: ^9.0.0
   confetti: ^0.7.0
   url_launcher: ^6.3.0
 
 dev_dependencies:
+  flutter_launcher_icons: ^0.14.1
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0

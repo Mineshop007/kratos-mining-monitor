@@ -50,8 +50,9 @@ enum MinerType {
     if (m.contains('bm1368') || (m.contains('ultra') && m.contains('bitaxe'))) return bitaxeUltra;
     if (m.contains('bm1370') || m.contains('bm1371') || (m.contains('gt') && m.contains('bitaxe'))) return bitaxeGT;
     if (m.contains('bm1366') || m.contains('bitaxe')) return bitaxeGamma;
-    if (m.contains('nerdqaxe') || m.contains('nerdq')) return nerdqaxe;
-    if (m.contains('nerdoct')) return nerdoctaxe;
+    // NerdAxe firmware returns deviceModel like 'NerdQAxe++' or 'NerdOCTAXE-γ'
+    if (m.contains('nerdqaxe') || m.contains('nerdqax') || m.contains('nerdq')) return nerdqaxe;
+    if (m.contains('nerdoct') || m.contains('nerdoctaxe')) return nerdoctaxe;
     if (m.contains('nano3s') || m.contains('nano 3s')) return avalonNano3s;
     if (m.contains('mini3') || m.contains('mini 3')) return avalonMini3;
     if (m.contains('avalonq') || m.contains('avalon q')) return avalonQ;

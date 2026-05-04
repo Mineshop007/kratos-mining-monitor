@@ -759,19 +759,25 @@ class _FanSpeedControl extends StatefulWidget {
 class _FanSpeedControlState extends State<_FanSpeedControl> {
   late double _value;
   bool _setting = false;
+  String? _fanResult;
 
   @override
   void initState() {
     super.initState();
-    _value = widget.initialFanPercent.clamp(0, 100).toDouble();
+    // Start at 100% if miner reports no fan data (common on NerdOctaxe)
+    final init = widget.initialFanPercent;
+    _value = (init > 0 ? init : 100).clamp(0, 100).toDouble();
   }
 
   Future<void> _setFan() async {
-    setState(() => _setting = true);
-    await EspMinerAPI.instance.setFanSpeed(
+    setState(() { _setting = true; _fanResult = null; });
+    final ok = await EspMinerAPI.instance.setFanSpeed(
         widget.miner.ip, widget.miner.port, _value.round(),
         remoteUrl: widget.miner.remoteUrl);
-    if (mounted) setState(() => _setting = false);
+    if (mounted) setState(() {
+      _setting = false;
+      _fanResult = ok ? '✅ Fan set to ${_value.round()}%' : '❌ Failed — check miner connection';
+    });
   }
 
   @override
@@ -833,6 +839,15 @@ class _FanSpeedControlState extends State<_FanSpeedControl> {
               ),
             ),
           ),
+          if (_fanResult != null) ...[            const SizedBox(height: 6),
+            Text(_fanResult!,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: _fanResult!.startsWith('✅')
+                        ? KratosTheme.neon
+                        : KratosTheme.red,
+                    fontFamily: 'Courier')),
+          ],
         ]),
       );
 }

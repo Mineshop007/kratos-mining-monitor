@@ -31,12 +31,12 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
 
   // (name, url, description, defaultWorker or null)
   static const _presets = [
+    ('Mineshop Solo', 'stratum+tcp://solo.mineshop.eu:3333',
+        'Mineshop solo pool ★', '13oXC81RKriTDEtAWfr4QaHt7WUpqB6jL2'),
     ('CKPool Solo', 'stratum+tcp://solo.ckpool.org:3333',
         'Solo mining — win full block reward', null),
     ('Public Pool', 'stratum+tcp://public-pool.io:21496',
         'Open-source solo pool', null),
-    ('Mineshop Solo', 'stratum+tcp://solo.mineshop.eu:3333',
-        'Mineshop solo pool', '13oXC81RKriTDEtAWfr4QaHt7WUpqB6jL2'),
     ('ViaBTC', 'stratum+tcp://btc.viabtc.io:3333', 'Pool mining — regular payouts', null),
     ('Braiins', 'stratum+tcp://stratum.braiins.com:3333', 'Braiins pool', null),
     ('Ocean', 'stratum+tcp://mine.ocean.xyz:3334', 'Ocean decentralised pool', null),
@@ -158,7 +158,9 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
                 color: KratosTheme.muted,
                 letterSpacing: 1.5)),
         const SizedBox(height: 10),
-        ..._presets.map((p) => Padding(
+        ..._presets.map((p) {
+              final isMineshop = p.$2.contains('mineshop');
+              return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: GestureDetector(
                 onTap: () => setState(() {
@@ -171,34 +173,48 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: KratosTheme.surface,
+                    color: isMineshop
+                        ? KratosTheme.neon.withOpacity(0.06)
+                        : KratosTheme.surface,
                     borderRadius: BorderRadius.circular(10),
-                    border:
-                        Border.all(color: KratosTheme.border),
+                    border: Border.all(
+                        color: isMineshop
+                            ? KratosTheme.neon.withOpacity(0.5)
+                            : KratosTheme.border,
+                        width: isMineshop ? 1.5 : 1.0),
                   ),
                   child: Row(children: [
+                    if (isMineshop) ...[                      const Icon(Icons.star, size: 14,
+                          color: KratosTheme.neon),
+                      const SizedBox(width: 8),
+                    ],
                     Expanded(
                         child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                          Text(p.$1,
-                              style: const TextStyle(
+                          Text(p.$1.replaceAll(' ★', ''),
+                              style: TextStyle(
                                   fontWeight: FontWeight.w600,
-                                  color: KratosTheme.textPrim)),
-                          Text(p.$3,
+                                  color: isMineshop
+                                      ? KratosTheme.neon
+                                      : KratosTheme.textPrim)),
+                          Text(p.$3.replaceAll(' ★', ''),
                               style: const TextStyle(
                                   fontSize: 11,
                                   color: KratosTheme.muted)),
                         ])),
-                    const Text('USE',
+                    Text('USE',
                         style: TextStyle(
                             fontSize: 11,
-                            color: KratosTheme.orange,
+                            color: isMineshop
+                                ? KratosTheme.neon
+                                : KratosTheme.orange,
                             fontWeight: FontWeight.bold)),
                   ]),
                 ),
               ),
-            )),
+            );
+            }).toList(),
 
         const SizedBox(height: 20),
 

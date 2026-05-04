@@ -490,7 +490,9 @@
 			<key>shellPath</key>
 			<string>/bin/sh</string>
 			<key>shellScript</key>
-			<string>/bin/sh "$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh" embed_and_thin</string>
+			<string># Clear Finder/FileProvider xattrs that cause codesign failures on macOS Sequoia
+find "${PROJECT_DIR}/build" -name "*.framework" -type d -exec xattr -c {} \; 2&gt;/dev/null || true
+/bin/sh "$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh" embed_and_thin</string>
 		</dict>
 		<key>3B3967151E833CAA004F5970</key>
 		<dict>

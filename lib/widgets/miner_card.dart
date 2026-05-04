@@ -105,7 +105,10 @@ class _MinerCardState extends State<MinerCard>
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: Row(
+          // IntrinsicHeight is required so CrossAxisAlignment.stretch works
+          // in an unbounded ListView context (without it the row height = 0)
+          child: IntrinsicHeight(
+            child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Left accent border
@@ -133,7 +136,8 @@ class _MinerCardState extends State<MinerCard>
                 ),
               ),
             ],
-          ),
+            ),  // Row
+          ),  // IntrinsicHeight
         ),
       ),
     );
@@ -252,9 +256,12 @@ class _CardStats extends StatelessWidget {
         _VertDivider(),
         _StatCell(
           label: 'FAN',
+          // If fanPercent > 100 it's actually RPM (some firmware stores RPM in percent field)
           value: s != null && s.fanRPM > 0
               ? '${s.fanRPM}r'
-              : (s != null && s.fanPercent > 0 ? '${s.fanPercent}%' : '--'),
+              : (s != null && s.fanPercent > 100
+                  ? '${s.fanPercent}r'
+                  : (s != null && s.fanPercent > 0 ? '${s.fanPercent}%' : '--')),
           color: const Color(0xFF58a6ff),
           icon: Icons.air,
         ),
