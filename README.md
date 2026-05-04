@@ -1,17 +1,27 @@
-# kratos
+# Kratos — Bitcoin ASIC Mining Monitor
 
-A new Flutter project.
+Real-time monitoring for ESP-Miner compatible ASIC devices.
 
-## Getting Started
+## Supported Devices
+- NerdQaxe+ / NerdQaxe
+- NerdOctaxe  
+- NerdAxe
+- BitAxe Gamma, Ultra, Supra, Hex
 
-This project is a starting point for a Flutter application.
+## Features
+- Live hashrate, temperature, fan speed, efficiency
+- Multi-miner fleet dashboard
+- 24h hashrate history chart
+- Pool stats (accepted/rejected shares, best difficulty)
+- Power consumption and efficiency tracking
 
-A few resources to get you started if this is your first Flutter project:
+## Download
+- iOS: App Store (pending review)
+- Android: Google Play (pending review)
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Support
+Join our Discord: https://discord.gg/yWtYegkDJw  
+Bug reports: #bug-reports channel
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Built with
+Flutter · ESP-Miner HTTP API · Mining Hardware Limited
