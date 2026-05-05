@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme/volt_theme.dart';
+import '../models/miner.dart';
 import '../services/miner_store.dart';
+import '../widgets/falling_block.dart';
 import 'miners_screen.dart';
 import 'pools_screen.dart';
 import 'chat_screen.dart';
@@ -20,6 +22,21 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
+  Miner? _celebratedMiner; // currently shown FallingBlockOverlay (if any)
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // After every build, check if a real block-found event landed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final store = Provider.of<MinerStore>(context, listen: false);
+      if (store.pendingBlockFoundMiner != null && _celebratedMiner == null) {
+        setState(() => _celebratedMiner = store.pendingBlockFoundMiner);
+        store.clearBlockFound();
+      }
+    });
+  }
 
   static const _tabs = <_TabSpec>[
     _TabSpec(label: 'Volt',     icon: Icons.bolt_rounded),
@@ -41,7 +58,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: KratosColors.bg,
-      body: IndexedStack(index: _index, children: pages),
+      body: Stack(
+        children: [
+          IndexedStack(index: _index, children: pages),
+          if (_celebratedMiner != null)
+            FallingBlockOverlay(
+              minerName: _celebratedMiner!.name,
+              coinTicker: 'BTC',
+              onDone: () => setState(() => _celebratedMiner = null),
+            ),
+        ],
+      ),
       bottomNavigationBar: _BottomBar(
         index: _index,
         tabs: _tabs,

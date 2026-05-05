@@ -8,6 +8,7 @@ import 'esp_miner_api.dart';
 import 'btc_price.dart';
 import 'notification_service.dart';
 import 'best_diff_tracker.dart';
+import 'haptic_service.dart';
 
 class MinerStore extends ChangeNotifier {
   final List<Miner> miners = [];
@@ -98,9 +99,23 @@ class MinerStore extends ChangeNotifier {
       if (!prevStat.blockFound && s.blockFound) {
         NotificationService.instance.notifyBlockFoundAlert(miner.name);
         pendingBlockFoundMiner = miner;
+        HapticService.instance.onBlockFound();
       }
       if (!prevStat.isUsingFallbackStratum && s.isUsingFallbackStratum) {
         NotificationService.instance.notifyPoolSwitched(miner.name);
+      }
+      // Haptic on each newly-accepted share. Real delta only — never
+      // fire on stratum-reconnect resets (count went down) or stale data.
+      if (s.status != MinerStatus.offline &&
+          s.accepted > prevStat.accepted &&
+          (s.accepted - prevStat.accepted) <= 50 /* sanity bound */) {
+        final delta = s.accepted - prevStat.accepted;
+        for (var i = 0; i < delta && i < 3; i++) {
+          // Stagger up to 3 quick pulses for batched share deltas.
+          Future.delayed(Duration(milliseconds: 80 * i), () {
+            HapticService.instance.onShareAccepted();
+          });
+        }
       }
     }
 

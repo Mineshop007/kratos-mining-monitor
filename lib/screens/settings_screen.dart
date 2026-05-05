@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../theme/volt_theme.dart';
 import '../services/theme_service.dart';
 import '../services/miner_store.dart';
+import '../services/haptic_service.dart';
 
 /// Settings tab — theme picker (only Circuit + Volt unlocked in 1.2.0),
 /// kWh price input, support links. Real values only.
@@ -25,7 +26,7 @@ class SettingsScreen extends StatelessWidget {
           Padding(
             padding: EdgeInsets.only(right: 18),
             child: Center(
-                child: Text('v1.2.0',
+                child: Text('v1.3.0',
                     style: TextStyle(
                         color: KratosColors.muted, fontSize: 13))),
           ),
@@ -35,6 +36,8 @@ class SettingsScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
         children: const [
           _ThemeSection(),
+          SizedBox(height: 18),
+          _HapticsSection(),
           SizedBox(height: 18),
           _ElectricitySection(),
           SizedBox(height: 18),
@@ -218,6 +221,89 @@ class _ThemeTile extends StatelessWidget {
           end: Alignment.bottomRight,
         );
     }
+  }
+}
+
+class _HapticsSection extends StatefulWidget {
+  const _HapticsSection();
+
+  @override
+  State<_HapticsSection> createState() => _HapticsSectionState();
+}
+
+class _HapticsSectionState extends State<_HapticsSection> {
+  HapticIntensity _intensity = HapticService.instance.intensity;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionShell(
+      title: 'Haptics',
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.vibration_rounded,
+                    size: 22, color: KratosColors.cyan),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Vibrate on share submit',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: KratosColors.text)),
+                      Text('one quick pulse per accepted share',
+                          style: TextStyle(
+                              fontSize: 11, color: KratosColors.muted)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final v in HapticIntensity.values)
+                  ChoiceChip(
+                    label: Text(v.displayName),
+                    selected: _intensity == v,
+                    onSelected: (sel) {
+                      if (!sel) return;
+                      setState(() => _intensity = v);
+                      HapticService.instance.setIntensity(v);
+                      HapticService.instance.onShareAccepted();
+                    },
+                    selectedColor: KratosColors.volt.withOpacity(0.20),
+                    backgroundColor: KratosColors.surface2,
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                      color: _intensity == v
+                          ? KratosColors.voltBright
+                          : KratosColors.muted,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(99),
+                      side: BorderSide(
+                        color: _intensity == v
+                            ? KratosColors.volt
+                            : KratosColors.line,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

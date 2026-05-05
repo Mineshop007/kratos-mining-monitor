@@ -7,6 +7,7 @@ import 'services/miner_store.dart';
 import 'services/notification_service.dart';
 import 'services/theme_service.dart';
 import 'services/coin_price_service.dart';
+import 'services/haptic_service.dart';
 import 'screens/home_screen.dart';
 import 'theme/volt_theme.dart';
 import 'widgets/klaw.dart';
@@ -18,6 +19,7 @@ void main() async {
     statusBarIconBrightness: Brightness.light,
   ));
   await NotificationService.instance.init();
+  await HapticService.instance.init();
   runApp(const KratosApp());
 }
 

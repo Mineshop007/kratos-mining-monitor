@@ -83,13 +83,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 10));
   }
 
-  testWidgets('Settings tab shows v1.2.0 + theme + electricity sections',
+  testWidgets('Settings tab shows v1.3.0 + theme + electricity sections',
       (tester) async {
     await tester.pumpWidget(_withProviders(const SettingsScreen()));
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('v1.2.0'), findsOneWidget);
+    expect(find.text('v1.3.0'), findsOneWidget);
     expect(find.text('THEME'), findsOneWidget);
     expect(find.text('Volt'), findsOneWidget);
     expect(find.text('Circuit'), findsOneWidget);
