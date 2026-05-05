@@ -6,6 +6,7 @@ import '../services/cgminer_api.dart';
 import '../services/esp_miner_api.dart';
 import '../services/miner_store.dart';
 import '../widgets/miner_icon.dart';
+import 'discover_screen.dart';
 
 class AddMinerScreen extends StatefulWidget {
   const AddMinerScreen({super.key});
@@ -98,6 +99,64 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // Auto-discover banner — one tap launches LAN scan.
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  KratosTheme.neon.withOpacity(0.18),
+                  KratosTheme.neon.withOpacity(0.04),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                  color: KratosTheme.neon.withOpacity(0.30)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.radar_rounded,
+                    color: KratosTheme.neon, size: 22),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Auto-discover on LAN',
+                          style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: KratosTheme.textPrim)),
+                      SizedBox(height: 2),
+                      Text('mDNS + subnet sweep · ~10s',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: KratosTheme.muted)),
+                    ],
+                  ),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: KratosTheme.neon,
+                    foregroundColor: const Color(0xFF001A0E),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 9),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(99)),
+                  ),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const DiscoverScreen()),
+                  ),
+                  child: const Text('Scan',
+                      style: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w800)),
+                ),
+              ],
+            ),
+          ),
           // Miner type picker (visual chips)
           _Section(title: 'MINER TYPE', icon: Icons.memory, children: [
             Wrap(

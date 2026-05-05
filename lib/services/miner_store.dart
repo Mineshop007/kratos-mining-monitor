@@ -7,12 +7,16 @@ import 'cgminer_api.dart';
 import 'esp_miner_api.dart';
 import 'btc_price.dart';
 import 'notification_service.dart';
+import 'best_diff_tracker.dart';
+import 'haptic_service.dart';
 
 class MinerStore extends ChangeNotifier {
   final List<Miner> miners = [];
   final Map<String, MinerStats> stats = {};
   final Map<String, Timer> _timers = {};
   final Map<String, MinerStats> _prevStats = {};
+  Timer? _priceTimer;
+  bool _disposed = false;
 
   // BTC price (cached, refreshed periodically)
   double btcPrice = 0;
@@ -20,6 +24,11 @@ class MinerStore extends ChangeNotifier {
 
   // Block-found notification for UI (cleared after dialog shown)
   Miner? pendingBlockFoundMiner;
+
+  /// Cross-cutting tracker for per-miner best-diff records and milestone
+  /// detection. Lives on MinerStore so every poll updates it from the
+  /// already-fetched MinerStats.bestShare. Real numbers only.
+  final BestDiffTracker bestDiffTracker = BestDiffTracker();
 
   MinerStore() {
     _load();
@@ -91,14 +100,38 @@ class MinerStore extends ChangeNotifier {
       if (!prevStat.blockFound && s.blockFound) {
         NotificationService.instance.notifyBlockFoundAlert(miner.name);
         pendingBlockFoundMiner = miner;
+        HapticService.instance.onBlockFound();
       }
       if (!prevStat.isUsingFallbackStratum && s.isUsingFallbackStratum) {
         NotificationService.instance.notifyPoolSwitched(miner.name);
+      }
+      // Haptic on each newly-accepted share. Real delta only — never
+      // fire on stratum-reconnect resets (count went down) or stale data.
+      if (s.status != MinerStatus.offline &&
+          s.accepted > prevStat.accepted &&
+          (s.accepted - prevStat.accepted) <= 50 /* sanity bound */) {
+        final delta = s.accepted - prevStat.accepted;
+        for (var i = 0; i < delta && i < 3; i++) {
+          // Stagger up to 3 quick pulses for batched share deltas.
+          // Guard against firing after store is disposed.
+          Future.delayed(Duration(milliseconds: 80 * i), () {
+            if (_disposed) return;
+            HapticService.instance.onShareAccepted();
+          });
+        }
       }
     }
 
     _prevStats[miner.id] = s;
     stats[miner.id] = s;
+
+    // Feed the best-diff tracker with the real, observed value only.
+    bestDiffTracker.observe(
+      minerId: miner.id,
+      minerName: miner.name,
+      type: miner.type,
+      bestShare: s.bestShare,
+    );
 
     // Auto-detect name from model if default name
     if (s.model.isNotEmpty && miner.name.startsWith('Miner at ')) {
@@ -117,7 +150,9 @@ class MinerStore extends ChangeNotifier {
 
   void _schedulePriceRefresh() {
     _refreshPrice();
-    Timer.periodic(const Duration(minutes: 5), (_) => _refreshPrice());
+    _priceTimer?.cancel();
+    _priceTimer = Timer.periodic(
+        const Duration(minutes: 5), (_) => _refreshPrice());
   }
 
   Future<void> _refreshPrice() async {
@@ -200,9 +235,12 @@ class MinerStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    _priceTimer?.cancel();
     for (final t in _timers.values) {
       t.cancel();
     }
+    bestDiffTracker.dispose();
     super.dispose();
   }
 }
