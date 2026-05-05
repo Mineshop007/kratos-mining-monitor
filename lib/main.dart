@@ -8,6 +8,7 @@ import 'services/notification_service.dart';
 import 'services/theme_service.dart';
 import 'services/coin_price_service.dart';
 import 'services/haptic_service.dart';
+import 'services/circuit_service.dart';
 import 'screens/home_screen.dart';
 import 'theme/volt_theme.dart';
 import 'widgets/klaw.dart';
@@ -36,6 +37,7 @@ class KratosApp extends StatelessWidget {
           create: (_) =>
               CoinPriceService()..startAutoRefresh(const [Coin.btc]),
         ),
+        ChangeNotifierProvider(create: (_) => CircuitService()),
       ],
       child: Consumer<ThemeService>(
         builder: (ctx, theme, _) {

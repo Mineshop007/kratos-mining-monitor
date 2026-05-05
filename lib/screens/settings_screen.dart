@@ -5,6 +5,9 @@ import '../theme/volt_theme.dart';
 import '../services/theme_service.dart';
 import '../services/miner_store.dart';
 import '../services/haptic_service.dart';
+import '../services/energy_report.dart';
+import 'faq_screen.dart';
+import 'circuit_monitor_screen.dart';
 
 /// Settings tab — theme picker (only Circuit + Volt unlocked in 1.2.0),
 /// kWh price input, support links. Real values only.
@@ -26,7 +29,7 @@ class SettingsScreen extends StatelessWidget {
           Padding(
             padding: EdgeInsets.only(right: 18),
             child: Center(
-                child: Text('v1.3.0',
+                child: Text('v1.4.0',
                     style: TextStyle(
                         color: KratosColors.muted, fontSize: 13))),
           ),
@@ -40,6 +43,8 @@ class SettingsScreen extends StatelessWidget {
           _HapticsSection(),
           SizedBox(height: 18),
           _ElectricitySection(),
+          SizedBox(height: 18),
+          _ToolsSection(),
           SizedBox(height: 18),
           _SupportSection(),
           SizedBox(height: 18),
@@ -404,6 +409,145 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
         ),
       ),
     );
+  }
+}
+
+class _ToolsSection extends StatelessWidget {
+  const _ToolsSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionShell(
+      title: 'Tools',
+      child: Column(
+        children: [
+          _ActionRow(
+            icon: Icons.bolt_rounded,
+            color: KratosColors.warning,
+            label: 'Circuit Monitor',
+            sub: 'Group miners by breaker, alarm before trip',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const CircuitMonitorScreen()),
+            ),
+          ),
+          const Divider(height: 1, color: KratosColors.line),
+          _ExportRow(),
+          const Divider(height: 1, color: KratosColors.line),
+          _ActionRow(
+            icon: Icons.menu_book_rounded,
+            color: KratosColors.cyan,
+            label: 'FAQ',
+            sub: 'Real answers to first-week questions',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FaqScreen()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionRow extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String sub;
+  final VoidCallback onTap;
+
+  const _ActionRow({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.sub,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.16),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Icon(icon, size: 16, color: color),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: KratosColors.text)),
+                  const SizedBox(height: 2),
+                  Text(sub,
+                      style: const TextStyle(
+                          fontSize: 11, color: KratosColors.muted)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded,
+                size: 18, color: KratosColors.muted),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExportRow extends StatefulWidget {
+  @override
+  State<_ExportRow> createState() => _ExportRowState();
+}
+
+class _ExportRowState extends State<_ExportRow> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ActionRow(
+      icon: Icons.ios_share_rounded,
+      color: KratosColors.volt,
+      label: 'Export energy report (CSV)',
+      sub: _busy
+          ? 'Building report…'
+          : 'Live snapshot of every miner + kWh + cost',
+      onTap: _busy ? () {} : _doExport,
+    );
+  }
+
+  Future<void> _doExport() async {
+    setState(() => _busy = true);
+    try {
+      final store = context.read<MinerStore>();
+      if (store.miners.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content:
+                Text('No miners in fleet — add one first.')));
+        return;
+      }
+      await EnergyReportService().exportAndShare(store);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 }
 
