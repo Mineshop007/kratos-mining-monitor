@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
+import 'models/coin.dart';
 import 'services/miner_store.dart';
 import 'services/notification_service.dart';
-import 'screens/dashboard_screen.dart';
+import 'services/theme_service.dart';
+import 'services/coin_price_service.dart';
+import 'screens/home_screen.dart';
+import 'theme/volt_theme.dart';
+import 'widgets/klaw.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,45 +26,42 @@ class KratosApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => MinerStore(),
-      child: MaterialApp(
-        title: 'Kratos',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: const Color(0xFF0D1117),
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF00FF88),
-            secondary: Color(0xFFF7931A),
-            surface: Color(0xFF161B22),
-            background: Color(0xFF0D1117),
-          ),
-          fontFamily: 'SF Pro Display',
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF0D1117),
-            elevation: 0,
-            centerTitle: false,
-          ),
-          useMaterial3: true,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeService()),
+        ChangeNotifierProvider(create: (_) => MinerStore()),
+        ChangeNotifierProvider(
+          create: (_) =>
+              CoinPriceService()..startAutoRefresh(const [Coin.btc]),
         ),
-        home: const DashboardScreen(),
+      ],
+      child: Consumer<ThemeService>(
+        builder: (ctx, theme, _) {
+          return MaterialApp(
+            title: 'Kratos',
+            debugShowCheckedModeBanner: false,
+            theme: kratosThemeData(theme.current),
+            home: theme.loaded ? const HomeScreen() : const KlawSplash(),
+          );
+        },
       ),
     );
   }
 }
 
-// ── Theme constants ──────────────────────────────────────────────────────────
+// ── Legacy theme constants (still referenced by v1.0 widgets) ────────────────
+// Kept verbatim so existing miner_card.dart, miner_detail_screen.dart, etc.
+// keep compiling. New code uses `KratosColors` from theme/volt_theme.dart.
 class KratosTheme {
-  static const bg        = Color(0xFF0D1117);
-  static const surface   = Color(0xFF161B22);
-  static const surface2  = Color(0xFF21262D);
-  static const border    = Color(0xFF30363D);
-  static const neon      = Color(0xFF00FF88);
-  static const orange    = Color(0xFFF7931A);
-  static const blue      = Color(0xFF58A6FF);
-  static const purple    = Color(0xFFBC8CFF);
-  static const red       = Color(0xFFF85149);
-  static const muted     = Color(0xFF8B949E);
-  static const textPrim  = Color(0xFFE6EDF3);
+  static const bg        = KratosColors.bg;
+  static const surface   = KratosColors.surface;
+  static const surface2  = KratosColors.surface2;
+  static const border    = KratosColors.line;
+  static const neon      = KratosColors.volt;
+  static const orange    = Color(0xFFF7931A); // BTC accent — preserved
+  static const blue      = KratosColors.info;
+  static const purple    = Color(0xFFB58CFF);
+  static const red       = KratosColors.danger;
+  static const muted     = KratosColors.muted;
+  static const textPrim  = KratosColors.text;
 }
