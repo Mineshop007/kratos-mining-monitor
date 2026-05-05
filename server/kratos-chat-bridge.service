@@ -1,0 +1,26 @@
+[Unit]
+Description=Kratos in-app chat ↔ Discord bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/kratos-chat-bridge
+EnvironmentFile=/opt/kratos-chat-bridge/.env
+ExecStart=/opt/kratos-chat-bridge/.venv/bin/python /opt/kratos-chat-bridge/kratos_chat_bridge.py
+Restart=on-failure
+RestartSec=5
+User=root
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/kratos-chat-bridge /var/log
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

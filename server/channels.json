@@ -1,0 +1,15 @@
+{
+  "_comment": "Maps in-app channel slug → Discord channel ID in the Kratos DEV server. readOnly channels accept no posts from the app (e.g. block-feed, populated by automation/bot).",
+  "channels": {
+    "hangout":          { "id": "1492455798725546054", "label": "Hangout" },
+    "bitaxe":           { "id": "1501255783491567819", "label": "BitAxe" },
+    "nerdq-octaxe":     { "id": "1501255785143996528", "label": "NerdQ · Octaxe" },
+    "avalon":           { "id": "1501255786964451491", "label": "Avalon" },
+    "big-miners":       { "id": "1501255790525157587", "label": "Big miners" },
+    "overclocking":     { "id": "1492455797165129808", "label": "Overclocking" },
+    "pools":            { "id": "1492456421231689829", "label": "Pools" },
+    "block-feed":       { "id": "1496230061651525792", "label": "Block feed", "readOnly": true },
+    "help":             { "id": "1492455804727722115", "label": "Help" },
+    "off-peak-heating": { "id": "1501255791942959236", "label": "Off-peak heating" }
+  }
+}
