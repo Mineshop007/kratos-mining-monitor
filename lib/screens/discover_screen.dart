@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../theme/volt_theme.dart';
-import '../models/miner.dart';
 import '../services/lan_discovery.dart';
 import '../services/miner_store.dart';
 import '../widgets/miner_icon.dart';

@@ -33,7 +33,7 @@ class HapticService {
       if (match != null) intensity = match;
     }
     enabled = prefs.getBool(_kEnabledKey) ?? true;
-    _platformHasVibrator = await Vibration.hasVibrator() ?? false;
+    _platformHasVibrator = await Vibration.hasVibrator();
   }
 
   Future<void> setIntensity(HapticIntensity v) async {

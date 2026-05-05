@@ -16,6 +16,7 @@ class MinerStore extends ChangeNotifier {
   final Map<String, Timer> _timers = {};
   final Map<String, MinerStats> _prevStats = {};
   Timer? _priceTimer;
+  bool _disposed = false;
 
   // BTC price (cached, refreshed periodically)
   double btcPrice = 0;
@@ -112,7 +113,9 @@ class MinerStore extends ChangeNotifier {
         final delta = s.accepted - prevStat.accepted;
         for (var i = 0; i < delta && i < 3; i++) {
           // Stagger up to 3 quick pulses for batched share deltas.
+          // Guard against firing after store is disposed.
           Future.delayed(Duration(milliseconds: 80 * i), () {
+            if (_disposed) return;
             HapticService.instance.onShareAccepted();
           });
         }
@@ -232,6 +235,7 @@ class MinerStore extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     _priceTimer?.cancel();
     for (final t in _timers.values) {
       t.cancel();

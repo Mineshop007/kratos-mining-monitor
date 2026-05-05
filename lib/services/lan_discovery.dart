@@ -32,21 +32,40 @@ class LanDiscoveryService {
   Stream<DiscoveredMiner> scan() async* {
     final controller = StreamController<DiscoveredMiner>();
 
-    // Get the LAN subnet we're attached to.
-    final wifiIp = await NetworkInfo().getWifiIP();
-    final subnet = _subnetFor(wifiIp);
+    // Get the LAN subnet we're attached to. Wrapped because
+    // network_info_plus can throw on some Android devices.
+    String? subnet;
+    try {
+      final wifiIp = await NetworkInfo().getWifiIP();
+      subnet = _subnetFor(wifiIp);
+    } catch (e) {
+      if (kDebugMode) debugPrint('LAN: failed to read Wi-Fi IP: $e');
+    }
 
-    // Run mDNS + sweep concurrently. mDNS is fast (1–3 s), sweep is
-    // bounded by per-host timeouts.
+    // Run mDNS + sweep concurrently. Each future swallows its own errors
+    // so a single platform hiccup never bubbles up as an unhandled
+    // exception that would also skip controller.close().
     final futures = <Future<void>>[
-      _runMdnsScan(controller),
-      if (subnet != null) _runSubnetSweep(subnet, controller),
+      _runMdnsScan(controller).catchError((e) {
+        if (kDebugMode) debugPrint('LAN: mDNS error swallowed: $e');
+      }),
+      if (subnet != null)
+        _runSubnetSweep(subnet, controller).catchError((e) {
+          if (kDebugMode) debugPrint('LAN: sweep error swallowed: $e');
+        }),
     ];
 
-    // Close stream when both finish.
-    Future.wait(futures).whenComplete(() => controller.close());
+    // Close stream when both finish. Guard against double-close.
+    Future.wait(futures).whenComplete(() {
+      if (!controller.isClosed) controller.close();
+    });
 
     yield* controller.stream;
+  }
+
+  void _safeAdd(
+      StreamController<DiscoveredMiner> sink, DiscoveredMiner m) {
+    if (!sink.isClosed) sink.add(m);
   }
 
   String? _subnetFor(String? ip) {
@@ -96,7 +115,7 @@ class LanDiscoveryService {
                 timeout: const Duration(seconds: 1))) {
               final probed = await _probeEspMinerHttp(
                   addr.address.address, srv.port);
-              if (probed != null) sink.add(probed);
+              if (probed != null) _safeAdd(sink, probed);
             }
           }
         }
@@ -126,11 +145,11 @@ class LanDiscoveryService {
         // Probe ESP-Miner HTTP first (faster), then cgminer TCP.
         final esp = await _probeEspMinerHttp(ip, 80);
         if (esp != null) {
-          sink.add(esp);
+          _safeAdd(sink, esp);
           return;
         }
         final cg = await _probeCgminerTcp(ip, 4028);
-        if (cg != null) sink.add(cg);
+        if (cg != null) _safeAdd(sink, cg);
       }));
     }
   }
