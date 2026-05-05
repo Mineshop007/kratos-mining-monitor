@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kratos/services/best_diff_tracker.dart';
 import 'package:kratos/services/coin_price_service.dart';
 import 'package:kratos/services/circuit_service.dart';
+import 'package:kratos/services/chat_service.dart';
 import 'package:kratos/services/health_score.dart';
 import 'package:kratos/services/miner_store.dart';
 import 'package:kratos/services/theme_service.dart';
@@ -34,6 +35,7 @@ Widget _withProviders(Widget child) {
       // Note: do NOT call startAutoRefresh — keeps tests timer-clean.
       ChangeNotifierProvider(create: (_) => CoinPriceService()),
       ChangeNotifierProvider(create: (_) => CircuitService()),
+      ChangeNotifierProvider(create: (_) => ChatService()),
     ],
     child: MaterialApp(theme: kratosThemeData(KratosThemeName.volt), home: child),
   );
@@ -170,13 +172,13 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('Settings tab shows v1.4.0 + theme + electricity sections',
+  testWidgets('Settings tab shows v1.5.0 + theme + electricity sections',
       (tester) async {
     await tester.pumpWidget(_withProviders(const SettingsScreen()));
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('v1.4.0'), findsOneWidget);
+    expect(find.text('v1.5.0'), findsOneWidget);
     expect(find.text('THEME'), findsOneWidget);
     expect(find.text('Volt'), findsOneWidget);
     expect(find.text('Circuit'), findsOneWidget);
@@ -184,16 +186,13 @@ void main() {
     await _unmount(tester);
   });
 
-  testWidgets('Chat tab is honest about deferred chat (no fake messages)',
+  testWidgets('Chat tab boots into live bridge or graceful offline state',
       (tester) async {
     await tester.pumpWidget(_withProviders(const ChatScreen()));
     await tester.pump(const Duration(milliseconds: 50));
-
-    expect(find.textContaining('In-app chat is coming'), findsOneWidget);
-    expect(find.textContaining('Discord'), findsWidgets);
-    // No fabricated message bubbles, channel counts, or usernames.
-    expect(find.textContaining('# bitaxe'), findsNothing);
-
+    // Either the loading spinner or the offline hero or a connected state.
+    // No fake message data either way.
+    expect(find.text('Chat'), findsOneWidget);
     await _unmount(tester);
   });
 

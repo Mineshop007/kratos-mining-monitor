@@ -29,7 +29,7 @@ class SettingsScreen extends StatelessWidget {
           Padding(
             padding: EdgeInsets.only(right: 18),
             child: Center(
-                child: Text('v1.4.0',
+                child: Text('v1.5.0',
                     style: TextStyle(
                         color: KratosColors.muted, fontSize: 13))),
           ),
