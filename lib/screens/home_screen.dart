@@ -6,6 +6,7 @@ import '../models/miner.dart';
 import '../services/miner_store.dart';
 import '../widgets/falling_block.dart';
 import 'miners_screen.dart';
+import 'circuit_monitor_screen.dart';
 import 'pools_screen.dart';
 import 'chat_screen.dart';
 import 'settings_screen.dart';
@@ -586,6 +587,17 @@ class _TileGrid extends StatelessWidget {
         color: KratosColors.warning,
       ),
       _Tile(
+        icon: Icons.bolt_rounded,
+        title: 'Circuit',
+        subtitle: 'Breaker monitor',
+        color: KratosColors.warning,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => const CircuitMonitorScreen()),
+        ),
+      ),
+      _Tile(
         icon: Icons.shield_rounded,
         title: 'Status',
         subtitle: store.offlineCount > 0
@@ -627,17 +639,19 @@ class _Tile extends StatelessWidget {
   final String title;
   final String subtitle;
   final Color color;
+  final VoidCallback? onTap;
 
   const _Tile({
     required this.icon,
     required this.title,
     required this.subtitle,
     required this.color,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final tile = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -688,6 +702,15 @@ class _Tile extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+    if (onTap == null) return tile;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: tile,
       ),
     );
   }
