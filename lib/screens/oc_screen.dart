@@ -3,6 +3,7 @@ import '../main.dart';
 import '../models/miner.dart';
 import '../services/cgminer_api.dart';
 import '../services/esp_miner_api.dart';
+import '../services/autotune_service.dart';
 
 class OCScreen extends StatefulWidget {
   final Miner miner;
@@ -391,8 +392,43 @@ class _OCScreenState extends State<OCScreen> {
                     fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ),
+
+        // Autotune button — ESP-Miner devices only
+        if (_isEsp) ...[          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: KratosTheme.purple,
+                side: BorderSide(
+                    color: KratosTheme.purple.withOpacity(0.4)),
+                backgroundColor: KratosTheme.purple.withOpacity(0.07),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: applying ? null : _startAutotune,
+              icon: const Text('🤖',
+                  style: TextStyle(fontSize: 18)),
+              label: const Text('Autotune',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+          ),
+        ],
         const SizedBox(height: 32),
       ]),
+    );
+  }
+
+  void _startAutotune() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: KratosTheme.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _AutotuneSheet(miner: widget.miner),
     );
   }
 
@@ -411,11 +447,13 @@ class _OCScreenState extends State<OCScreen> {
       // ESP-Miner (NerdOctaxe/BitAxe): frequency + voltage only.
       // Fan is controlled separately from the miner detail screen.
       ok = await EspMinerAPI.instance
-          .setFrequency(widget.miner.ip, widget.miner.port, selectedFreq, remoteUrl: widget.miner.remoteUrl);
+          .setFrequency(widget.miner.ip, widget.miner.port, selectedFreq,
+              remoteUrl: widget.miner.remoteUrl, isRemote: widget.miner.isRemote);
       // Also apply voltage if changed from default
       if (ok && selectedVoltage > 0) {
         await EspMinerAPI.instance
-            .setCoreVoltage(widget.miner.ip, widget.miner.port, selectedVoltage, remoteUrl: widget.miner.remoteUrl);
+            .setCoreVoltage(widget.miner.ip, widget.miner.port, selectedVoltage,
+                remoteUrl: widget.miner.remoteUrl, isRemote: widget.miner.isRemote);
       }
     } else {
       // Generic CGMiner device: frequency + fan
@@ -448,6 +486,254 @@ class _FreqPreset {
   final String label;
   final String estimate;
   const _FreqPreset(this.mhz, this.label, this.estimate);
+}
+
+// ── Autotune progress bottom sheet ──────────────────────────────────────────
+
+class _AutotuneSheet extends StatefulWidget {
+  final Miner miner;
+  const _AutotuneSheet({required this.miner});
+
+  @override
+  State<_AutotuneSheet> createState() => _AutotuneSheetState();
+}
+
+class _AutotuneSheetState extends State<_AutotuneSheet> {
+  final _svc = AutotuneService();
+  final _logScrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _svc.addListener(_onUpdate);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _svc.run(widget.miner);
+    });
+  }
+
+  void _onUpdate() {
+    if (mounted) {
+      setState(() {});
+      // Auto-scroll log to bottom
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_logScrollCtrl.hasClients) {
+          _logScrollCtrl.animateTo(
+            _logScrollCtrl.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _svc.removeListener(_onUpdate);
+    _svc.dispose();
+    _logScrollCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _applyResult() async {
+    final r = _svc.result;
+    if (r == null) return;
+    await EspMinerAPI.instance.setFrequency(
+      widget.miner.ip, widget.miner.port, r.optimalFreqMhz,
+      remoteUrl: widget.miner.remoteUrl, isRemote: widget.miner.isRemote);
+    if (r.optimalVoltageMv > 0) {
+      await EspMinerAPI.instance.setCoreVoltage(
+        widget.miner.ip, widget.miner.port, r.optimalVoltageMv,
+        remoteUrl: widget.miner.remoteUrl, isRemote: widget.miner.isRemote);
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = _svc.state;
+    final result = _svc.result;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.65,
+      maxChildSize: 0.92,
+      minChildSize: 0.4,
+      expand: false,
+      builder: (_, scrollCtrl) => Container(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+        decoration: const BoxDecoration(
+          color: KratosTheme.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(children: [
+          // Drag handle
+          Container(
+            width: 36,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: KratosTheme.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Title
+          Row(children: [
+            const Text('🤖',
+                style: TextStyle(fontSize: 20)),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Autotune',
+                      style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          color: KratosTheme.textPrim)),
+                  Text('Sweep frequencies, find peak hashrate',
+                      style: TextStyle(
+                          fontSize: 11, color: KratosTheme.muted)),
+                ],
+              ),
+            ),
+            if (state == AutotuneState.running)
+              TextButton(
+                onPressed: _svc.cancel,
+                child: const Text('Cancel',
+                    style: TextStyle(color: KratosTheme.red)),
+              ),
+            if (state != AutotuneState.running)
+              IconButton(
+                icon: const Icon(Icons.close,
+                    color: KratosTheme.muted, size: 20),
+                onPressed: () => Navigator.pop(context),
+              ),
+          ]),
+          const SizedBox(height: 12),
+
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: state == AutotuneState.running
+                  ? _svc.progress
+                  : (state == AutotuneState.done ? 1.0 : null),
+              backgroundColor: KratosTheme.border,
+              valueColor: AlwaysStoppedAnimation(
+                state == AutotuneState.done
+                    ? KratosTheme.neon
+                    : state == AutotuneState.failed
+                        ? KratosTheme.red
+                        : KratosTheme.purple,
+              ),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Log output
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: KratosTheme.bg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: KratosTheme.border),
+              ),
+              child: SingleChildScrollView(
+                controller: _logScrollCtrl,
+                child: Text(
+                  _svc.log.isEmpty
+                      ? 'Starting autotune...'
+                      : _svc.log,
+                  style: const TextStyle(
+                      fontSize: 11,
+                      color: KratosTheme.muted,
+                      fontFamily: 'Courier',
+                      height: 1.5),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Result card (done state)
+          if (result != null) ...[            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: KratosTheme.neon.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: KratosTheme.neon.withOpacity(0.25)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.check_circle_outline,
+                    color: KratosTheme.neon, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(result.summary,
+                          style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: KratosTheme.neon,
+                              fontFamily: 'Courier')),
+                      Text(
+                        '${result.efficiency.toStringAsFixed(1)} GH/W  ·  '                        '${result.temperature.toInt()}°C',
+                        style: const TextStyle(
+                            fontSize: 11, color: KratosTheme.muted),
+                      ),
+                    ],
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: KratosTheme.orange,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: _applyResult,
+                icon: const Icon(Icons.bolt),
+                label: const Text('Apply These Settings',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
+            ),
+          ],
+
+          if (state == AutotuneState.failed && result == null) ...[            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: KratosTheme.muted,
+                  side: BorderSide(
+                      color: KratosTheme.border.withOpacity(0.6)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  _svc.reset();
+                  _svc.run(widget.miner);
+                },
+                child: const Text('Retry'),
+              ),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
 }
 
 class _MiniStat extends StatelessWidget {

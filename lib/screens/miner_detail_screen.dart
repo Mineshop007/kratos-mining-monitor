@@ -17,21 +17,24 @@ class MinerDetailScreen extends StatelessWidget {
 
   Future<bool> _restart() async {
     if (miner.type.apiType == ApiType.espMinerHttp) {
-      return EspMinerAPI.instance.restart(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
+      return EspMinerAPI.instance.restart(miner.ip, miner.port,
+          remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
     }
     return CGMinerAPI.instance.restart(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
   }
 
   Future<bool> _pause() async {
     if (miner.type.apiType == ApiType.espMinerHttp) {
-      return EspMinerAPI.instance.pause(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
+      return EspMinerAPI.instance.pause(miner.ip, miner.port,
+          remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
     }
     return false;
   }
 
   Future<bool> _resume() async {
     if (miner.type.apiType == ApiType.espMinerHttp) {
-      return EspMinerAPI.instance.resume(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
+      return EspMinerAPI.instance.resume(miner.ip, miner.port,
+          remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
     }
     return false;
   }
@@ -44,8 +47,14 @@ class MinerDetailScreen extends StatelessWidget {
         backgroundColor: KratosTheme.bg,
         appBar: AppBar(
           backgroundColor: KratosTheme.bg,
-          title: Text(miner.name,
-              style: const TextStyle(color: KratosTheme.textPrim)),
+          title: Row(children: [
+            Expanded(
+              child: Text(miner.name,
+                  style: const TextStyle(color: KratosTheme.textPrim),
+                  overflow: TextOverflow.ellipsis),
+            ),
+            if (miner.isRemote) ...[const SizedBox(width: 6), _RemoteBadge()],
+          ]),
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh, color: KratosTheme.muted),
@@ -746,6 +755,28 @@ class _ActionBtn extends StatelessWidget {
 
 // ── Fan Speed Control (ESP-Miner) ─────────────────────────────────────────────
 
+class _RemoteBadge extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: KratosTheme.blue.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: KratosTheme.blue.withOpacity(0.4)),
+        ),
+        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.lan_outlined, size: 10, color: KratosTheme.blue),
+          SizedBox(width: 3),
+          Text('Remote',
+              style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: KratosTheme.blue,
+                  letterSpacing: 0.3)),
+        ]),
+      );
+}
+
 class _FanSpeedControl extends StatefulWidget {
   final Miner miner;
   final int initialFanPercent;
@@ -773,7 +804,8 @@ class _FanSpeedControlState extends State<_FanSpeedControl> {
     setState(() { _setting = true; _fanResult = null; });
     final ok = await EspMinerAPI.instance.setFanSpeed(
         widget.miner.ip, widget.miner.port, _value.round(),
-        remoteUrl: widget.miner.remoteUrl);
+        remoteUrl: widget.miner.remoteUrl,
+        isRemote: widget.miner.isRemote);
     if (mounted) setState(() {
       _setting = false;
       _fanResult = ok ? '✅ Fan set to ${_value.round()}%' : '❌ Failed — check miner connection';

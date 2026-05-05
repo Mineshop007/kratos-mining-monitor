@@ -73,7 +73,7 @@ class MinerStore extends ChangeNotifier {
   Future<void> _fetch(Miner miner) async {
     final MinerStats rawStats;
     if (miner.type.apiType == ApiType.espMinerHttp) {
-      rawStats = await EspMinerAPI.instance.fetchAll(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
+      rawStats = await EspMinerAPI.instance.fetchAll(miner.ip, miner.port, remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
     } else {
       rawStats = await CGMinerAPI.instance.fetchAll(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
     }

@@ -72,6 +72,7 @@ class Miner {
   String notes;
   MinerType type;
   String remoteUrl; // optional override URL (e.g. for tunnels/proxies)
+  bool isRemote; // true = API calls routed via RelayService
 
   Miner({
     String? id,
@@ -81,17 +82,20 @@ class Miner {
     this.notes = '',
     this.type = MinerType.generic,
     this.remoteUrl = '',
+    this.isRemote = false,
   }) : id = id ?? DateTime.now().millisecondsSinceEpoch.toString();
 
   Map<String, dynamic> toJson() => {
     'id': id, 'name': name, 'ip': ip, 'port': port, 'notes': notes,
     'type': type.name, 'remoteUrl': remoteUrl,
+    'isRemote': isRemote,
   };
 
   factory Miner.fromJson(Map<String, dynamic> j) => Miner(
     id: j['id'], name: j['name'], ip: j['ip'],
     port: j['port'] ?? 4028, notes: j['notes'] ?? '',
     remoteUrl: j['remoteUrl'] as String? ?? '',
+    isRemote: j['isRemote'] as bool? ?? false,
     type: MinerType.values.firstWhere(
       (t) => t.name == (j['type'] as String? ?? ''),
       orElse: () => MinerType.generic,

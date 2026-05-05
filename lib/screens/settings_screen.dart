@@ -8,6 +8,7 @@ import '../services/haptic_service.dart';
 import '../services/energy_report.dart';
 import 'faq_screen.dart';
 import 'circuit_monitor_screen.dart';
+import 'remote_access_screen.dart';
 
 /// Settings tab — theme picker (only Circuit + Volt unlocked in 1.2.0),
 /// kWh price input, support links. Real values only.
@@ -434,6 +435,19 @@ class _ToolsSection extends StatelessWidget {
           ),
           const Divider(height: 1, color: KratosColors.line),
           _ExportRow(),
+          const Divider(height: 1, color: KratosColors.line),
+          const Divider(height: 1, color: KratosColors.line),
+          _ActionRow(
+            icon: Icons.lan_outlined,
+            color: KratosColors.info,
+            label: 'Remote Access',
+            sub: 'Monitor miners outside your home network',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const RemoteAccessScreen()),
+            ),
+          ),
           const Divider(height: 1, color: KratosColors.line),
           _ActionRow(
             icon: Icons.menu_book_rounded,

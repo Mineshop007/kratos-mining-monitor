@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/miner.dart';
+import 'relay_service.dart';
 
 /// HTTP REST API client for ESP-Miner devices: BitAxe Gamma/Ultra/GT, NerdQaxe, NerdOctaxe
 /// Firmware: https://github.com/bitaxeorg/ESP-Miner
@@ -14,7 +15,18 @@ class EspMinerAPI {
   String _base(String ip, int port, {String remoteUrl = ''}) =>
       remoteUrl.isNotEmpty ? remoteUrl : 'http://$ip:$port';
 
-  Future<MinerStats> fetchAll(String ip, int port, {String remoteUrl = ''}) async {
+  Future<MinerStats> fetchAll(String ip, int port, {String remoteUrl = '', bool isRemote = false}) async {
+    if (isRemote) {
+      try {
+        final result = await RelayService.instance.command(
+          minerIp: ip, minerPort: port, method: 'GET', path: '/api/system/info');
+        final data = result['data'];
+        if (data is Map<String, dynamic>) return _parseSystemInfo(data);
+        return MinerStats.offline;
+      } catch (_) {
+        return MinerStats.offline;
+      }
+    }
     try {
       final res = await http.get(
         Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system/info'),
@@ -112,7 +124,14 @@ class EspMinerAPI {
     );
   }
 
-  Future<bool> restart(String ip, int port, {String remoteUrl = ''}) async {
+  Future<bool> restart(String ip, int port, {String remoteUrl = '', bool isRemote = false}) async {
+    if (isRemote) {
+      try {
+        await RelayService.instance.command(
+          minerIp: ip, minerPort: port, method: 'POST', path: '/api/system/restart');
+        return true;
+      } catch (_) { return false; }
+    }
     try {
       final r = await http
           .post(Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system/restart'))
@@ -123,7 +142,14 @@ class EspMinerAPI {
     }
   }
 
-  Future<bool> pause(String ip, int port, {String remoteUrl = ''}) async {
+  Future<bool> pause(String ip, int port, {String remoteUrl = '', bool isRemote = false}) async {
+    if (isRemote) {
+      try {
+        await RelayService.instance.command(
+          minerIp: ip, minerPort: port, method: 'POST', path: '/api/system/pause');
+        return true;
+      } catch (_) { return false; }
+    }
     try {
       final r = await http
           .post(Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system/pause'))
@@ -134,7 +160,14 @@ class EspMinerAPI {
     }
   }
 
-  Future<bool> resume(String ip, int port, {String remoteUrl = ''}) async {
+  Future<bool> resume(String ip, int port, {String remoteUrl = '', bool isRemote = false}) async {
+    if (isRemote) {
+      try {
+        await RelayService.instance.command(
+          minerIp: ip, minerPort: port, method: 'POST', path: '/api/system/resume');
+        return true;
+      } catch (_) { return false; }
+    }
     try {
       final r = await http
           .post(Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system/resume'))
@@ -184,22 +217,26 @@ class EspMinerAPI {
     }
   }
 
-  Future<bool> setFanSpeed(String ip, int port, int percent, {String remoteUrl = ''}) async {
+  Future<bool> setFanSpeed(String ip, int port, int percent, {String remoteUrl = '', bool isRemote = false}) async {
+    final body = {
+      'manualFanSpeed': percent,
+      'fanSpeed': percent,
+      'fanspeed': percent,
+      'autofanspeed': 0,
+    };
+    if (isRemote) {
+      try {
+        await RelayService.instance.command(
+          minerIp: ip, minerPort: port, method: 'PATCH', path: '/api/system', body: body);
+        return true;
+      } catch (_) { return false; }
+    }
     try {
       final r = await http
           .patch(
             Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system'),
             headers: {'Content-Type': 'application/json'},
-            // CONFIRMED via live API testing:
-            // NerdAxe firmware uses 'manualFanSpeed' (not 'fanspeed') for PATCH.
-            // Must also set autofanspeed=0 (integer) to disable PID/auto mode.
-            // BitAxe legacy uses 'fanSpeed' (camelCase) - send all for compatibility.
-            body: jsonEncode({
-              'manualFanSpeed': percent,  // NerdAxe/NerdOctaxe (primary)
-              'fanSpeed': percent,         // BitAxe legacy
-              'fanspeed': percent,         // older AxeOS
-              'autofanspeed': 0,           // 0=manual, 2=PID (integer NOT boolean)
-            }),
+            body: jsonEncode(body),
           )
           .timeout(_timeout);
       return r.statusCode == 200;
@@ -208,7 +245,15 @@ class EspMinerAPI {
     }
   }
 
-  Future<bool> setFrequency(String ip, int port, int mhz, {String remoteUrl = ''}) async {
+  Future<bool> setFrequency(String ip, int port, int mhz, {String remoteUrl = '', bool isRemote = false}) async {
+    if (isRemote) {
+      try {
+        await RelayService.instance.command(
+          minerIp: ip, minerPort: port, method: 'PATCH', path: '/api/system',
+          body: {'frequency': mhz});
+        return true;
+      } catch (_) { return false; }
+    }
     try {
       final r = await http
           .patch(
@@ -223,7 +268,15 @@ class EspMinerAPI {
     }
   }
 
-  Future<bool> setCoreVoltage(String ip, int port, int millivolts, {String remoteUrl = ''}) async {
+  Future<bool> setCoreVoltage(String ip, int port, int millivolts, {String remoteUrl = '', bool isRemote = false}) async {
+    if (isRemote) {
+      try {
+        await RelayService.instance.command(
+          minerIp: ip, minerPort: port, method: 'PATCH', path: '/api/system',
+          body: {'coreVoltage': millivolts});
+        return true;
+      } catch (_) { return false; }
+    }
     try {
       final r = await http
           .patch(
