@@ -470,6 +470,26 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
   void _addMiner() {
     final ip = _ipCtrl.text.trim();
     if (ip.isEmpty) return;
+
+    // Duplicate IP check
+    final store = context.read<MinerStore>();
+    final duplicate = store.miners.any((m) => m.ip == ip);
+    if (duplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$ip is already in your fleet'),
+          backgroundColor: KratosTheme.surface,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: KratosTheme.orange,
+            onPressed: () {},
+          ),
+        ),
+      );
+      return;
+    }
+
     final miner = Miner(
       name: _nameCtrl.text.trim().isEmpty
           ? 'Miner at $ip'
@@ -479,7 +499,7 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
       type: _selectedType,
       remoteUrl: _remoteUrlCtrl.text.trim(),
     );
-    context.read<MinerStore>().add(miner);
+    store.add(miner);
     Navigator.pop(context);
   }
 }
