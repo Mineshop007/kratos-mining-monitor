@@ -26,6 +26,8 @@ dependencies:
   permission_handler: ^11.3.1
   share_plus: ^7.2.2
   path_provider: ^2.1.4
+  sqflite: ^2.3.3
+  path: ^1.9.0
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.1

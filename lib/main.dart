@@ -10,6 +10,7 @@ import 'services/coin_price_service.dart';
 import 'services/haptic_service.dart';
 import 'services/circuit_service.dart';
 import 'services/chat_service.dart';
+import 'services/history_service.dart';
 import 'screens/home_screen.dart';
 import 'theme/volt_theme.dart';
 import 'widgets/klaw.dart';
@@ -22,6 +23,7 @@ void main() async {
   ));
   await NotificationService.instance.init();
   await HapticService.instance.init();
+  await HistoryService.instance.init();
   runApp(const KratosApp());
 }
 

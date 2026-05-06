@@ -9,6 +9,7 @@ import 'btc_price.dart';
 import 'notification_service.dart';
 import 'best_diff_tracker.dart';
 import 'haptic_service.dart';
+import 'history_service.dart';
 
 class MinerStore extends ChangeNotifier {
   final List<Miner> miners = [];
@@ -124,6 +125,12 @@ class MinerStore extends ChangeNotifier {
 
     _prevStats[miner.id] = s;
     stats[miner.id] = s;
+
+    // Persist hashrate sample (real readings only).
+    if (s.status != MinerStatus.offline && s.hashrateAvg > 0) {
+      // ignore: unawaited_futures
+      HistoryService.instance.record(miner.id, s.hashrateAvg, s.outTemp);
+    }
 
     // Feed the best-diff tracker with the real, observed value only.
     bestDiffTracker.observe(

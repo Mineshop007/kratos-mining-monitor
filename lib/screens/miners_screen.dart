@@ -9,6 +9,7 @@ import '../widgets/fleet_summary_bar.dart';
 import '../widgets/klaw.dart';
 import 'add_miner_screen.dart';
 import 'miner_detail_screen.dart';
+import 'fleet_oc_screen.dart';
 
 /// Fleet view tab — list / grid of all miners.
 /// Logic preserved from v1.0 DashboardScreen, theme + Klaw upgraded.
@@ -80,6 +81,19 @@ class _MinersScreenState extends State<MinersScreen> {
                   fontWeight: FontWeight.w800,
                   color: KratosColors.text)),
           actions: [
+            if (context
+                .watch<MinerStore>()
+                .miners
+                .any((m) => m.type.apiType == ApiType.espMinerHttp))
+              IconButton(
+                tooltip: 'Fleet OC',
+                icon: const Icon(Icons.bolt,
+                    color: KratosColors.volt, size: 22),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (_) => const FleetOCScreen()),
+                ),
+              ),
             IconButton(
               icon: Icon(
                   _grid

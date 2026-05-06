@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../theme/volt_theme.dart';
 import '../models/miner.dart';
 import '../services/miner_store.dart';
+import '../services/history_service.dart';
 import '../widgets/falling_block.dart';
 import 'miners_screen.dart';
 import 'circuit_monitor_screen.dart';
@@ -299,6 +302,7 @@ class _OverviewBody extends StatelessWidget {
               total: store.miners.length,
               dailyNetUsd: net,
               avgTempC: _avgTemp(store),
+              minerIds: store.miners.map((m) => m.id).toList(),
             ),
             const SizedBox(height: 14),
             _TileGrid(store: store),
@@ -367,6 +371,7 @@ class _HeroCard extends StatelessWidget {
   final int total;
   final double dailyNetUsd;
   final double avgTempC;
+  final List<String> minerIds;
 
   const _HeroCard({
     required this.hashTh,
@@ -374,6 +379,7 @@ class _HeroCard extends StatelessWidget {
     required this.total,
     required this.dailyNetUsd,
     required this.avgTempC,
+    required this.minerIds,
   });
 
   @override
@@ -444,6 +450,10 @@ class _HeroCard extends StatelessWidget {
               ),
             ],
           ),
+          if (minerIds.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _FleetSparkline(minerIds: minerIds),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [
@@ -736,6 +746,119 @@ class _Tile extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         child: tile,
       ),
+    );
+  }
+}
+
+class _FleetSparkline extends StatefulWidget {
+  final List<String> minerIds;
+  const _FleetSparkline({required this.minerIds});
+
+  @override
+  State<_FleetSparkline> createState() => _FleetSparklineState();
+}
+
+class _FleetSparklineState extends State<_FleetSparkline> {
+  List<HistoryPoint> _pts = const [];
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _timer = Timer.periodic(const Duration(seconds: 60), (_) => _load());
+  }
+
+  @override
+  void didUpdateWidget(covariant _FleetSparkline old) {
+    super.didUpdateWidget(old);
+    if (old.minerIds.length != widget.minerIds.length) _load();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final since = DateTime.now().subtract(const Duration(hours: 6));
+    final pts = await HistoryService.instance.getFleetHistory(
+      widget.minerIds,
+      since: since,
+      bucket: const Duration(minutes: 5),
+    );
+    if (!mounted) return;
+    setState(() => _pts = pts);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_pts.length < 2) {
+      return const SizedBox(
+        height: 36,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text('FLEET 6H · collecting…',
+              style: TextStyle(
+                  fontSize: 9,
+                  letterSpacing: 1.2,
+                  fontWeight: FontWeight.w700,
+                  color: KratosColors.muted)),
+        ),
+      );
+    }
+    final spots = _pts
+        .map((p) => FlSpot(
+            p.ts.millisecondsSinceEpoch.toDouble(), p.hashrate / 1000.0))
+        .toList();
+    final minX = spots.first.x;
+    final maxX = spots.last.x;
+    final ys = spots.map((s) => s.y);
+    final minY = ys.reduce((a, b) => a < b ? a : b);
+    final maxY = ys.reduce((a, b) => a > b ? a : b);
+    final pad = (maxY - minY).abs() < 1e-6 ? maxY * 0.05 + 0.01 : (maxY - minY) * 0.15;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('FLEET · LAST 6H',
+            style: TextStyle(
+                fontSize: 9,
+                letterSpacing: 1.2,
+                fontWeight: FontWeight.w700,
+                color: KratosColors.muted)),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 36,
+          child: LineChart(
+            LineChartData(
+              gridData: const FlGridData(show: false),
+              titlesData: const FlTitlesData(show: false),
+              borderData: FlBorderData(show: false),
+              minX: minX,
+              maxX: maxX,
+              minY: (minY - pad).clamp(0, double.infinity).toDouble(),
+              maxY: maxY + pad,
+              lineTouchData: const LineTouchData(enabled: false),
+              lineBarsData: [
+                LineChartBarData(
+                  spots: spots,
+                  isCurved: true,
+                  color: KratosColors.voltBright,
+                  barWidth: 1.5,
+                  isStrokeCapRound: true,
+                  dotData: const FlDotData(show: false),
+                  belowBarData: BarAreaData(
+                    show: true,
+                    color: KratosColors.volt.withOpacity(0.15),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

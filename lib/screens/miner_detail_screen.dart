@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -8,6 +9,7 @@ import '../models/miner.dart';
 import '../services/cgminer_api.dart';
 import '../services/esp_miner_api.dart';
 import '../services/miner_store.dart';
+import '../services/history_service.dart';
 import 'pool_editor_screen.dart';
 import 'oc_screen.dart';
 
@@ -69,13 +71,11 @@ class MinerDetailScreen extends StatelessWidget {
             _HashrateHero(stats: s),
             const SizedBox(height: 12),
 
-            // Hashrate sparkline chart (24h history)
-            if (s != null && s.hashrateHistory.length >= 2) ...[
-              _SectionLabel('HASHRATE HISTORY'),
-              const SizedBox(height: 8),
-              _HashrateChart(history: s.hashrateHistory),
-              const SizedBox(height: 16),
-            ],
+            // Persisted hashrate history with timeframe selector.
+            _SectionLabel('HASHRATE HISTORY'),
+            const SizedBox(height: 8),
+            _HashrateChart(minerId: miner.id),
+            const SizedBox(height: 16),
 
             // Stats grid
             GridView.count(
@@ -369,82 +369,265 @@ class MinerDetailScreen extends StatelessWidget {
 
 // ── Hashrate chart ────────────────────────────────────────────────────────────
 
-class _HashrateChart extends StatelessWidget {
-  final List<double> history;
-  const _HashrateChart({required this.history});
+class _HashrateChart extends StatefulWidget {
+  final String minerId;
+  const _HashrateChart({required this.minerId});
+
+  @override
+  State<_HashrateChart> createState() => _HashrateChartState();
+}
+
+enum _Tf { h1, h6, h24, d7 }
+
+extension on _Tf {
+  String get label => switch (this) {
+        _Tf.h1 => '1H',
+        _Tf.h6 => '6H',
+        _Tf.h24 => '24H',
+        _Tf.d7 => '7D',
+      };
+  Duration get duration => switch (this) {
+        _Tf.h1 => const Duration(hours: 1),
+        _Tf.h6 => const Duration(hours: 6),
+        _Tf.h24 => const Duration(hours: 24),
+        _Tf.d7 => const Duration(days: 7),
+      };
+}
+
+class _HashrateChartState extends State<_HashrateChart> {
+  _Tf _tf = _Tf.h6;
+  bool _loading = true;
+  List<HistoryPoint> _points = const [];
+  Timer? _refresh;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    // Auto-refresh in step with poll cadence so the chart grows live.
+    _refresh = Timer.periodic(const Duration(seconds: 30), (_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _refresh?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    final since = DateTime.now().subtract(_tf.duration);
+    final pts = await HistoryService.instance
+        .getHistory(widget.minerId, since: since);
+    if (!mounted) return;
+    setState(() {
+      _points = pts;
+      _loading = false;
+    });
+  }
+
+  void _select(_Tf tf) {
+    if (_tf == tf) return;
+    setState(() {
+      _tf = tf;
+      _loading = true;
+    });
+    _load();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (history.length < 2) return const SizedBox.shrink();
-
-    final spots = history.asMap().entries
-        .map((e) => FlSpot(e.key.toDouble(), e.value))
-        .toList();
-    final minY = history.reduce((a, b) => a < b ? a : b) * 0.95;
-    final maxY = history.reduce((a, b) => a > b ? a : b) * 1.05;
+    final avg = _points.isEmpty
+        ? 0.0
+        : _points.fold<double>(0, (a, p) => a + p.hashrate) / _points.length;
 
     return Container(
-      height: 120,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: KratosTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: KratosTheme.border),
       ),
-      child: LineChart(
-        LineChartData(
-          gridData: FlGridData(
-            show: true,
-            horizontalInterval: (maxY - minY) / 4,
-            getDrawingHorizontalLine: (_) =>
-                FlLine(color: KratosTheme.border, strokeWidth: 0.5),
-            drawVerticalLine: false,
-          ),
-          titlesData: FlTitlesData(
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 48,
-                getTitlesWidget: (val, _) => Text(
-                  _formatHashrate(val),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Expanded(
+              child: Wrap(
+                spacing: 6,
+                children: _Tf.values
+                    .map((tf) => _TfPill(
+                          label: tf.label,
+                          selected: tf == _tf,
+                          onTap: () => _select(tf),
+                        ))
+                    .toList(),
+              ),
+            ),
+            if (avg > 0)
+              Text('avg ${_formatHashrate(avg)}',
                   style: const TextStyle(
-                      fontSize: 9, color: Color(0xFF6e7681)),
-                ),
-              ),
-            ),
-            rightTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false)),
-            bottomTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false)),
+                      fontSize: 11,
+                      color: KratosTheme.muted,
+                      fontFamily: 'Courier')),
+          ]),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 140,
+            child: _loading
+                ? const Center(
+                    child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: KratosTheme.neon)))
+                : _points.length < 2
+                    ? Center(
+                        child: Text(
+                            'No data yet — collecting samples…',
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: KratosTheme.muted)),
+                      )
+                    : _buildChart(),
           ),
-          borderData: FlBorderData(show: false),
-          minY: minY,
-          maxY: maxY,
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              color: KratosTheme.neon,
-              barWidth: 2,
-              isStrokeCapRound: true,
-              dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(
-                show: true,
-                color: KratosTheme.neon.withOpacity(0.1),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  String _formatHashrate(double v) {
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}T';
-    if (v >= 1) return '${v.toStringAsFixed(0)}G';
-    return '${(v * 1000).toStringAsFixed(0)}M';
+  Widget _buildChart() {
+    final firstMs = _points.first.ts.millisecondsSinceEpoch.toDouble();
+    final lastMs = _points.last.ts.millisecondsSinceEpoch.toDouble();
+    final spots = _points
+        .map((p) => FlSpot(
+            p.ts.millisecondsSinceEpoch.toDouble(), p.hashrate))
+        .toList();
+    final values = _points.map((p) => p.hashrate);
+    final minV = values.reduce((a, b) => a < b ? a : b);
+    final maxV = values.reduce((a, b) => a > b ? a : b);
+    final pad = (maxV - minV).abs() < 1e-6 ? maxV * 0.05 + 1 : (maxV - minV) * 0.1;
+    final minY = (minV - pad).clamp(0, double.infinity).toDouble();
+    final maxY = maxV + pad;
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          horizontalInterval: (maxY - minY) / 4,
+          getDrawingHorizontalLine: (_) =>
+              FlLine(color: KratosTheme.border, strokeWidth: 0.5),
+          drawVerticalLine: false,
+        ),
+        titlesData: FlTitlesData(
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 48,
+              getTitlesWidget: (val, _) => Text(
+                _formatHashrate(val),
+                style: const TextStyle(
+                    fontSize: 9, color: Color(0xFF6e7681)),
+              ),
+            ),
+          ),
+          rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 22,
+              interval: (lastMs - firstMs) / 3,
+              getTitlesWidget: (val, _) {
+                final dt = DateTime.fromMillisecondsSinceEpoch(val.toInt());
+                return Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(_formatTime(dt),
+                      style: const TextStyle(
+                          fontSize: 9, color: Color(0xFF6e7681))),
+                );
+              },
+            ),
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        minX: firstMs,
+        maxX: lastMs,
+        minY: minY,
+        maxY: maxY,
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            color: KratosTheme.neon,
+            barWidth: 2,
+            isStrokeCapRound: true,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: KratosTheme.neon.withOpacity(0.1),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime dt) {
+    if (_tf == _Tf.d7) {
+      const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return wd[(dt.weekday - 1) % 7];
+    }
+    if (_tf == _Tf.h24) {
+      return '${dt.hour.toString().padLeft(2, '0')}:00';
+    }
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+String _formatHashrate(double v) {
+  if (v >= 1000) return '${(v / 1000).toStringAsFixed(1)}T';
+  if (v >= 1) return '${v.toStringAsFixed(0)}G';
+  return '${(v * 1000).toStringAsFixed(0)}M';
+}
+
+class _TfPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _TfPill(
+      {required this.label, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected
+              ? KratosTheme.neon.withOpacity(0.12)
+              : KratosTheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: selected
+                  ? KratosTheme.neon.withOpacity(0.5)
+                  : KratosTheme.border),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+            color: selected ? KratosTheme.neon : KratosTheme.muted,
+          ),
+        ),
+      ),
+    );
   }
 }
 
