@@ -52,10 +52,12 @@ class RelayService extends ChangeNotifier {
       onError: (e) {
         _setState(RelayState.disconnected);
         _failPendingCompleters('WebSocket error: $e');
+        _scheduleAutoReconnect();
       },
       onDone: () {
         _setState(RelayState.disconnected);
         _failPendingCompleters('WebSocket closed');
+        _scheduleAutoReconnect();
       },
     );
 
@@ -77,6 +79,9 @@ class RelayService extends ChangeNotifier {
   Future<void> disconnect() async {
     _pingTimer?.cancel();
     _pingTimer = null;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _reconnectAttempts = 0;
     await _sub?.cancel();
     _sub = null;
     await _channel?.sink.close();
@@ -184,6 +189,25 @@ class RelayService extends ChangeNotifier {
         throw TimeoutException('Relay command timed out', const Duration(seconds: 15));
       },
     );
+  }
+
+  // ── Auto-reconnect ─────────────────────────────────────────────────────────
+
+  Timer? _reconnectTimer;
+  int _reconnectAttempts = 0;
+
+  void _scheduleAutoReconnect() {
+    _reconnectTimer?.cancel();
+    if (accessKey == null || accessKey!.isEmpty) return;
+    // Exponential backoff: 3s, 6s, 12s… capped at 60s
+    final delay = Duration(seconds: (3 * (1 << _reconnectAttempts.clamp(0, 4))));
+    _reconnectTimer = Timer(delay, () async {
+      if (_state == RelayState.disconnected && accessKey != null) {
+        _reconnectAttempts++;
+        await connect(accessKey!);
+        if (_state != RelayState.disconnected) _reconnectAttempts = 0;
+      }
+    });
   }
 
   // ── Ping / keepalive ──────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import 'pools_screen.dart';
 import 'chat_screen.dart';
 import 'settings_screen.dart';
 import 'add_miner_screen.dart';
+import '../services/relay_service.dart';
 
 /// Kratos v2 root: 5-tab IndexedStack hub. No "Shop" tab.
 /// Tabs: Volt (overview) · Miners · Pools · Chat · Settings.
@@ -21,9 +22,32 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _index = 0;
   Miner? _celebratedMiner; // currently shown FallingBlockOverlay (if any)
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Reconnect relay if it was dropped while app was in background
+      final relay = RelayService.instance;
+      if (relay.state == RelayState.disconnected && relay.accessKey != null) {
+        relay.reconnectSaved();
+      }
+    }
+  }
 
   @override
   void didChangeDependencies() {
