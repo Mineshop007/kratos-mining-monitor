@@ -179,6 +179,9 @@ class MinerStore extends ChangeNotifier {
 
   // ── Persistence ──────────────────────────────────────────────────────────
 
+  /// Public save — call after mutating a miner's mutable fields in place.
+  Future<void> save() => _save();
+
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     final data = jsonEncode(miners.map((m) => m.toJson()).toList());

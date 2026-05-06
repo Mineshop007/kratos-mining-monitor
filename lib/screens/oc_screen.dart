@@ -4,6 +4,9 @@ import '../models/miner.dart';
 import '../services/cgminer_api.dart';
 import '../services/esp_miner_api.dart';
 import '../services/autotune_service.dart';
+import '../services/oc_community_service.dart';
+import '../services/miner_store.dart';
+import 'package:provider/provider.dart';
 
 class OCScreen extends StatefulWidget {
   final Miner miner;
@@ -422,13 +425,108 @@ class _OCScreenState extends State<OCScreen> {
   }
 
   void _startAutotune() {
-    showModalBottomSheet(
+    final m = widget.miner;
+    void openSheet() {
+      // Default hint = current freq if known, else midpoint
+      final defaultHint = (widget.stats?.frequency != null && widget.stats!.frequency > 0)
+          ? widget.stats!.frequency.toInt()
+          : ((_freqMin + _freqMax) ~/ 2);
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: KratosTheme.surface,
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (_) => _AutotuneSheet(
+          miner: m,
+          freqMin: _freqMin,
+          freqMax: _freqMax,
+          defaultHint: defaultHint,
+        ),
+      );
+    }
+
+    if (m.psuWatts == null) {
+      showDialog<void>(
+        context: context,
+        builder: (dCtx) => AlertDialog(
+          backgroundColor: KratosTheme.surface,
+          title: const Text('No PSU rating set',
+              style: TextStyle(color: KratosTheme.textPrim, fontSize: 16)),
+          content: const Text(
+            '⚠️ Autotune may exceed nominal power. Set PSU watts to enable the 90% safety cap, or continue without protection.',
+            style: TextStyle(color: KratosTheme.muted, fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dCtx);
+                _showSetPsuDialog();
+              },
+              child: const Text('Set PSU',
+                  style: TextStyle(color: KratosTheme.orange)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dCtx);
+                openSheet();
+              },
+              child: const Text('Continue Anyway',
+                  style: TextStyle(color: KratosTheme.muted)),
+            ),
+          ],
+        ),
+      );
+    } else {
+      openSheet();
+    }
+  }
+
+  void _showSetPsuDialog() {
+    final ctrl = TextEditingController(
+        text: widget.miner.psuWatts?.toString() ?? '');
+    showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: KratosTheme.surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _AutotuneSheet(miner: widget.miner),
+      builder: (dCtx) => AlertDialog(
+        backgroundColor: KratosTheme.surface,
+        title: const Text('PSU Rating (Watts)',
+            style: TextStyle(color: KratosTheme.textPrim, fontSize: 16)),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          style: const TextStyle(color: KratosTheme.textPrim),
+          decoration: const InputDecoration(
+            hintText: 'e.g. 200',
+            hintStyle: TextStyle(color: KratosTheme.muted),
+            suffixText: 'W',
+            suffixStyle: TextStyle(color: KratosTheme.muted),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx),
+            child: const Text('Cancel',
+                style: TextStyle(color: KratosTheme.muted)),
+          ),
+          TextButton(
+            onPressed: () {
+              final w = int.tryParse(ctrl.text.trim());
+              if (w != null && w > 0) {
+                widget.miner.psuWatts = w;
+                // Persist via MinerStore if available in tree
+                try {
+                  Provider.of<MinerStore>(context, listen: false).save();
+                } catch (_) {}
+                Navigator.pop(dCtx);
+                setState(() {});
+              }
+            },
+            child: const Text('Save',
+                style: TextStyle(color: KratosTheme.orange)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -492,23 +590,66 @@ class _FreqPreset {
 
 class _AutotuneSheet extends StatefulWidget {
   final Miner miner;
-  const _AutotuneSheet({required this.miner});
+  final int freqMin;
+  final int freqMax;
+  final int defaultHint;
+  const _AutotuneSheet({
+    required this.miner,
+    required this.freqMin,
+    required this.freqMax,
+    required this.defaultHint,
+  });
 
   @override
   State<_AutotuneSheet> createState() => _AutotuneSheetState();
 }
 
 class _AutotuneSheetState extends State<_AutotuneSheet> {
-  final _svc = AutotuneService();
+  final _svc = AutotuneService.instance;
   final _logScrollCtrl = ScrollController();
+  late int _hintFreq = widget.defaultHint;
+  bool _started = false;
+  bool _shareToCommunity = true;
+  bool _submitted = false;
+  OcSummary? _summary;
 
   @override
   void initState() {
     super.initState();
     _svc.addListener(_onUpdate);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _svc.run(widget.miner);
-    });
+    // If autotune is already running for this miner, don't restart it
+    if (_svc.state == AutotuneState.running &&
+        _svc.activeMinerName == widget.miner.name) {
+      _started = true;
+    }
+    _loadSummary();
+  }
+
+  Future<void> _loadSummary() async {
+    final s = await OcCommunityService.instance.getSummary(widget.miner.type);
+    if (mounted) setState(() => _summary = s);
+  }
+
+  Future<void> _start() async {
+    setState(() => _started = true);
+    await _svc.run(
+      widget.miner,
+      psuWatts: widget.miner.psuWatts,
+      hintFreqMhz: _hintFreq,
+    );
+    // After done, optionally submit
+    if (_svc.state == AutotuneState.done &&
+        _svc.result != null &&
+        _shareToCommunity &&
+        !_submitted) {
+      _submitted = true;
+      OcCommunityService.instance.submitResult(
+        _svc.result!,
+        widget.miner.type,
+        '', // firmware unknown here
+      );
+      _loadSummary();
+    }
   }
 
   void _onUpdate() {
@@ -530,7 +671,7 @@ class _AutotuneSheetState extends State<_AutotuneSheet> {
   @override
   void dispose() {
     _svc.removeListener(_onUpdate);
-    _svc.dispose();
+    // Singleton — don't dispose
     _logScrollCtrl.dispose();
     super.dispose();
   }
@@ -611,6 +752,111 @@ class _AutotuneSheetState extends State<_AutotuneSheet> {
               ),
           ]),
           const SizedBox(height: 12),
+
+          // ── Pre-start: hint slider ────────────────────────────────
+          if (!_started) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: KratosTheme.bg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: KratosTheme.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Text('Starting hint',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: KratosTheme.muted,
+                            letterSpacing: 0.8)),
+                    const Spacer(),
+                    Text('$_hintFreq MHz',
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: KratosTheme.purple,
+                            fontFamily: 'Courier')),
+                  ]),
+                  Slider(
+                    activeColor: KratosTheme.purple,
+                    inactiveColor: KratosTheme.border,
+                    value: _hintFreq
+                        .clamp(widget.freqMin, widget.freqMax)
+                        .toDouble(),
+                    min: widget.freqMin.toDouble(),
+                    max: widget.freqMax.toDouble(),
+                    divisions: (widget.freqMax - widget.freqMin) ~/ 5,
+                    label: '$_hintFreq MHz',
+                    onChanged: (v) =>
+                        setState(() => _hintFreq = v.round()),
+                  ),
+                  const Text(
+                    'Narrows sweep to ±40 MHz, ~10 min vs ~33 min',
+                    style: TextStyle(
+                        fontSize: 10, color: KratosTheme.muted),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    Switch(
+                      value: _shareToCommunity,
+                      activeColor: KratosTheme.purple,
+                      onChanged: (v) =>
+                          setState(() => _shareToCommunity = v),
+                    ),
+                    const SizedBox(width: 6),
+                    const Expanded(
+                      child: Text(
+                        'Share result to community OC database',
+                        style: TextStyle(
+                            fontSize: 11, color: KratosTheme.muted),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: KratosTheme.purple,
+                        foregroundColor: Colors.black,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      onPressed: _start,
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Start Autotune',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_summary != null && _summary!.count > 0) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: KratosTheme.blue.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: KratosTheme.blue.withOpacity(0.25)),
+                ),
+                child: Text(
+                  'Community results for ${widget.miner.type.displayName}: '
+                  'avg ${_summary!.avgFreq.toStringAsFixed(0)} MHz · '
+                  'best ${(_summary!.bestFreq ?? 0)} MHz · '
+                  '${_summary!.count} results',
+                  style: const TextStyle(
+                      fontSize: 11, color: KratosTheme.blue),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+          ],
 
           // Progress bar
           ClipRRect(

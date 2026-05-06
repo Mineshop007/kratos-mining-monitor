@@ -4,6 +4,7 @@ import '../models/miner.dart';
 import '../services/miner_store.dart';
 import '../services/cgminer_api.dart';
 import '../services/esp_miner_api.dart';
+import '../services/autotune_service.dart';
 import 'sparkline.dart';
 import 'miner_icon.dart';
 
@@ -124,6 +125,7 @@ class _MinerCardState extends State<MinerCard>
                       status: status,
                       pulseAnim: _pulseAnim,
                     ),
+                    _AutotuneChip(minerName: widget.miner.name),
                     Container(height: 1, color: const Color(0xFF21262d)),
                     _CardStats(stats: s),
                     // Sparkline + earnings footer
@@ -998,4 +1000,84 @@ class _VertDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       Container(width: 1, height: 38, color: const Color(0xFF21262d));
+}
+
+// ── Autotune in-progress chip ─────────────────────────────────────────────────
+
+class _AutotuneChip extends StatefulWidget {
+  final String minerName;
+  const _AutotuneChip({required this.minerName});
+
+  @override
+  State<_AutotuneChip> createState() => _AutotuneChipState();
+}
+
+class _AutotuneChipState extends State<_AutotuneChip>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: AutotuneService.instance,
+      builder: (_, __) {
+        final svc = AutotuneService.instance;
+        final isActive = svc.state == AutotuneState.running &&
+            svc.activeMinerName == widget.minerName;
+        if (!isActive) return const SizedBox.shrink();
+        final pct = (svc.progress * 100).clamp(0, 100).toInt();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+          child: AnimatedBuilder(
+            animation: _pulse,
+            builder: (_, __) => Opacity(
+              opacity: 0.5 + 0.5 * _pulse.value,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFA500).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: const Color(0xFFFFA500).withOpacity(0.4)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('⚡',
+                        style: TextStyle(fontSize: 11)),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Autotuning… $pct%',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFFFA500),
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 }

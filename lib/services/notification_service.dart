@@ -89,6 +89,14 @@ class NotificationService {
     );
   }
 
+  void notifyAutotuneComplete(String minerName, String result) {
+    _show(
+      (minerName.hashCode + 4) & 0x7FFFFFFF,
+      'Autotune Complete ✅',
+      '$minerName → $result',
+    );
+  }
+
   void notifyPoolSwitched(String minerName) {
     if (!notifyPoolSwitch) return;
     _show(
