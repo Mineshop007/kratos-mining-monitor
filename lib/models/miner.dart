@@ -17,6 +17,7 @@ enum MinerType {
   antminer,
   whatsminer,
   goldshell,
+  luckyMiner,
   generic;
 
   String get displayName => switch (this) {
@@ -32,12 +33,13 @@ enum MinerType {
     antminer     => 'Antminer',
     whatsminer   => 'Whatsminer',
     goldshell    => 'Goldshell',
+    luckyMiner   => 'Lucky Miner',
     generic      => 'Miner',
   };
 
   // ESP-Miner HTTP (port 80) for BitAxe family; cgminer TCP (port 4028) for everything else
   ApiType get apiType => switch (this) {
-    bitaxeGamma || bitaxeUltra || bitaxeGT || nerdqaxe || nerdoctaxe =>
+    bitaxeGamma || bitaxeUltra || bitaxeGT || nerdqaxe || nerdoctaxe || luckyMiner =>
         ApiType.espMinerHttp,
     _ => ApiType.cgminerTcp,
   };
@@ -60,6 +62,8 @@ enum MinerType {
     if (m.contains('antminer') || m.contains('bitmain')) return antminer;
     if (m.contains('whatsminer') || m.contains('microbt')) return whatsminer;
     if (m.contains('goldshell')) return goldshell;
+    if (m.contains('lucky')) return luckyMiner;
+    if (m.contains('rev6') || m.contains('nerd') && m.contains('rev')) return nerdqaxe;
     return generic;
   }
 }
