@@ -1,252 +1,333 @@
 #!/usr/bin/env python3
 """
-Kratos Link — Home Network Bridge
+Kratos Link — Home Network Bridge  v1.1
 Run this on any PC/Mac/Pi on the same network as your miners.
-It connects to the Kratos Relay and forwards commands to your miners.
+It discovers ALL miner types (BitAxe, NerdAxe, LuckyMiner, Avalon, Antminer…)
+and bridges them to the Kratos app via secure relay.
 
-Usage: python3 kratos_link.py --key YOUR_ACCESS_KEY
-       python3 kratos_link.py --key YOUR_ACCESS_KEY --relay wss://kratos.mineshop.eu/relay
+Usage:
+  python3 kratos_link.py --generate-key          # get a new key
+  python3 kratos_link.py --key YOUR_KEY           # start bridge
 
 Download: https://kratos.mineshop.eu/link
 """
 
-import asyncio
-import json
-import logging
-import sys
-import socket
-import ipaddress
-import argparse
-import secrets
-import time
+import asyncio, json, logging, sys, socket, ipaddress, argparse, secrets
 from typing import Optional
-import aiohttp
-import websockets
+import aiohttp, websockets
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 log = logging.getLogger('kratos-link')
 
-RELAY_URL = 'wss://kratos.mineshop.eu/relay'
-DISCOVERY_PORTS = [80]  # ESP-Miner port
-DISCOVERY_TIMEOUT = 1.5
-RECONNECT_DELAY = 5
+RELAY_URL          = 'wss://kratos.mineshop.eu/relay'
+DISCOVERY_TIMEOUT  = 2.0   # seconds per host
+CGMINER_TIMEOUT    = 1.5
+RECONNECT_DELAY    = 5
+REDISCOVER_EVERY   = 120   # seconds
 
+# ── Probe helpers ──────────────────────────────────────────────────────────────
 
-async def check_miner(session: aiohttp.ClientSession, ip: str) -> Optional[dict]:
-    """Check if an IP hosts an ESP-Miner or cgminer device"""
-    for port in DISCOVERY_PORTS:
+async def probe_esp_miner(session: aiohttp.ClientSession, ip: str, port=80) -> Optional[dict]:
+    """BitAxe / NerdAxe / LuckyMiner — ESP-Miner HTTP API on port 80"""
+    paths = ['/api/system/info', '/api/system', '/']
+    for path in paths:
         try:
-            url = f'http://{ip}:{port}/api/system/info'
+            url = f'http://{ip}:{port}{path}'
             async with session.get(url, timeout=aiohttp.ClientTimeout(total=DISCOVERY_TIMEOUT)) as r:
-                if r.status == 200:
-                    data = await r.json(content_type=None)
-                    return {
-                        'ip': ip,
-                        'port': port,
-                        'type': 'esp_miner',
-                        'model': data.get('boardVersion', data.get('deviceModel', 'Unknown')),
-                        'hashrate': data.get('hashRate', 0),
-                        'firmware': data.get('version', ''),
-                    }
+                if r.status != 200:
+                    continue
+                data = await r.json(content_type=None)
+                if not isinstance(data, dict):
+                    continue
+                # Must have at least one miner-specific key
+                if not any(k in data for k in ('hashRate', 'hashRate_1m', 'avgHashRate',
+                                                'boardVersion', 'deviceModel', 'ASICModel',
+                                                'hostname', 'version', 'uptimeSeconds')):
+                    continue
+                hostname = (data.get('hostname') or data.get('boardVersion') or
+                            data.get('deviceModel') or data.get('ASICModel') or f'Miner@{ip}')
+                return {
+                    'ip': ip, 'port': port, 'protocol': 'esp_miner',
+                    'model': str(hostname).strip(),
+                    'hashrate': data.get('hashRate_1m') or data.get('hashRate') or data.get('avgHashRate') or 0,
+                    'firmware': data.get('version', ''),
+                }
         except Exception:
             pass
     return None
 
 
+async def probe_cgminer_tcp(ip: str, port=4028) -> Optional[dict]:
+    """LuckyMiner / Avalon / Antminer / Whatsminer — cgminer TCP API on port 4028"""
+    try:
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(ip, port), timeout=CGMINER_TIMEOUT)
+        writer.write(b'{"command":"summary"}\n')
+        await writer.drain()
+        buf = b''
+        try:
+            while True:
+                chunk = await asyncio.wait_for(reader.read(4096), timeout=CGMINER_TIMEOUT)
+                if not chunk:
+                    break
+                buf += chunk
+                if b'SUMMARY' in buf:
+                    break
+        except asyncio.TimeoutError:
+            pass
+        writer.close()
+        try:
+            writer.close()
+        except Exception:
+            pass
+
+        if not buf:
+            return None
+        raw = buf.decode('utf-8', errors='ignore').rstrip('\x00').strip()
+        if not raw:
+            return None
+        data = json.loads(raw)
+        summary = (data.get('SUMMARY') or [{}])[0]
+        # Try to get model via devdetails command
+        model = f'CGMiner@{ip}'
+        try:
+            reader2, writer2 = await asyncio.wait_for(
+                asyncio.open_connection(ip, port), timeout=CGMINER_TIMEOUT)
+            writer2.write(b'{"command":"devdetails"}\n')
+            await writer2.drain()
+            buf2 = b''
+            try:
+                while True:
+                    chunk2 = await asyncio.wait_for(reader2.read(4096), timeout=CGMINER_TIMEOUT)
+                    if not chunk2:
+                        break
+                    buf2 += chunk2
+                    if b'DEVDETAILS' in buf2:
+                        break
+            except asyncio.TimeoutError:
+                pass
+            writer2.close()
+            raw2 = buf2.decode('utf-8', errors='ignore').rstrip('\x00').strip()
+            if raw2:
+                d2 = json.loads(raw2)
+                devs = (d2.get('DEVDETAILS') or [{}])
+                if devs:
+                    model = devs[0].get('Model') or devs[0].get('Name') or model
+        except Exception:
+            pass
+
+        hashrate = summary.get('GHS 1m') or summary.get('GHS 5m') or summary.get('GHS av') or 0
+        return {
+            'ip': ip, 'port': port, 'protocol': 'cgminer_tcp',
+            'model': model,
+            'hashrate': float(hashrate) * 1000 if hashrate else 0,  # GH/s → MH/s
+            'firmware': '',
+        }
+    except Exception:
+        return None
+
+
+async def check_host(session: aiohttp.ClientSession, ip: str) -> Optional[dict]:
+    """Try all protocols concurrently for a single IP"""
+    results = await asyncio.gather(
+        probe_esp_miner(session, ip, 80),
+        probe_cgminer_tcp(ip, 4028),
+        return_exceptions=True
+    )
+    for r in results:
+        if isinstance(r, dict):
+            return r
+    return None
+
+
 async def discover_miners() -> list:
-    """Scan local subnet for ESP-Miner devices"""
-    log.info('Discovering miners on local network...')
-    
-    # Get local IP to determine subnet
+    log.info('Scanning local network for miners…')
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s.connect(('8.8.8.8', 80))
         local_ip = s.getsockname()[0]
         s.close()
     except Exception:
-        log.warning('Could not determine local IP')
+        log.warning('Cannot determine local IP')
         return []
-    
-    # Scan /24 subnet
+
     network = ipaddress.IPv4Network(f'{local_ip}/24', strict=False)
-    log.info(f'Scanning {network} ({len(list(network.hosts()))} hosts)...')
-    
+    hosts   = list(network.hosts())
+    log.info(f'Subnet: {network}  ({len(hosts)} hosts, probing port 80 + 4028 concurrently)')
+
     miners = []
-    connector = aiohttp.TCPConnector(limit=50)
+    connector = aiohttp.TCPConnector(limit=60, ssl=False)
     async with aiohttp.ClientSession(connector=connector) as session:
-        tasks = [check_miner(session, str(host)) for host in network.hosts()]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        for r in results:
-            if isinstance(r, dict):
-                miners.append(r)
-                log.info(f'  Found: {r["model"]} at {r["ip"]}:{r["port"]}')
-    
-    log.info(f'Discovery complete: {len(miners)} miners found')
+        # Scan in batches of 30 to avoid overwhelming home routers
+        batch = 30
+        for i in range(0, len(hosts), batch):
+            tasks = [check_host(session, str(h)) for h in hosts[i:i+batch]]
+            for result in await asyncio.gather(*tasks, return_exceptions=True):
+                if isinstance(result, dict):
+                    miners.append(result)
+                    log.info(f'  ✅ Found: {result["model"]:30s}  {result["ip"]}:{result["port"]}  ({result["protocol"]})')
+
+    log.info(f'Discovery done — {len(miners)} miner(s) found')
     return miners
 
 
-async def forward_command(cmd: dict, miners: list) -> dict:
-    """Forward a command from app to the target miner"""
-    target_ip = cmd.get('miner_ip')
-    target_port = cmd.get('miner_port', 80)
-    method = cmd.get('method', 'GET').upper()
-    path = cmd.get('path', '/api/system/info')
-    body = cmd.get('body')
-    req_id = cmd.get('request_id', '')
-    
-    url = f'http://{target_ip}:{target_port}{path}'
-    
+# ── Command forwarding ────────────────────────────────────────────────────────
+
+async def forward_command(cmd: dict) -> dict:
+    ip, port = cmd.get('miner_ip'), cmd.get('miner_port', 80)
+    method   = cmd.get('method', 'GET').upper()
+    path     = cmd.get('path', '/api/system/info')
+    body     = cmd.get('body')
+    req_id   = cmd.get('request_id', '')
+    protocol = cmd.get('protocol', 'esp_miner')
+
+    # cgminer TCP commands
+    if port == 4028 or protocol == 'cgminer_tcp':
+        cgcmd = path.lstrip('/').replace('/', ',') or 'summary'
+        try:
+            reader, writer = await asyncio.wait_for(
+                asyncio.open_connection(ip, port), timeout=8)
+            writer.write(json.dumps({'command': cgcmd}).encode() + b'\n')
+            await writer.drain()
+            buf = b''
+            try:
+                while True:
+                    chunk = await asyncio.wait_for(reader.read(8192), timeout=5)
+                    if not chunk:
+                        break
+                    buf += chunk
+            except asyncio.TimeoutError:
+                pass
+            writer.close()
+            raw = buf.decode('utf-8', errors='ignore').rstrip('\x00')
+            return {'type': 'response', 'request_id': req_id,
+                    'status': 200, 'data': json.loads(raw) if raw else {}}
+        except Exception as e:
+            return {'type': 'response', 'request_id': req_id, 'status': 0, 'error': str(e)}
+
+    # HTTP commands (ESP-Miner, Avalon HTTP, etc.)
+    url = f'http://{ip}:{port}{path}'
     try:
         async with aiohttp.ClientSession() as session:
-            kwargs = {
-                'timeout': aiohttp.ClientTimeout(total=10),
-                'headers': {'Content-Type': 'application/json'} if body else {},
-            }
+            kw = {'timeout': aiohttp.ClientTimeout(total=10)}
             if body:
-                kwargs['json'] = body
-            
-            async with session.request(method, url, **kwargs) as r:
+                kw['json'] = body
+                kw['headers'] = {'Content-Type': 'application/json'}
+            async with session.request(method, url, **kw) as r:
                 try:
                     data = await r.json(content_type=None)
                 except Exception:
                     data = {'raw': await r.text()}
-                
-                return {
-                    'type': 'response',
-                    'request_id': req_id,
-                    'status': r.status,
-                    'data': data,
-                }
+                return {'type': 'response', 'request_id': req_id, 'status': r.status, 'data': data}
     except Exception as e:
-        return {
-            'type': 'response',
-            'request_id': req_id,
-            'status': 0,
-            'error': str(e),
-        }
+        return {'type': 'response', 'request_id': req_id, 'status': 0, 'error': str(e)}
 
+
+# ── Relay bridge loop ─────────────────────────────────────────────────────────
 
 async def run_bridge(key: str, relay_url: str):
-    """Main bridge loop — connects to relay and handles commands"""
     ws_url = f'{relay_url}/bridge/{key}'
-    miners = []
-    
-    # Initial discovery
     miners = await discover_miners()
-    
+
     while True:
-        log.info(f'Connecting to relay at {ws_url}')
+        log.info(f'Connecting → {ws_url}')
         try:
-            async with websockets.connect(
-                ws_url,
-                ping_interval=20,
-                ping_timeout=10,
-                open_timeout=10,
-            ) as ws:
-                log.info('✅ Connected to Kratos Relay')
-                
-                # Announce miners immediately
-                await ws.send(json.dumps({
-                    'type': 'miners',
-                    'miners': miners,
-                }))
-                
-                # Periodic re-discovery task
-                async def rediscover():
+            async with websockets.connect(ws_url, ping_interval=20, ping_timeout=10, open_timeout=10) as ws:
+                log.info('✅ Bridge connected — sending miner list to app…')
+                await ws.send(json.dumps({'type': 'miners', 'miners': miners}))
+
+                async def rediscover_loop():
                     nonlocal miners
                     while True:
-                        await asyncio.sleep(120)  # re-scan every 2 min
+                        await asyncio.sleep(REDISCOVER_EVERY)
                         miners = await discover_miners()
                         try:
                             await ws.send(json.dumps({'type': 'miners', 'miners': miners}))
                         except Exception:
                             break
-                
-                rediscover_task = asyncio.create_task(rediscover())
-                
+
+                task = asyncio.create_task(rediscover_loop())
                 try:
                     async for raw in ws:
                         try:
                             msg = json.loads(raw)
                         except Exception:
                             continue
-                        
-                        msg_type = msg.get('type')
-                        
-                        if msg_type == 'command':
-                            log.info(f'Command: {msg.get("method","?")} {msg.get("path","?")} → {msg.get("miner_ip","?")}')
-                            response = await forward_command(msg, miners)
-                            await ws.send(json.dumps(response))
-                        
-                        elif msg_type == 'ping':
+                        t = msg.get('type')
+                        if t == 'command':
+                            log.info(f'→ {msg.get("method","?")} {msg.get("path","?")} @ {msg.get("miner_ip","?")}')
+                            resp = await forward_command(msg)
+                            await ws.send(json.dumps(resp))
+                        elif t == 'ping':
                             await ws.send(json.dumps({'type': 'pong'}))
-                        
-                        elif msg_type == 'rediscover':
+                        elif t == 'rediscover':
                             miners = await discover_miners()
                             await ws.send(json.dumps({'type': 'miners', 'miners': miners}))
-                
                 finally:
-                    rediscover_task.cancel()
-        
+                    task.cancel()
         except websockets.exceptions.ConnectionClosed as e:
-            log.warning(f'Connection closed: {e}. Reconnecting in {RECONNECT_DELAY}s...')
+            log.warning(f'Connection closed: {e} — retry in {RECONNECT_DELAY}s')
         except Exception as e:
-            log.error(f'Error: {e}. Reconnecting in {RECONNECT_DELAY}s...')
-        
+            log.error(f'Error: {e} — retry in {RECONNECT_DELAY}s')
         await asyncio.sleep(RECONNECT_DELAY)
 
 
-def generate_key() -> str:
-    return secrets.token_urlsafe(16)
-
+# ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Kratos Link — Bridge your miners to the Kratos app remotely',
+        description='Kratos Link — bridge your home miners to the Kratos app',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python3 kratos_link.py --key mykey123
   python3 kratos_link.py --generate-key
-  python3 kratos_link.py --key mykey123 --relay wss://kratos.mineshop.eu/relay
-        """
-    )
-    parser.add_argument('--key', help='Access key (get from Kratos app → Settings → Remote Access)')
-    parser.add_argument('--relay', default=RELAY_URL, help=f'Relay server URL (default: {RELAY_URL})')
-    parser.add_argument('--generate-key', action='store_true', help='Generate a new random key')
+  python3 kratos_link.py --key mykey123
+        """)
+    parser.add_argument('--key',           help='Access key (paste into Kratos → Remote Access)')
+    parser.add_argument('--relay',         default=RELAY_URL, help=f'Relay URL (default: {RELAY_URL})')
+    parser.add_argument('--generate-key',  action='store_true', help='Generate and print a new key')
     args = parser.parse_args()
-    
-    if args.generate_key:
-        key = generate_key()
-        print(f'\n🔑 Your Kratos Link key: {key}')
-        print(f'   Enter this in Kratos → Settings → Remote Access → Add Key')
-        print(f'   Then run: python3 kratos_link.py --key {key}\n')
-        return
-    
-    if not args.key:
-        print('Error: --key required. Get it from Kratos app → Settings → Remote Access')
-        print('       Or generate one: python3 kratos_link.py --generate-key')
-        sys.exit(1)
-    
-    print(f'''
-╔══════════════════════════════════════╗
-║         KRATOS LINK v1.0             ║
-║   Remote Mining Monitor & Control   ║
-╚══════════════════════════════════════╝
-Key:   {args.key[:8]}...
-Relay: {args.relay}
 
-Press Ctrl+C to stop
-''')
-    
+    if args.generate_key:
+        key = secrets.token_urlsafe(12)
+        print(f"""
+╔══════════════════════════════════════════╗
+║         KRATOS LINK — NEW KEY            ║
+╚══════════════════════════════════════════╝
+
+  🔑  Your key:  {key}
+
+  1. Open Kratos app → Settings → Remote Access
+  2. Paste this key and tap Connect
+  3. Then run:
+
+     python3 kratos_link.py --key {key}
+
+""")
+        return
+
+    if not args.key:
+        print('\nError: --key required.\n')
+        print('  Generate a key:  python3 kratos_link.py --generate-key')
+        print('  Then run:        python3 kratos_link.py --key <your-key>\n')
+        sys.exit(1)
+
+    print(f"""
+╔══════════════════════════════════════════╗
+║         KRATOS LINK  v1.1                ║
+╚══════════════════════════════════════════╝
+  Key:   {args.key}
+  Relay: {args.relay}
+
+  Scanning your network for miners…
+  (Leave this window open while using remote access)
+
+  Press Ctrl+C to stop
+""")
     try:
         asyncio.run(run_bridge(args.key, args.relay))
     except KeyboardInterrupt:
         print('\nKratos Link stopped.')
-
 
 if __name__ == '__main__':
     main()
