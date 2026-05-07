@@ -36,10 +36,10 @@ class MinerStore extends ChangeNotifier {
     _schedulePriceRefresh();
   }
 
-  void add(Miner miner) {
+  void add(Miner miner, {bool warmUp = false}) {
     miners.add(miner);
     _save();
-    _startPolling(miner);
+    _startPolling(miner, warmUp: warmUp);
     notifyListeners();
   }
 
@@ -148,11 +148,31 @@ class MinerStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _startPolling(Miner miner) {
+  void _startPolling(Miner miner, {bool warmUp = false}) {
     _timers[miner.id]?.cancel();
-    _fetch(miner);
-    _timers[miner.id] =
-        Timer.periodic(const Duration(seconds: 30), (_) => _fetch(miner));
+    if (warmUp) {
+      // Freshly discovered miner: give the ESP32 a 2 s breather after being
+      // probed by the scanner, then retry quickly if still offline.
+      Future.delayed(const Duration(seconds: 2), () {
+        if (_disposed) return;
+        _fetch(miner);
+        // Fast-retry: if still offline after 5 s, try once more before
+        // settling into the regular 30 s cadence.
+        Future.delayed(const Duration(seconds: 5), () {
+          if (_disposed) return;
+          if (stats[miner.id]?.status == MinerStatus.offline ||
+              stats[miner.id] == null) {
+            _fetch(miner);
+          }
+          _timers[miner.id] =
+              Timer.periodic(const Duration(seconds: 30), (_) => _fetch(miner));
+        });
+      });
+    } else {
+      _fetch(miner);
+      _timers[miner.id] =
+          Timer.periodic(const Duration(seconds: 30), (_) => _fetch(miner));
+    }
   }
 
   void _schedulePriceRefresh() {

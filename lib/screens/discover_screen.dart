@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:network_info_plus/network_info_plus.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../theme/volt_theme.dart';
@@ -28,6 +29,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   final Set<String> _added = {};
   bool _scanning = true;
   String _phase = 'looking up mDNS…';
+  String? _currentSubnet;          // shown in UI so user knows what’s being scanned
+  bool _showManualSubnet = false;  // toggle manual subnet input
+  final _subnetCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -37,18 +41,39 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   @override
   void dispose() {
+    _subnetCtrl.dispose();
     _sub?.cancel();
     super.dispose();
   }
 
-  Future<void> _start() async {
+  Future<void> _start({String? manualSubnet}) async {
+    // Resolve subnet for display
+    if (manualSubnet != null) {
+      _currentSubnet = manualSubnet;
+    } else {
+      try {
+        final ip = await _getWifiIp();
+        if (ip != null) {
+          final parts = ip.split('.');
+          if (parts.length == 4) _currentSubnet = '${parts[0]}.${parts[1]}.${parts[2]}.x';
+        } else {
+          _currentSubnet = 'fallback subnets';
+        }
+      } catch (_) {
+        _currentSubnet = 'fallback subnets';
+      }
+    }
+    if (mounted) setState(() {});
+
     try {
-      _sub = LanDiscoveryService.instance.scan().listen(
+      _sub = LanDiscoveryService.instance
+          .scan(manualSubnet: manualSubnet)
+          .listen(
         (m) {
           if (!mounted) return;
           setState(() {
             _found[m.key] = m;
-            _phase = 'sweeping subnet…';
+            _phase = 'found ${_found.length} miner${_found.length == 1 ? '' : 's'}…';
           });
         },
         onDone: () {
@@ -56,25 +81,23 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           setState(() {
             _scanning = false;
             _phase = _found.isEmpty
-                ? 'no miners found on your LAN'
-                : 'scan complete';
+                ? 'no miners found — try a different subnet'
+                : 'scan complete — ${_found.length} found';
           });
         },
         onError: (e) {
           if (!mounted) return;
-          setState(() {
-            _scanning = false;
-            _phase = 'scan error: $e';
-          });
+          setState(() { _scanning = false; _phase = 'scan error: $e'; });
         },
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _scanning = false;
-        _phase = 'scan failed: $e';
-      });
+      setState(() { _scanning = false; _phase = 'scan failed: $e'; });
     }
+  }
+
+  Future<String?> _getWifiIp() async {
+    try { return await NetworkInfo().getWifiIP(); } catch (_) { return null; }
   }
 
   @override
@@ -93,20 +116,28 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 fontWeight: FontWeight.w800,
                 color: KratosColors.text)),
         actions: [
+          // Manual subnet button
           IconButton(
-            icon: const Icon(Icons.refresh_rounded,
-                color: KratosColors.muted),
+            icon: Icon(Icons.edit_outlined,
+                color: _showManualSubnet ? KratosColors.volt : KratosColors.muted),
+            tooltip: 'Set subnet manually',
+            onPressed: () => setState(() => _showManualSubnet = !_showManualSubnet),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: KratosColors.muted),
             tooltip: 'Re-scan',
             onPressed: _scanning
                 ? null
                 : () {
+                    final manual = _subnetCtrl.text.trim().isNotEmpty
+                        ? _subnetCtrl.text.trim() : null;
                     setState(() {
                       _found.clear();
                       _scanning = true;
                       _phase = 'restarting…';
                     });
                     _sub?.cancel();
-                    _start();
+                    _start(manualSubnet: manual);
                   },
           ),
         ],
@@ -114,6 +145,80 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       body: Column(
         children: [
           _StatusBar(scanning: _scanning, phase: _phase),
+          // Subnet info + manual override
+          if (_currentSubnet != null || _showManualSubnet)
+            Container(
+              color: KratosColors.surface.withOpacity(0.5),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_currentSubnet != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, bottom: 4),
+                      child: Text(
+                        '📶 Scanning: $_currentSubnet',
+                        style: const TextStyle(
+                            fontSize: 11, color: KratosColors.muted),
+                      ),
+                    ),
+                  if (_showManualSubnet)
+                    Row(children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _subnetCtrl,
+                          style: const TextStyle(
+                              color: KratosColors.text, fontSize: 13,
+                              fontFamily: 'Courier'),
+                          decoration: InputDecoration(
+                            hintText: 'e.g. 192.168.0  or  10.0.0',
+                            hintStyle: const TextStyle(
+                                color: KratosColors.muted, fontSize: 12),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 8),
+                            filled: true,
+                            fillColor: KratosColors.surface,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                  color: KratosColors.volt, width: 1),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(
+                                  color: KratosColors.volt.withOpacity(0.4)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: KratosColors.volt,
+                          foregroundColor: const Color(0xFF001A0E),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: _scanning ? null : () {
+                          final manual = _subnetCtrl.text.trim();
+                          setState(() {
+                            _found.clear();
+                            _scanning = true;
+                            _phase = 'scanning $manual…';
+                          });
+                          _sub?.cancel();
+                          _start(manualSubnet: manual.isNotEmpty ? manual : null);
+                        },
+                        child: const Text('Scan',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ]),
+                ],
+              ),
+            ),
           Expanded(
             child: discovered.isEmpty && _scanning
                 ? const _ScanningHero()
@@ -147,7 +252,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       setState(() => _added.add(d.key));
       return;
     }
-    store.add(d.toMiner());
+    store.add(d.toMiner(), warmUp: true);
     setState(() => _added.add(d.key));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
