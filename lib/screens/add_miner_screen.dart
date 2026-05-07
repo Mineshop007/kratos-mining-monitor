@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
@@ -24,17 +25,88 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
   MinerType _selectedType = MinerType.generic;
   bool _testing = false;
   bool _scanning = false;
+  bool _autoDetecting = false;   // background probe running
+  bool _autoDetected = false;    // probe succeeded — type was set automatically
   String? _testResult;
   List<String> _discovered = [];
+  Timer? _detectDebounce;
 
   @override
   void initState() {
     super.initState();
-    // Listen to controller so Add button reacts to typing, paste, autocomplete.
     _ipCtrl.addListener(_onIpChanged);
   }
 
-  void _onIpChanged() => setState(() {});
+  void _onIpChanged() {
+    setState(() {
+      _autoDetected = false;  // IP changed — invalidate previous detection
+    });
+    _detectDebounce?.cancel();
+    final ip = _ipCtrl.text.trim();
+    // Auto-detect after 700 ms of no typing, only when IP looks valid
+    if (_isValidIp(ip)) {
+      _detectDebounce = Timer(const Duration(milliseconds: 700), () => _autoDetect(ip));
+    }
+  }
+
+  bool _isValidIp(String ip) {
+    final parts = ip.split('.');
+    if (parts.length != 4) return false;
+    return parts.every((p) {
+      final n = int.tryParse(p);
+      return n != null && n >= 0 && n <= 255;
+    });
+  }
+
+  /// Silently probe the IP and auto-fill type + name. Runs in background.
+  Future<void> _autoDetect(String ip) async {
+    if (!mounted) return;
+    setState(() { _autoDetecting = true; _testResult = null; });
+
+    MinerType detected = MinerType.generic;
+    String detectedName = '';
+
+    // Try ESP-Miner HTTP first (port 80, then 8080)
+    for (final port in [80, 8080]) {
+      final s = await EspMinerAPI.instance
+          .fetchAll(ip, port)
+          .timeout(const Duration(seconds: 4), onTimeout: () => MinerStats.offline);
+      if (s.status != MinerStatus.offline) {
+        detected = s.type != MinerType.generic ? s.type
+            : MinerType.detect(s.model);
+        if (detected == MinerType.generic) detected = MinerType.bitaxeGamma;
+        detectedName = s.model.isNotEmpty ? s.model : detected.displayName;
+        if (port == 8080) _portCtrl.text = '8080';
+        break;
+      }
+    }
+
+    // Fallback: CGMiner TCP
+    if (detected == MinerType.generic) {
+      final s = await CGMinerAPI.instance
+          .fetchAll(ip, 4028)
+          .timeout(const Duration(seconds: 3), onTimeout: () => MinerStats.offline);
+      if (s.status != MinerStatus.offline) {
+        detected = MinerType.detect(s.model);
+        if (detected.apiType != ApiType.cgminerTcp) detected = MinerType.generic;
+        detectedName = s.model.isNotEmpty ? s.model : detected.displayName;
+        _portCtrl.text = '4028';
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _autoDetecting = false;
+      if (detected != MinerType.generic) {
+        _selectedType = detected;
+        _autoDetected = true;
+        if (_nameCtrl.text.trim().isEmpty && detectedName.isNotEmpty) {
+          _nameCtrl.text = detectedName;
+        }
+        _testResult = '✅ Auto-detected: ${detected.displayName}';
+      }
+    });
+  }
 
   static const _presets = [
     ('CKPool Solo', 'stratum+tcp://solo.ckpool.org:3333'),
@@ -62,6 +134,7 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
 
   @override
   void dispose() {
+    _detectDebounce?.cancel();
     _ipCtrl.removeListener(_onIpChanged);
     _nameCtrl.dispose();
     _ipCtrl.dispose();
@@ -157,6 +230,50 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
               ],
             ),
           ),
+          // Auto-detecting indicator
+          if (_autoDetecting)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: KratosTheme.orange.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: KratosTheme.orange.withOpacity(0.3)),
+              ),
+              child: Row(children: [
+                SizedBox(width: 16, height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: KratosTheme.orange)),
+                const SizedBox(width: 10),
+                const Text('Detecting miner type…',
+                    style: TextStyle(fontSize: 13, color: KratosTheme.orange)),
+              ]),
+            ),
+
+          // Auto-detected badge
+          if (_autoDetected && !_autoDetecting)
+            Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: KratosTheme.neon.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: KratosTheme.neon.withOpacity(0.3)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.check_circle_outline,
+                    color: KratosTheme.neon, size: 16),
+                const SizedBox(width: 8),
+                Text('Auto-detected: ${_selectedType.displayName}',
+                    style: const TextStyle(
+                        fontSize: 13, color: KratosTheme.neon,
+                        fontWeight: FontWeight.w600)),
+                const Spacer(),
+                const Text('tap chip to override',
+                    style: TextStyle(fontSize: 10, color: KratosTheme.muted)),
+              ]),
+            ),
+
           // Miner type picker (visual chips)
           _Section(title: 'MINER TYPE', icon: Icons.memory, children: [
             Wrap(
@@ -467,7 +584,7 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
     return '192.168.1';
   }
 
-  void _addMiner() {
+  Future<void> _addMiner() async {
     final ip = _ipCtrl.text.trim();
     if (ip.isEmpty) return;
 
@@ -490,16 +607,27 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
       return;
     }
 
+    // If type is still generic (user never touched it and auto-detect didn't
+    // fire yet), run a quick probe now before saving.
+    var typeToSave = _selectedType;
+    if (typeToSave == MinerType.generic && _isValidIp(ip)) {
+      _detectDebounce?.cancel();
+      await _autoDetect(ip);
+      typeToSave = _selectedType; // updated by _autoDetect
+    }
+    // Last safety net: still generic after probe — default to bitaxeGamma
+    // so it routes through ESP-Miner HTTP (works for all NerdAxe/BitAxe).
+    if (typeToSave == MinerType.generic) typeToSave = MinerType.bitaxeGamma;
+
+    if (!mounted) return;
     final miner = Miner(
-      name: _nameCtrl.text.trim().isEmpty
-          ? 'Miner at $ip'
-          : _nameCtrl.text.trim(),
+      name: _nameCtrl.text.trim().isEmpty ? 'Miner at $ip' : _nameCtrl.text.trim(),
       ip: ip,
-      port: int.tryParse(_portCtrl.text) ?? _selectedType.defaultPort,
-      type: _selectedType,
+      port: int.tryParse(_portCtrl.text) ?? typeToSave.defaultPort,
+      type: typeToSave,
       remoteUrl: _remoteUrlCtrl.text.trim(),
     );
-    store.add(miner);
+    store.add(miner, warmUp: true);
     Navigator.pop(context);
   }
 }
