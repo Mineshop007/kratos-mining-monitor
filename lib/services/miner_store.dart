@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/miner.dart';
 import 'cgminer_api.dart';
 import 'esp_miner_api.dart';
+import 'relay_service.dart';
 import 'btc_price.dart';
 import 'notification_service.dart';
 import 'best_diff_tracker.dart';
@@ -72,11 +73,27 @@ class MinerStore extends ChangeNotifier {
   }
 
   Future<void> _fetch(Miner miner) async {
-    final MinerStats rawStats;
+    MinerStats rawStats;
     if (miner.type.apiType == ApiType.espMinerHttp) {
-      rawStats = await EspMinerAPI.instance.fetchAll(miner.ip, miner.port, remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
+      rawStats = await EspMinerAPI.instance.fetchAll(miner.ip, miner.port,
+          remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
     } else {
-      rawStats = await CGMinerAPI.instance.fetchAll(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
+      rawStats = await CGMinerAPI.instance.fetchAll(miner.ip, miner.port,
+          remoteUrl: miner.remoteUrl);
+    }
+
+    // Relay fallback: if direct fetch failed (offline) and this miner was
+    // added locally (isRemote=false), try routing through the relay bridge.
+    // This makes locally-scanned miners work transparently on mobile data
+    // without the user needing to re-add them as remote.
+    if (rawStats.status == MinerStatus.offline &&
+        !miner.isRemote &&
+        RelayService.instance.state == RelayState.bridgeOnline) {
+      final fallback = await EspMinerAPI.instance.fetchAll(
+          miner.ip, miner.port, isRemote: true);
+      if (fallback.status != MinerStatus.offline) {
+        rawStats = fallback;
+      }
     }
 
     // Accumulate hashrate history (last 30 readings)
