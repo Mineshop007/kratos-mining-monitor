@@ -88,8 +88,8 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
       isRemote: true,
     );
 
-    // Don't add duplicate IPs
-    final exists = store.miners.any((m) => m.ip == ip && m.isRemote);
+    // Don't add if the same IP is already in fleet (local OR remote)
+    final exists = store.miners.any((m) => m.ip == ip);
     if (exists) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -243,38 +243,53 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
           const SizedBox(height: 20),
 
           // Remote miners list (bridge online only)
-          if (_relay.state == RelayState.bridgeOnline &&
-              _relay.remoteMinersList.isNotEmpty) ...[
-            _SectionLabel('REMOTE MINERS'),
+          if (_relay.state == RelayState.bridgeOnline) ...[
+            Row(children: [
+              const Expanded(child: _SectionLabel('REMOTE MINERS')),
+              TextButton.icon(
+                onPressed: () {
+                  _relay.requestBridgeRescan();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('🔍 Asking bridge to re-scan…'),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('Rescan', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                    foregroundColor: KratosTheme.orange),
+              ),
+            ]),
             const SizedBox(height: 8),
-            ..._relay.remoteMinersList.map(
-              (m) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _RemoteMinerRow(
-                  minerInfo: m,
-                  onAdd: () => _addToFleet(m),
-                  alreadyAdded: context
-                      .watch<MinerStore>()
-                      .miners
-                      .any((fm) =>
-                          fm.ip == (m['ip'] as String? ?? '') &&
-                          fm.isRemote),
+            if (_relay.remoteMinersList.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: KratosTheme.surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: KratosTheme.border),
                 ),
-              ),
-            ),
-          ] else if (_relay.state == RelayState.bridgeOnline) ...[
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: KratosTheme.surface,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: KratosTheme.border),
-              ),
-              child: const Text(
-                'Bridge is online but no miners reported yet.',
-                style: TextStyle(color: KratosTheme.muted, fontSize: 13),
-              ),
-            ),
+                child: const Text(
+                  'Bridge online but no miners reported yet. Tap Rescan.',
+                  style: TextStyle(color: KratosTheme.muted, fontSize: 13),
+                ),
+              )
+            else
+              for (final m in _relay.remoteMinersList)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _RemoteMinerRow(
+                    minerInfo: m,
+                    onAdd: () => _addToFleet(m),
+                    // In-fleet for local OR remote — no more duplicate Add buttons
+                    alreadyAdded: context
+                        .watch<MinerStore>()
+                        .miners
+                        .any((fm) => fm.ip == (m['ip'] as String? ?? '')),
+                  ),
+                ),
           ],
 
           const SizedBox(height: 20),

@@ -142,6 +142,16 @@ class RelayService extends ChangeNotifier {
       case 'pong':
         // keepalive response — ignore
         break;
+
+      case 'scan_result':
+        // Bridge finished a manual rescan — update miner list
+        final miners = msg['miners'];
+        if (miners is List) {
+          remoteMinersList = miners.cast<Map<String, dynamic>>();
+        }
+        bridgeOnline = true;
+        _setState(RelayState.bridgeOnline);
+        break;
     }
 
     notifyListeners();
@@ -238,6 +248,15 @@ class RelayService extends ChangeNotifier {
       if (!c.isCompleted) c.completeError(StateError(reason));
     }
     _commandCompleters.clear();
+  }
+
+  /// Ask the bridge to re-scan its local network and send back a fresh
+  /// miner list. The result arrives as a 'scan_result' or 'miners' message.
+  void requestBridgeRescan() {
+    if (_channel == null || _state == RelayState.disconnected) return;
+    try {
+      _channel!.sink.add(jsonEncode({'type': 'rescan'}));
+    } catch (_) {}
   }
 
   String _randomId() =>

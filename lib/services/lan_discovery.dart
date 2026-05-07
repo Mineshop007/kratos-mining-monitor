@@ -137,16 +137,20 @@ class LanDiscoveryService {
     String subnet,
     StreamController<DiscoveredMiner> sink,
   ) async {
-    // Concurrency: 20 hosts in flight at once (reduced from 32 so each
-    // probe gets more bandwidth — helps on congested Wi-Fi with many miners).
+    // Concurrency: 20 hosts in flight at once.
+    // Miners under full load can be slow to respond — we do TWO passes:
+    //   Pass 1 — fast sweep, catches responsive miners
+    //   Pass 2 — retry only the hosts that didn’t respond in pass 1
     const batchSize = 20;
     final hosts = List<int>.generate(254, (i) => i + 1);
+    final missed = <int>[];  // hosts that didn’t respond in pass 1
+
+    // ── Pass 1 ────────────────────────────────────────────────────────────
     for (var i = 0; i < hosts.length; i += batchSize) {
       final batch = hosts.skip(i).take(batchSize);
       await Future.wait(batch.map((h) async {
         final ip = '$subnet.$h';
-        // Probe port 80 AND 8080 concurrently — some NerdAxe firmware
-        // uses 8080. First hit wins; skip cgminer if ESP-Miner replied.
+        // Probe port 80 AND 8080 concurrently — some NerdAxe firmware uses 8080.
         final results = await Future.wait([
           _probeEspMinerHttp(ip, 80),
           _probeEspMinerHttp(ip, 8080),
@@ -157,19 +161,46 @@ class LanDiscoveryService {
           return;
         }
         final cg = await _probeCgminerTcp(ip, 4028);
-        if (cg != null) _safeAdd(sink, cg);
+        if (cg != null) {
+          _safeAdd(sink, cg);
+          return;
+        }
+        missed.add(h); // didn’t respond — retry in pass 2
       }));
+    }
+
+    // ── Pass 2: retry missed hosts with a longer timeout ──────────────────
+    // Use smaller batches and 2.5 s timeout — these are miners that
+    // were likely just slow (CPU busy hashing, Wi-Fi retransmit, etc.).
+    if (missed.isNotEmpty) {
+      const retryBatch = 10;
+      for (var i = 0; i < missed.length; i += retryBatch) {
+        final batch = missed.skip(i).take(retryBatch);
+        await Future.wait(batch.map((h) async {
+          final ip = '$subnet.$h';
+          final results = await Future.wait([
+            _probeEspMinerHttp(ip, 80,  timeout: const Duration(milliseconds: 2500)),
+            _probeEspMinerHttp(ip, 8080, timeout: const Duration(milliseconds: 2500)),
+          ]);
+          final esp = results.firstWhere((r) => r != null, orElse: () => null);
+          if (esp != null) { _safeAdd(sink, esp); return; }
+          final cg = await _probeCgminerTcp(ip, 4028,
+              timeout: const Duration(milliseconds: 1500));
+          if (cg != null) _safeAdd(sink, cg);
+        }));
+      }
     }
   }
 
   // ── Probes ──────────────────────────────────────────────────────────
 
-  Future<DiscoveredMiner?> _probeEspMinerHttp(String ip, int port) async {
+  Future<DiscoveredMiner?> _probeEspMinerHttp(String ip, int port,
+      {Duration? timeout}) async {
     try {
       final resp = await http
           .get(Uri.parse('http://$ip:$port/api/system/info'),
               headers: {'Accept': 'application/json'})
-          .timeout(_httpProbeTimeout);
+          .timeout(timeout ?? _httpProbeTimeout);
       if (resp.statusCode != 200) return null;
       final body = jsonDecode(resp.body);
       if (body is! Map<String, dynamic>) return null;
@@ -209,10 +240,12 @@ class LanDiscoveryService {
     }
   }
 
-  Future<DiscoveredMiner?> _probeCgminerTcp(String ip, int port) async {
+  Future<DiscoveredMiner?> _probeCgminerTcp(String ip, int port,
+      {Duration? timeout}) async {
     Socket? sock;
     try {
-      sock = await Socket.connect(ip, port, timeout: _tcpProbeTimeout);
+      sock = await Socket.connect(ip, port,
+          timeout: timeout ?? _tcpProbeTimeout);
       sock.write('{"command":"summary"}\n');
       await sock.flush();
       final completer = Completer<String>();
