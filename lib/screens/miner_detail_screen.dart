@@ -94,42 +94,50 @@ class MinerDetailScreen extends StatelessWidget {
               children: [
                 _StatCard(
                   'OUTLET TEMP',
-                  s?.outTemp != null && s!.outTemp > 0
-                      ? '${s.outTemp.toInt()}°C'
-                      : '--',
+                  s?.outTemp != null && s!.outTemp > 0 ? '${s.outTemp.toInt()}°C' : '--',
                   Icons.thermostat,
                   _tempColor(s?.outTemp ?? 0),
+                  onTap: s != null ? () => _showTempInfo(context, s.outTemp) : null,
                 ),
                 _StatCard(
                   'FAN',
                   s?.fanRPM != null && s!.fanRPM > 0
                       ? '${s.fanRPM} RPM'
-                      : (s?.fanPercent != null && s!.fanPercent > 0
-                          ? '${s.fanPercent}%'
-                          : '--'),
+                      : (s?.fanPercent != null && s!.fanPercent > 0 ? '${s.fanPercent}%' : '--'),
                   Icons.air,
                   KratosTheme.blue,
+                  onTap: miner.type.apiType == ApiType.espMinerHttp && s != null
+                      ? () => _showFanSheet(context, miner, s.fanPercent)
+                      : null,
                 ),
-                _StatCard('ACCEPTED', '${s?.accepted ?? 0}',
-                    Icons.check_circle, const Color(0xFF3FB950)),
+                _StatCard(
+                  'ACCEPTED',
+                  '${s?.accepted ?? 0}',
+                  Icons.check_circle,
+                  const Color(0xFF3FB950),
+                  onTap: s != null ? () => _showShareStats(context, s.accepted, s.rejected) : null,
+                ),
                 _StatCard(
                   'REJECTED',
                   '${s?.rejected ?? 0}',
                   Icons.cancel,
-                  (s?.rejected ?? 0) > 0
-                      ? KratosTheme.red
-                      : KratosTheme.muted,
+                  (s?.rejected ?? 0) > 0 ? KratosTheme.red : KratosTheme.muted,
+                  onTap: s != null ? () => _showShareStats(context, s.accepted, s.rejected) : null,
                 ),
                 _StatCard(
                   'HW ERRORS',
                   '${s?.hardwareErrors ?? 0}',
                   Icons.warning_amber,
-                  (s?.hardwareErrors ?? 0) > 0
-                      ? KratosTheme.red
-                      : KratosTheme.muted,
+                  (s?.hardwareErrors ?? 0) > 0 ? KratosTheme.red : KratosTheme.muted,
+                  onTap: () => _showHwErrorInfo(context, s?.hardwareErrors ?? 0),
                 ),
-                _StatCard('UPTIME', s?.uptimeFormatted ?? '--',
-                    Icons.access_time, KratosTheme.purple),
+                _StatCard(
+                  'UPTIME',
+                  s?.uptimeFormatted ?? '--',
+                  Icons.access_time,
+                  KratosTheme.purple,
+                  onTap: s != null ? () => _showUptimeInfo(context, s.uptime) : null,
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -228,8 +236,8 @@ class MinerDetailScreen extends StatelessWidget {
                 miner.type.apiType == ApiType.espMinerHttp
                     ? 'ESP-Miner HTTP'
                     : 'CGMiner TCP'),
-            _InfoRow('IP Address', miner.ip),
-            _InfoRow('Port', '${miner.port}'),
+            _InfoRow('IP Address', miner.ip, copyable: true),
+            _InfoRow('Port', '${miner.port}', copyable: true),
             if ((s?.frequency ?? 0) > 0)
               _InfoRow(
                   'Frequency', '${s!.frequency.toInt()} MHz'),
@@ -751,35 +759,71 @@ class _StatCard extends StatelessWidget {
   final String label, value;
   final IconData icon;
   final Color color;
-  const _StatCard(this.label, this.value, this.icon, this.color);
+  final VoidCallback? onTap;
+  final String? tooltip;
+  const _StatCard(this.label, this.value, this.icon, this.color,
+      {this.onTap, this.tooltip});
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: KratosTheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: KratosTheme.border),
+  Widget build(BuildContext context) {
+    final isWarning = color == KratosTheme.red;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        splashColor: color.withOpacity(0.18),
+        highlightColor: color.withOpacity(0.08),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isWarning
+                ? KratosTheme.red.withOpacity(0.07)
+                : KratosTheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isWarning
+                  ? KratosTheme.red.withOpacity(0.4)
+                  : KratosTheme.border,
+              width: isWarning ? 1.5 : 1,
+            ),
+          ),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Stack(alignment: Alignment.topRight, children: [
+              Icon(icon, color: color, size: 22),
+              if (onTap != null)
+                Positioned(
+                  right: -2, top: -2,
+                  child: Container(
+                    width: 7, height: 7,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.7),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ]),
+            const SizedBox(height: 6),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold,
+                    color: KratosTheme.textPrim, fontFamily: 'Courier')),
+            const SizedBox(height: 2),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 9, color: KratosTheme.muted, letterSpacing: 1)),
+            if (onTap != null) ...[  
+              const SizedBox(height: 4),
+              const Text('tap for details',
+                  style: TextStyle(fontSize: 7, color: KratosTheme.muted,
+                      letterSpacing: 0.5)),
+            ],
+          ]),
         ),
-        child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(height: 6),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: KratosTheme.textPrim,
-                  fontFamily: 'Courier')),
-          const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 9,
-                  color: KratosTheme.muted,
-                  letterSpacing: 1)),
-        ]),
-      );
+      ),
+    );
+  }
 }
 
 class _InfoCard extends StatelessWidget {
@@ -886,6 +930,157 @@ class _SectionLabel extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: KratosTheme.muted,
           letterSpacing: 1.5));
+}
+
+// ── Stat card tap actions ────────────────────────────────────────────────────
+
+void _showTempInfo(BuildContext ctx, double temp) {
+  final label = temp < 60 ? '🟢 Cool' : temp < 72 ? '🟡 Warm' : '🔴 Hot!';
+  final msg = temp < 60 ? 'Running great. No action needed.'
+      : temp < 72 ? 'Normal range. Keep an eye on airflow.'
+      : 'High temp! Check fan speed and airflow. Risk of throttling.';
+  final color = temp < 60 ? KratosTheme.neon : temp < 72 ? KratosTheme.orange : KratosTheme.red;
+  showDialog(context: ctx, builder: (_) => AlertDialog(
+    backgroundColor: KratosTheme.surface,
+    title: Text('🌡️  ${temp.toInt()}°C', style: const TextStyle(color: KratosTheme.textPrim)),
+    content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+      const SizedBox(height: 8),
+      Text(msg, style: const TextStyle(color: KratosTheme.muted, height: 1.5)),
+      const SizedBox(height: 12),
+      const Divider(color: KratosTheme.border),
+      for (final r in [('🟢 Cool', '< 60°C'), ('🟡 Warm', '60–72°C'), ('🔴 Hot', '> 72°C')])
+        Padding(padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(children: [
+              Text(r.$1, style: const TextStyle(fontSize: 13, color: KratosTheme.textPrim)),
+              const Spacer(),
+              Text(r.$2, style: const TextStyle(fontSize: 12, color: KratosTheme.muted, fontFamily: 'Courier')),
+            ])),
+    ]),
+    actions: [TextButton(onPressed: () => Navigator.pop(ctx),
+        child: const Text('OK', style: TextStyle(color: KratosTheme.orange)))],
+  ));
+}
+
+void _showFanSheet(BuildContext ctx, Miner miner, int fanPct) {
+  showModalBottomSheet(context: ctx, isScrollControlled: true,
+    backgroundColor: KratosTheme.surface,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (_) => _FanControlSheet(miner: miner, initialPercent: fanPct));
+}
+
+void _showShareStats(BuildContext ctx, int accepted, int rejected) {
+  final total = accepted + rejected;
+  final rate = total > 0 ? accepted / total * 100.0 : 100.0;
+  final color = rate >= 99 ? KratosTheme.neon : rate >= 95 ? KratosTheme.orange : KratosTheme.red;
+  showDialog(context: ctx, builder: (_) => AlertDialog(
+    backgroundColor: KratosTheme.surface,
+    title: const Text('⚡ Share Stats', style: TextStyle(color: KratosTheme.textPrim)),
+    content: Column(mainAxisSize: MainAxisSize.min, children: [
+      for (final r in [('Accepted', '$accepted', const Color(0xFF3FB950)), ('Rejected', '$rejected', KratosTheme.red), ('Total', '$total', KratosTheme.muted)])
+        Padding(padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(children: [
+              Text(r.$1, style: const TextStyle(color: KratosTheme.muted, fontSize: 13)),
+              const Spacer(),
+              Text(r.$2, style: TextStyle(color: r.$3, fontFamily: 'Courier', fontSize: 14, fontWeight: FontWeight.bold)),
+            ])),
+      const Divider(color: KratosTheme.border, height: 20),
+      Text('${rate.toStringAsFixed(2)}%', style: TextStyle(fontSize: 28,
+          fontWeight: FontWeight.bold, color: color, fontFamily: 'Courier')),
+      const Text('acceptance rate', style: TextStyle(fontSize: 12, color: KratosTheme.muted)),
+    ]),
+    actions: [TextButton(onPressed: () => Navigator.pop(ctx),
+        child: const Text('Close', style: TextStyle(color: KratosTheme.orange)))],
+  ));
+}
+
+void _showHwErrorInfo(BuildContext ctx, int errors) {
+  showDialog(context: ctx, builder: (_) => AlertDialog(
+    backgroundColor: KratosTheme.surface,
+    title: Text(errors > 0 ? '⚠️ HW Errors: $errors' : '✅ No HW Errors',
+        style: const TextStyle(color: KratosTheme.textPrim)),
+    content: Text(errors == 0
+        ? 'ASIC is working cleanly. HW errors = failed nonce calculations at chip level.'
+        : 'HW errors = failed nonce calculations.\nA few/hour is normal. High counts suggest:\n\n• OC too high → reduce frequency\n• Core voltage too low\n• ASIC degradation or overheating',
+        style: const TextStyle(color: KratosTheme.muted, height: 1.5)),
+    actions: [TextButton(onPressed: () => Navigator.pop(ctx),
+        child: const Text('OK', style: TextStyle(color: KratosTheme.orange)))],
+  ));
+}
+
+void _showUptimeInfo(BuildContext ctx, int secs) {
+  final started = DateTime.now().subtract(Duration(seconds: secs));
+  final d = secs ~/ 86400; final h = (secs % 86400) ~/ 3600; final m = (secs % 3600) ~/ 60;
+  showDialog(context: ctx, builder: (_) => AlertDialog(
+    backgroundColor: KratosTheme.surface,
+    title: const Text('⏱ Uptime', style: TextStyle(color: KratosTheme.textPrim)),
+    content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('${d}d ${h}h ${m}m', style: const TextStyle(fontSize: 24,
+          fontWeight: FontWeight.bold, color: KratosTheme.textPrim, fontFamily: 'Courier')),
+      const SizedBox(height: 8),
+      Text('Since: ${started.day.toString().padLeft(2,'0')}/${started.month.toString().padLeft(2,'0')}/${started.year}  '
+          '${started.hour.toString().padLeft(2,'0')}:${started.minute.toString().padLeft(2,'0')}',
+          style: const TextStyle(color: KratosTheme.muted, fontFamily: 'Courier')),
+    ]),
+    actions: [TextButton(onPressed: () => Navigator.pop(ctx),
+        child: const Text('OK', style: TextStyle(color: KratosTheme.orange)))],
+  ));
+}
+
+class _FanControlSheet extends StatefulWidget {
+  final Miner miner; final int initialPercent;
+  const _FanControlSheet({required this.miner, required this.initialPercent});
+  @override State<_FanControlSheet> createState() => _FanControlSheetState();
+}
+class _FanControlSheetState extends State<_FanControlSheet> {
+  late int _fan; bool _applying = false;
+  @override void initState() { super.initState(); _fan = widget.initialPercent; }
+  Future<void> _apply() async {
+    setState(() => _applying = true);
+    await EspMinerAPI.instance.setFanSpeed(widget.miner.ip, widget.miner.port, _fan,
+        remoteUrl: widget.miner.remoteUrl, isRemote: widget.miner.isRemote);
+    if (mounted) { setState(() => _applying = false); Navigator.pop(context); }
+  }
+  @override
+  Widget build(BuildContext ctx) {
+    final bot = MediaQuery.of(ctx).viewInsets.bottom;
+    return Padding(padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bot),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 36, height: 4, decoration: BoxDecoration(
+            color: KratosTheme.border, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 16),
+        Row(children: [
+          const Icon(Icons.air, color: KratosTheme.blue),
+          const SizedBox(width: 10),
+          const Text('Fan Speed', style: TextStyle(fontSize: 16,
+              fontWeight: FontWeight.w800, color: KratosTheme.textPrim)),
+          const Spacer(),
+          Text('$_fan%', style: const TextStyle(fontSize: 20,
+              fontWeight: FontWeight.bold, color: KratosTheme.blue, fontFamily: 'Courier')),
+        ]),
+        const SizedBox(height: 12),
+        SliderTheme(data: SliderTheme.of(ctx).copyWith(
+            activeTrackColor: KratosTheme.blue, thumbColor: KratosTheme.blue,
+            inactiveTrackColor: KratosTheme.border,
+            overlayColor: KratosTheme.blue.withOpacity(0.15)),
+          child: Slider(value: _fan.toDouble(), min: 0, max: 100, divisions: 20,
+              onChanged: (v) => setState(() => _fan = v.round()))),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('0% (auto)', style: TextStyle(fontSize: 10, color: KratosTheme.muted)),
+          const Text('100% (max)', style: TextStyle(fontSize: 10, color: KratosTheme.muted)),
+        ]),
+        const SizedBox(height: 16),
+        SizedBox(width: double.infinity, child: FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: KratosTheme.blue,
+              foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+          onPressed: _applying ? null : _apply,
+          child: _applying
+              ? const SizedBox(width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black54))
+              : const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
+      ]));
+  }
 }
 
 // ── Edit miner sheet ────────────────────────────────────────────────────────
@@ -1151,28 +1346,38 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
 
 class _InfoRow extends StatelessWidget {
   final String label, value;
-  const _InfoRow(this.label, this.value);
+  final bool copyable;
+  const _InfoRow(this.label, this.value, {this.copyable = false});
 
   @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: 4),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-            color: KratosTheme.surface,
-            borderRadius: BorderRadius.circular(8)),
-        child: Row(children: [
-          Text(label,
-              style:
-                  const TextStyle(fontSize: 13, color: KratosTheme.muted)),
-          const Spacer(),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 13,
-                  color: KratosTheme.textPrim,
-                  fontFamily: 'Courier')),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final row = Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+          color: KratosTheme.surface, borderRadius: BorderRadius.circular(8)),
+      child: Row(children: [
+        Text(label, style: const TextStyle(fontSize: 13, color: KratosTheme.muted)),
+        const Spacer(),
+        Text(value, style: const TextStyle(
+            fontSize: 13, color: KratosTheme.textPrim, fontFamily: 'Courier')),
+        if (copyable) ...[  
+          const SizedBox(width: 8),
+          const Icon(Icons.copy, size: 13, color: KratosTheme.muted),
+        ],
+      ]),
+    );
+    if (!copyable) return row;
+    return GestureDetector(
+      onTap: () {
+        Clipboard.setData(ClipboardData(text: value));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('$label copied'),
+            duration: const Duration(seconds: 1)));
+      },
+      child: row,
+    );
+  }
 }
 
 class _ActionBtn extends StatelessWidget {
@@ -1339,22 +1544,27 @@ class _FanSpeedControlState extends State<_FanSpeedControl> {
 class _BlockEtaRow extends StatefulWidget {
   final double hashrateGhs;
   const _BlockEtaRow({required this.hashrateGhs});
-
-  @override
-  State<_BlockEtaRow> createState() => _BlockEtaRowState();
+  @override State<_BlockEtaRow> createState() => _BlockEtaRowState();
 }
 
-class _BlockEtaRowState extends State<_BlockEtaRow> {
+class _BlockEtaRowState extends State<_BlockEtaRow>
+    with SingleTickerProviderStateMixin {
   static double? _cachedDifficulty;
   static DateTime? _difficultyFetchTime;
-
   String _blockEta = '--';
+  bool _loading = true;
+  late AnimationController _spinCtrl;
 
   @override
   void initState() {
     super.initState();
+    _spinCtrl = AnimationController(vsync: this,
+        duration: const Duration(seconds: 2))..repeat();
     _loadEta();
   }
+
+  @override
+  void dispose() { _spinCtrl.dispose(); super.dispose(); }
 
   Future<void> _loadEta() async {
     double diff;
@@ -1385,12 +1595,13 @@ class _BlockEtaRowState extends State<_BlockEtaRow> {
     }
     if (!mounted) return;
     if (diff <= 0 || widget.hashrateGhs <= 0) {
-      setState(() => _blockEta = '--');
+      setState(() { _blockEta = '--'; _loading = false; });
       return;
     }
-    final hashrateHs = widget.hashrateGhs * 1e9; // GH/s → H/s
+    final hashrateHs = widget.hashrateGhs * 1e9;
     final days = diff * 4294967296.0 / hashrateHs / 86400.0;
-    setState(() => _blockEta = _formatDays(days));
+    setState(() { _blockEta = _formatDays(days); _loading = false; });
+    if (!_loading) _spinCtrl.stop();
   }
 
   String _formatDays(double days) {
@@ -1401,5 +1612,39 @@ class _BlockEtaRowState extends State<_BlockEtaRow> {
   }
 
   @override
-  Widget build(BuildContext context) => _InfoRow('Block ETA', _blockEta);
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _blockEta != '--' ? () {
+        Clipboard.setData(ClipboardData(text: _blockEta));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Block ETA copied'), duration: Duration(seconds: 1)));
+      } : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: KratosTheme.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: KratosTheme.border),
+        ),
+        child: Row(children: [
+          RotationTransition(
+            turns: _spinCtrl,
+            child: Icon(
+              _loading ? Icons.sync : Icons.access_time_outlined,
+              color: KratosTheme.orange, size: 16),
+          ),
+          const SizedBox(width: 10),
+          const Text('BLOCK ETA',
+              style: TextStyle(fontSize: 11, color: KratosTheme.muted,
+                  letterSpacing: 1, fontWeight: FontWeight.w600)),
+          const Spacer(),
+          Text(_loading ? 'calculating…' : _blockEta,
+              style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.bold,
+                  color: _loading ? KratosTheme.muted : KratosTheme.orange,
+                  fontFamily: 'Courier')),
+        ]),
+      ),
+    );
+  }
 }
