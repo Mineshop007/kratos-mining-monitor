@@ -8,6 +8,9 @@
          network_info_plus subnet detection. -->
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!-- Required by network_info_plus to read WiFi IP on Android 10+ -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!-- Foreground polling + offline alerts -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -15,9 +18,11 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
-        android:label="kratos"
+        android:label="Kratos"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"

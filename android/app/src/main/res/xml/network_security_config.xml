@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Kratos network security config.
+  Cleartext HTTP allowed — miners run on HTTP (port 80) on local network.
+  The relay and all internet APIs use HTTPS via WebSocket/REST.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
