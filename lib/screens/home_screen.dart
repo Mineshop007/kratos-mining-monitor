@@ -14,7 +14,10 @@ import 'pools_screen.dart';
 import 'chat_screen.dart';
 import 'settings_screen.dart';
 import 'add_miner_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/relay_service.dart';
+import 'hall_of_fame_screen.dart';
+import 'giveaway_screen.dart';
 
 /// Kratos v2 root: 5-tab IndexedStack hub. No "Shop" tab.
 /// Tabs: Volt (overview) · Miners · Pools · Chat · Settings.
@@ -76,8 +79,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final pages = const [
-      VoltOverviewTab(),
+    final pages = [
+      VoltOverviewTab(onSwitchTab: (i) => setState(() => _index = i)),
       MinersScreen(),
       PoolsScreen(),
       ChatScreen(),
@@ -228,23 +231,25 @@ class _TabButton extends StatelessWidget {
 // ============================================================================
 
 class VoltOverviewTab extends StatelessWidget {
-  const VoltOverviewTab({super.key});
+  final Function(int) onSwitchTab;
+  const VoltOverviewTab({super.key, required this.onSwitchTab});
 
   @override
   Widget build(BuildContext context) {
     return Consumer<MinerStore>(
       builder: (ctx, store, _) {
         if (store.miners.isEmpty) {
-          return const _OverviewEmpty();
+          return _OverviewEmpty(onSwitchTab: onSwitchTab);
         }
-        return _OverviewBody(store: store);
+        return _OverviewBody(store: store, onSwitchTab: onSwitchTab);
       },
     );
   }
 }
 
 class _OverviewEmpty extends StatelessWidget {
-  const _OverviewEmpty();
+  final Function(int) onSwitchTab;
+  const _OverviewEmpty({required this.onSwitchTab});
 
   @override
   Widget build(BuildContext context) {
@@ -277,7 +282,8 @@ class _OverviewEmpty extends StatelessWidget {
 
 class _OverviewBody extends StatelessWidget {
   final MinerStore store;
-  const _OverviewBody({required this.store});
+  final Function(int) onSwitchTab;
+  const _OverviewBody({required this.store, required this.onSwitchTab});
 
   @override
   Widget build(BuildContext context) {
@@ -305,7 +311,7 @@ class _OverviewBody extends StatelessWidget {
               minerIds: store.miners.map((m) => m.id).toList(),
             ),
             const SizedBox(height: 14),
-            _TileGrid(store: store),
+            _TileGrid(store: store, onSwitchTab: onSwitchTab),
           ],
         ),
       ),
@@ -322,47 +328,97 @@ class _OverviewBody extends StatelessWidget {
   }
 }
 
-class _Logo extends StatelessWidget {
+class _Logo extends StatefulWidget {
   const _Logo();
+  @override State<_Logo> createState() => _LogoState();
+}
+
+class _LogoState extends State<_Logo> with SingleTickerProviderStateMixin {
+  late AnimationController _btcCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _btcCtrl = AnimationController(vsync: this,
+        duration: const Duration(seconds: 3))..repeat();
+  }
+
+  @override
+  void dispose() { _btcCtrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            'KRA',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: KratosColors.text,
-              letterSpacing: 1.5,
-            ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(children: [
+        // Klaw mascot image
+        Container(
+          width: 36, height: 36,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: [BoxShadow(
+                color: KratosColors.volt.withOpacity(0.45),
+                blurRadius: 12, spreadRadius: 1)],
           ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(9),
+            child: Image.asset('assets/images/klaw-mascot.png',
+                fit: BoxFit.cover),
+          ),
+        ),
+        const SizedBox(width: 10),
+        // KRATOS text
+        Row(children: [
+          const Text('KRA', style: TextStyle(fontSize: 26,
+              fontWeight: FontWeight.w900, color: KratosColors.text,
+              letterSpacing: 1.5)),
           ShaderMask(
             blendMode: BlendMode.srcIn,
-            shaderCallback: _gradient,
-            child: Text(
-              'TOS',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.5,
-                color: Colors.white,
-              ),
-            ),
+            shaderCallback: (b) => const LinearGradient(
+                colors: [KratosColors.voltBright, KratosColors.volt])
+                .createShader(b),
+            child: const Text('TOS', style: TextStyle(fontSize: 26,
+                fontWeight: FontWeight.w900, letterSpacing: 1.5,
+                color: Colors.white)),
           ),
-        ],
-      ),
+        ]),
+        const Spacer(),
+        // Spinning 3D Bitcoin coin
+        AnimatedBuilder(
+          animation: _btcCtrl,
+          builder: (_, __) {
+            final angle = _btcCtrl.value * 2 * 3.14159;
+            final scaleX = (0.4 * (1 + (angle % 3.14159 < 1.5708
+                ? angle % 3.14159 / 1.5708
+                : 1 - (angle % 3.14159 - 1.5708) / 1.5708))).clamp(0.08, 1.0);
+            return Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()..scale(scaleX, 1.0),
+              child: Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(colors: [
+                    const Color(0xFFFFD700),
+                    const Color(0xFFF7931A),
+                    const Color(0xFFE67300),
+                  ]),
+                  boxShadow: [BoxShadow(
+                      color: const Color(0xFFF7931A).withOpacity(0.5),
+                      blurRadius: 10)],
+                ),
+                alignment: Alignment.center,
+                child: const Text('₿', style: TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    shadows: [Shadow(color: Colors.black26, blurRadius: 4)])),
+              ),
+            );
+          },
+        ),
+      ]),
     );
   }
-
-  static Shader _gradient(Rect bounds) =>
-      const LinearGradient(colors: [
-        KratosColors.voltBright,
-        KratosColors.volt,
-      ]).createShader(bounds);
 }
 
 class _HeroCard extends StatelessWidget {
@@ -581,7 +637,8 @@ class _StatCell extends StatelessWidget {
 
 class _TileGrid extends StatelessWidget {
   final MinerStore store;
-  const _TileGrid({required this.store});
+  final Function(int) onSwitchTab;
+  const _TileGrid({required this.store, required this.onSwitchTab});
 
   @override
   Widget build(BuildContext context) {
@@ -593,59 +650,69 @@ class _TileGrid extends StatelessWidget {
       _Tile(
         icon: Icons.memory_rounded,
         title: 'Miners',
-        subtitle: store.miners.isEmpty
-            ? 'Add one'
-            : '$activeMiners active',
+        subtitle: store.miners.isEmpty ? 'Add one' : '$activeMiners active',
         color: KratosColors.volt,
+        onTap: () => onSwitchTab(1),
       ),
       _Tile(
-        icon: Icons.gps_fixed_rounded,
+        icon: Icons.emoji_events_rounded,
         title: 'Best Diff',
-        subtitle: bestDiff > 0
-            ? _formatDiff(bestDiff)
-            : 'Awaiting share',
+        subtitle: bestDiff > 0 ? _formatDiff(bestDiff) : 'Awaiting share',
         color: KratosColors.cyan,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const HallOfFameScreen())),
       ),
       _Tile(
         icon: Icons.show_chart_rounded,
         title: 'Charts',
-        subtitle: 'Live',
+        subtitle: 'Live history',
         color: KratosColors.info,
+        onTap: () => onSwitchTab(1), // miners tab has per-miner charts
       ),
       _Tile(
         icon: Icons.thermostat_rounded,
         title: 'Thermal',
-        subtitle: store.miners.isEmpty
-            ? 'No data'
-            : '${store.miners.length} sensors',
+        subtitle: store.miners.isEmpty ? 'No data' : '${store.miners.length} sensors',
         color: KratosColors.warning,
+        onTap: () => onSwitchTab(1),
       ),
       _Tile(
         icon: Icons.bolt_rounded,
         title: 'Circuit',
         subtitle: 'Breaker monitor',
         color: KratosColors.warning,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) => const CircuitMonitorScreen()),
-        ),
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const CircuitMonitorScreen())),
       ),
       _Tile(
         icon: Icons.shield_rounded,
         title: 'Status',
-        subtitle: store.offlineCount > 0
-            ? '${store.offlineCount} offline'
-            : 'All up',
-        color: store.offlineCount > 0
-            ? KratosColors.danger
-            : KratosColors.volt,
+        subtitle: store.offlineCount > 0 ? '${store.offlineCount} offline' : 'All up',
+        color: store.offlineCount > 0 ? KratosColors.danger : KratosColors.volt,
+        onTap: () => onSwitchTab(1),
+      ),
+      _Tile(
+        icon: Icons.card_giftcard_rounded,
+        title: 'Giveaway',
+        subtitle: 'Win Nano 3S!',
+        color: KratosColors.coinBtc, // gold
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const GiveawayScreen())),
       ),
       _Tile(
         icon: Icons.forum_rounded,
-        title: 'Hangout',
+        title: 'Chat',
+        subtitle: 'Discord live',
+        color: const Color(0xFF5865F2),
+        onTap: () => onSwitchTab(3),
+      ),
+      _Tile(
+        icon: Icons.language_rounded,
+        title: 'Community',
         subtitle: 'Discord',
         color: KratosColors.cyan,
+        onTap: () => launchUrl(Uri.parse('https://discord.gg/yWtYegkDJw'),
+            mode: LaunchMode.externalApplication),
       ),
     ];
 
