@@ -24,8 +24,10 @@ class LanDiscoveryService {
   LanDiscoveryService._();
   static final instance = LanDiscoveryService._();
 
-  static const _httpProbeTimeout = Duration(milliseconds: 800);
-  static const _tcpProbeTimeout = Duration(milliseconds: 600);
+  // Generous timeouts — NerdOctaxe/NerdQAxe can be slow under load.
+  // 1.5 s for HTTP (was 800 ms), 900 ms for cgminer TCP (was 600 ms).
+  static const _httpProbeTimeout = Duration(milliseconds: 1500);
+  static const _tcpProbeTimeout = Duration(milliseconds: 900);
 
   /// Streams discovered miners as they're confirmed. Caller is
   /// responsible for de-duplicating against existing miners.
@@ -135,15 +137,21 @@ class LanDiscoveryService {
     String subnet,
     StreamController<DiscoveredMiner> sink,
   ) async {
-    // Concurrency: 32 hosts in flight at once = 254/32 ≈ 8 batches.
-    const batchSize = 32;
+    // Concurrency: 20 hosts in flight at once (reduced from 32 so each
+    // probe gets more bandwidth — helps on congested Wi-Fi with many miners).
+    const batchSize = 20;
     final hosts = List<int>.generate(254, (i) => i + 1);
     for (var i = 0; i < hosts.length; i += batchSize) {
       final batch = hosts.skip(i).take(batchSize);
       await Future.wait(batch.map((h) async {
         final ip = '$subnet.$h';
-        // Probe ESP-Miner HTTP first (faster), then cgminer TCP.
-        final esp = await _probeEspMinerHttp(ip, 80);
+        // Probe port 80 AND 8080 concurrently — some NerdAxe firmware
+        // uses 8080. First hit wins; skip cgminer if ESP-Miner replied.
+        final results = await Future.wait([
+          _probeEspMinerHttp(ip, 80),
+          _probeEspMinerHttp(ip, 8080),
+        ]);
+        final esp = results.firstWhere((r) => r != null, orElse: () => null);
         if (esp != null) {
           _safeAdd(sink, esp);
           return;

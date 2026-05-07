@@ -29,10 +29,35 @@ class _OCScreenState extends State<OCScreen> {
   bool get _isEsp =>
       widget.miner.type.apiType == ApiType.espMinerHttp;
 
-  // Avalon miners only expose Work Modes (Eco/Normal/Turbo) — no raw MHz control
-  // Frequency slider range by miner type (safe operating range in MHz)
-  int get _freqMin => _isEsp ? 300 : 400;
-  int get _freqMax => _isEsp ? 700 : 650;
+  // Resolved type (prefer live stats type — more accurate after API response)
+  MinerType get _resolvedType => widget.stats?.type ?? widget.miner.type;
+
+  // Avalon miners only expose Work Modes (Eco/Normal/Turbo) — no raw MHz control.
+  // Frequency slider range is type-aware: NerdOctaxe/NerdQAxe++ rated to 750 MHz.
+  int get _freqMin {
+    switch (_resolvedType) {
+      case MinerType.nerdqaxe:
+      case MinerType.nerdoctaxe:
+        return 350;
+      default:
+        return _isEsp ? 300 : 400;
+    }
+  }
+
+  int get _freqMax {
+    switch (_resolvedType) {
+      case MinerType.nerdqaxe:
+      case MinerType.nerdoctaxe:
+        return 750;   // Rev6 / NerdOctaxe certified max
+      case MinerType.bitaxeGamma:
+        return 650;
+      case MinerType.bitaxeUltra:
+      case MinerType.bitaxeGT:
+        return 650;
+      default:
+        return _isEsp ? 700 : 650;
+    }
+  }
 
   bool get _isAvalon {
     final t = widget.stats?.type ?? widget.miner.type;
@@ -87,16 +112,16 @@ class _OCScreenState extends State<OCScreen> {
           _FreqPreset(650, 'MAX', '~1.1 TH/s'),
         ],
       MinerType.nerdqaxe => [
-          _FreqPreset(490, 'ECO', '~2.8 TH/s'),
+          _FreqPreset(450, 'ECO', '~2.6 TH/s'),
           _FreqPreset(530, 'STD', '~3.1 TH/s'),
-          _FreqPreset(560, 'OC', '~3.4 TH/s'),
-          _FreqPreset(590, 'MAX', '~3.7 TH/s'),
+          _FreqPreset(650, 'OC',  '~3.8 TH/s'),
+          _FreqPreset(750, 'MAX', '~4.8 TH/s'),  // Rev6 certified 750 MHz
         ],
       MinerType.nerdoctaxe => [
-          _FreqPreset(490, 'ECO', '~8.5 TH/s'),
-          _FreqPreset(530, 'STD', '~9.6 TH/s'),
-          _FreqPreset(560, 'OC', '~10.2 TH/s'),
-          _FreqPreset(590, 'MAX', '~11 TH/s'),
+          _FreqPreset(450, 'ECO', '~7.5 TH/s'),
+          _FreqPreset(530, 'STD', '~9.2 TH/s'),
+          _FreqPreset(650, 'OC',  '~11 TH/s'),
+          _FreqPreset(750, 'MAX', '~12 TH/s'),   // NerdOctaxe certified 750 MHz
         ],
       _ => [
           _FreqPreset(400, 'ECO', 'Eco'),

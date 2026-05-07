@@ -10,34 +10,57 @@ class EspMinerAPI {
   static final EspMinerAPI instance = EspMinerAPI._();
   EspMinerAPI._();
 
-  static const _timeout = Duration(seconds: 5);
+  static const _timeout = Duration(seconds: 8);      // ESP-Miner can be slow under load
+  static const _retryTimeout = Duration(seconds: 5);  // retry attempt gets a shorter budget
 
   String _base(String ip, int port, {String remoteUrl = ''}) =>
       remoteUrl.isNotEmpty ? remoteUrl : 'http://$ip:$port';
 
   Future<MinerStats> fetchAll(String ip, int port, {String remoteUrl = '', bool isRemote = false}) async {
     if (isRemote) {
-      try {
-        final result = await RelayService.instance.command(
-          minerIp: ip, minerPort: port, method: 'GET', path: '/api/system/info');
-        final data = result['data'];
-        if (data is Map<String, dynamic>) return _parseSystemInfo(data);
-        return MinerStats.offline;
-      } catch (_) {
-        return MinerStats.offline;
+      // Relay path: try once; on timeout/error retry once with a fresh request.
+      for (int attempt = 0; attempt < 2; attempt++) {
+        try {
+          final result = await RelayService.instance.command(
+            minerIp: ip, minerPort: port, method: 'GET', path: '/api/system/info');
+          // Bridge echoes back 'data' OR sometimes nests under 'response'.
+          final data = result['data'] ?? result['response'];
+          if (data is Map<String, dynamic>) return _parseSystemInfo(data);
+          // If the bridge relayed an HTTP error body, log and retry.
+          if (attempt == 0) {
+            await Future.delayed(const Duration(milliseconds: 800));
+            continue;
+          }
+          return MinerStats.offline;
+        } catch (_) {
+          if (attempt == 0) {
+            await Future.delayed(const Duration(milliseconds: 800));
+            continue;
+          }
+          return MinerStats.offline;
+        }
       }
-    }
-    try {
-      final res = await http.get(
-        Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system/info'),
-        headers: {'Accept': 'application/json'},
-      ).timeout(_timeout);
-      if (res.statusCode != 200) return MinerStats.offline;
-      final j = jsonDecode(res.body) as Map<String, dynamic>;
-      return _parseSystemInfo(j);
-    } catch (_) {
       return MinerStats.offline;
     }
+    // Direct HTTP path: try port given, then try the alternate port if it fails
+    // (handles firmware that switched to 8080).
+    final ports = port == 80 ? [80, 8080] : [port];
+    for (final p in ports) {
+      try {
+        final res = await http.get(
+          Uri.parse('${_base(ip, p, remoteUrl: remoteUrl)}/api/system/info'),
+          headers: {'Accept': 'application/json'},
+        ).timeout(p == ports.first ? _timeout : _retryTimeout);
+        if (res.statusCode != 200) continue;
+        final body = res.body.trim();
+        if (body.isEmpty) continue;
+        final j = jsonDecode(body) as Map<String, dynamic>;
+        return _parseSystemInfo(j);
+      } catch (_) {
+        continue;
+      }
+    }
+    return MinerStats.offline;
   }
 
   /// Safe numeric accessor — handles int, double, and unexpected types gracefully.

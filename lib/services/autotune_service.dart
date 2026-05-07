@@ -38,11 +38,12 @@ class AutotuneService extends ChangeNotifier {
   String? activeMinerName; // set during run, cleared on terminal state
   bool _cancelled = false;
 
-  // Safe frequency sweep ranges per device type
+  // Safe frequency sweep ranges per device type.
+  // NerdQAxe++ Rev6 and NerdOctaxe are rated to 750 MHz — use the full range.
   static const _ranges = <String, ({int min, int max, int step})>{
     'bitaxe': (min: 300, max: 650, step: 10),
-    'nerdqaxe': (min: 400, max: 620, step: 10),
-    'nerdoctaxe': (min: 400, max: 600, step: 10),
+    'nerdqaxe':   (min: 350, max: 750, step: 10),   // Rev6: 750 MHz certified
+    'nerdoctaxe': (min: 350, max: 750, step: 10),   // NerdOctaxe: 750 MHz max
     'avalonNano': (min: 500, max: 600, step: 12),
   };
 
@@ -98,11 +99,23 @@ class AutotuneService extends ChangeNotifier {
       final int sweepMax;
       final int sweepStep;
       if (hintFreqMhz != null) {
-        sweepMin = max(fullRange.min, hintFreqMhz - 40);
-        sweepMax = min(fullRange.max, hintFreqMhz + 40);
-        sweepStep = 5;
-        _addLog('Narrow sweep around hint: ${hintFreqMhz} MHz '
-            '(±40 MHz, 5 MHz steps) → ${sweepMin}–${sweepMax} MHz');
+        final rawMin = max(fullRange.min, hintFreqMhz - 40);
+        final rawMax = min(fullRange.max, hintFreqMhz + 40);
+        // Guard: if the hint is above the device's rated max, do a full sweep
+        // instead of producing an inverted/empty range and crashing.
+        if (rawMin > rawMax) {
+          sweepMin = fullRange.min;
+          sweepMax = fullRange.max;
+          sweepStep = fullRange.step;
+          _addLog('⚠️ Hint (${hintFreqMhz} MHz) outside rated range '
+              '(${fullRange.min}–${fullRange.max} MHz) — doing full sweep');
+        } else {
+          sweepMin = rawMin;
+          sweepMax = rawMax;
+          sweepStep = 5;
+          _addLog('Narrow sweep around hint: ${hintFreqMhz} MHz '
+              '(±40 MHz, 5 MHz steps) → ${sweepMin}–${sweepMax} MHz');
+        }
       } else {
         sweepMin = fullRange.min;
         sweepMax = fullRange.max;
