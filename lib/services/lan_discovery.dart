@@ -173,16 +173,34 @@ class LanDiscoveryService {
       if (resp.statusCode != 200) return null;
       final body = jsonDecode(resp.body);
       if (body is! Map<String, dynamic>) return null;
-      final hostname = (body['hostname'] as String?)?.trim() ?? 'BitAxe';
-      final model = (body['ASICModel'] as String?) ??
-          (body['model'] as String?) ??
-          '';
-      final type = MinerType.detect(hostname.isNotEmpty ? hostname : model);
+      final hostname = (body['hostname'] as String?)?.trim() ?? '';
+      final deviceModel = (body['deviceModel'] as String?) ?? '';
+      final asicModel = (body['ASICModel'] as String?)
+          ?? (body['model'] as String?)
+          ?? '';
+
+      // Try type detection in priority order:
+      // 1. deviceModel (most specific: "NerdOCTAXE-γ", "NerdQAxe++")
+      // 2. hostname ("bitaxe-XXXX", "nerdqaxe-XXXX")
+      // 3. ASICModel / chip ("BM1370", "BM1368")
+      // 4. NEVER stay as generic — this device speaks ESP-Miner HTTP
+      //    (we just proved it), so routing it via cgminer TCP would break stats.
+      //    Fall back to bitaxeGamma which uses the same API protocol.
+      var type = MinerType.detect(deviceModel);
+      if (type == MinerType.generic) type = MinerType.detect(hostname);
+      if (type == MinerType.generic && asicModel.isNotEmpty) {
+        type = MinerType.detect(asicModel);
+      }
+      if (type == MinerType.generic) type = MinerType.bitaxeGamma;
+
+      final displayName = deviceModel.isNotEmpty
+          ? deviceModel
+          : hostname.isNotEmpty ? hostname : asicModel.isNotEmpty ? asicModel : 'BitAxe';
       return DiscoveredMiner(
         ip: ip,
         port: port,
         type: type,
-        hostname: hostname.isNotEmpty ? hostname : model,
+        hostname: displayName,
         firmware: (body['version'] as String?) ?? '',
         source: DiscoverySource.espMinerHttp,
       );
