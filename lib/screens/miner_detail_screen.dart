@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:http/http.dart' as http;
@@ -58,6 +59,11 @@ class MinerDetailScreen extends StatelessWidget {
             if (miner.isRemote) ...[const SizedBox(width: 6), _RemoteBadge()],
           ]),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, color: KratosTheme.muted),
+              tooltip: 'Edit miner',
+              onPressed: () => _showEditSheet(context, miner, store),
+            ),
             IconButton(
               icon: const Icon(Icons.refresh, color: KratosTheme.muted),
               onPressed: () => store.refreshOne(miner),
@@ -881,6 +887,267 @@ class _SectionLabel extends StatelessWidget {
           color: KratosTheme.muted,
           letterSpacing: 1.5));
 }
+
+// ── Edit miner sheet ────────────────────────────────────────────────────────
+
+void _showEditSheet(BuildContext context, Miner miner, MinerStore store) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: KratosTheme.surface,
+    shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (_) => _EditMinerSheet(miner: miner, store: store),
+  );
+}
+
+class _EditMinerSheet extends StatefulWidget {
+  final Miner miner;
+  final MinerStore store;
+  const _EditMinerSheet({required this.miner, required this.store});
+  @override State<_EditMinerSheet> createState() => _EditMinerSheetState();
+}
+
+class _EditMinerSheetState extends State<_EditMinerSheet> {
+  late TextEditingController _nameCtrl;
+  late TextEditingController _ipCtrl;
+  late TextEditingController _portCtrl;
+  late MinerType _type;
+  bool _detecting = false;
+  bool _detected = false;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.miner.name);
+    _ipCtrl   = TextEditingController(text: widget.miner.ip);
+    _portCtrl = TextEditingController(text: '${widget.miner.port}');
+    _type = widget.miner.type;
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _nameCtrl.dispose(); _ipCtrl.dispose(); _portCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _autoDetect() async {
+    final ip = _ipCtrl.text.trim();
+    final port = int.tryParse(_portCtrl.text) ?? 80;
+    setState(() { _detecting = true; _detected = false; });
+    final s = await EspMinerAPI.instance
+        .fetchAll(ip, port)
+        .timeout(const Duration(seconds: 5), onTimeout: () => MinerStats.offline);
+    MinerType detected = _type;
+    if (s.status != MinerStatus.offline) {
+      detected = s.type != MinerType.generic ? s.type : MinerType.detect(s.model);
+      if (detected == MinerType.generic) detected = MinerType.bitaxeGamma;
+    } else {
+      // Try CGMiner
+      final cs = await CGMinerAPI.instance
+          .fetchAll(ip, 4028)
+          .timeout(const Duration(seconds: 3), onTimeout: () => MinerStats.offline);
+      if (cs.status != MinerStatus.offline) {
+        detected = MinerType.detect(cs.model);
+        _portCtrl.text = '4028';
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _detecting = false;
+      _detected = detected != _type;
+      _type = detected;
+    });
+  }
+
+  Future<void> _save() async {
+    widget.miner.name = _nameCtrl.text.trim().isEmpty
+        ? 'Miner at ${_ipCtrl.text.trim()}' : _nameCtrl.text.trim();
+    widget.miner.ip   = _ipCtrl.text.trim();
+    widget.miner.port = int.tryParse(_portCtrl.text) ?? _type.defaultPort;
+    widget.miner.type = _type;
+    await widget.store.save();
+    widget.store.refreshOne(widget.miner);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
+      child: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Handle
+          Center(child: Container(width: 36, height: 4,
+              decoration: BoxDecoration(color: KratosTheme.border,
+                  borderRadius: BorderRadius.circular(2)))),
+          const SizedBox(height: 16),
+          const Text('Edit Miner',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800,
+                  color: KratosTheme.textPrim)),
+          const SizedBox(height: 16),
+
+          // Name
+          _editLabel('NAME'),
+          const SizedBox(height: 6),
+          _editField(_nameCtrl, 'Miner name'),
+          const SizedBox(height: 12),
+
+          // IP + Port row
+          Row(children: [
+            Expanded(flex: 3, child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _editLabel('IP ADDRESS'),
+                const SizedBox(height: 6),
+                _editField(_ipCtrl, '192.168.1.x', type: TextInputType.url),
+              ],
+            )),
+            const SizedBox(width: 10),
+            Expanded(flex: 1, child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _editLabel('PORT'),
+                const SizedBox(height: 6),
+                _editField(_portCtrl, '80', type: TextInputType.number),
+              ],
+            )),
+          ]),
+          const SizedBox(height: 16),
+
+          // Auto-detect button
+          SizedBox(width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: KratosTheme.orange,
+                side: BorderSide(color: KratosTheme.orange.withOpacity(0.4)),
+                backgroundColor: KratosTheme.orange.withOpacity(0.07),
+                padding: const EdgeInsets.symmetric(vertical: 11),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: _detecting ? null : _autoDetect,
+              icon: _detecting
+                  ? const SizedBox(width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: KratosTheme.orange))
+                  : const Icon(Icons.radar_rounded, size: 18),
+              label: Text(_detecting ? 'Detecting…' : 'Auto-detect type from IP',
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+            ),
+          ),
+          if (_detected) ...[  
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: KratosTheme.neon.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: KratosTheme.neon.withOpacity(0.3)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.check_circle_outline, color: KratosTheme.neon, size: 15),
+                const SizedBox(width: 8),
+                Text('Detected: ${_type.displayName}',
+                    style: const TextStyle(fontSize: 13, color: KratosTheme.neon,
+                        fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ],
+          const SizedBox(height: 16),
+
+          // Type chips
+          _editLabel('MINER TYPE'),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8,
+            children: MinerType.values.map((t) {
+              final sel = t == _type;
+              return GestureDetector(
+                onTap: () => setState(() => _type = t),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 130),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: sel ? KratosTheme.orange.withOpacity(0.15) : KratosTheme.bg,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: sel ? KratosTheme.orange : KratosTheme.border),
+                  ),
+                  child: Text(t.displayName,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                          color: sel ? KratosTheme.orange : KratosTheme.textPrim)),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: _type.apiType == ApiType.espMinerHttp
+                  ? KratosTheme.neon.withOpacity(0.07)
+                  : KratosTheme.blue.withOpacity(0.07),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _type.apiType == ApiType.espMinerHttp
+                  ? KratosTheme.neon.withOpacity(0.25) : KratosTheme.blue.withOpacity(0.25)),
+            ),
+            child: Text(
+              _type.apiType == ApiType.espMinerHttp
+                  ? 'ESP-Miner HTTP API · port ${_type.defaultPort}'
+                  : 'CGMiner TCP API · port ${_type.defaultPort}',
+              style: TextStyle(fontSize: 11,
+                  color: _type.apiType == ApiType.espMinerHttp
+                      ? KratosTheme.neon : KratosTheme.blue,
+                  fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Save button
+          SizedBox(width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: KratosTheme.orange,
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: _save,
+              child: const Text('Save Changes',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _editLabel(String t) => Text(t,
+      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+          color: KratosTheme.muted, letterSpacing: 1.5));
+
+  Widget _editField(TextEditingController ctrl, String hint,
+      {TextInputType type = TextInputType.text}) =>
+      TextField(
+        controller: ctrl,
+        keyboardType: type,
+        style: const TextStyle(color: KratosTheme.textPrim, fontFamily: 'Courier'),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: KratosTheme.muted),
+          filled: true, fillColor: KratosTheme.bg,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: KratosTheme.border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: KratosTheme.border)),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: KratosTheme.orange)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        ),
+      );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _InfoRow extends StatelessWidget {
   final String label, value;
