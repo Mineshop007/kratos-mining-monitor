@@ -113,10 +113,23 @@ class RelayService extends ChangeNotifier {
         _setState(bridgeOnline ? RelayState.bridgeOnline : RelayState.bridgeOffline);
 
       case 'miners':
-        // Bridge updated its miner list
+        // Bridge updated its miner list — MERGE by IP (never shrink the list).
+        // If scan 1 found 7 miners and scan 2 found 6, we keep all 7.
         final miners = msg['miners'];
         if (miners is List) {
-          remoteMinersList = miners.cast<Map<String, dynamic>>();
+          final incoming = miners.cast<Map<String, dynamic>>();
+          final merged = <String, Map<String, dynamic>>{};
+          // Seed with existing entries
+          for (final m in remoteMinersList) {
+            final ip = m['ip'] as String? ?? '';
+            if (ip.isNotEmpty) merged[ip] = m;
+          }
+          // Overwrite / add with fresh data from bridge
+          for (final m in incoming) {
+            final ip = m['ip'] as String? ?? '';
+            if (ip.isNotEmpty) merged[ip] = m;
+          }
+          remoteMinersList = merged.values.toList();
         }
         bridgeOnline = true;
         _setState(RelayState.bridgeOnline);
@@ -144,10 +157,21 @@ class RelayService extends ChangeNotifier {
         break;
 
       case 'scan_result':
-        // Bridge finished a manual rescan — update miner list
-        final miners = msg['miners'];
-        if (miners is List) {
-          remoteMinersList = miners.cast<Map<String, dynamic>>();
+        // Treat same as 'miners' — handled by fall-through below.
+        // (Bridge v1.2 sends 'miners' for both periodic and manual rescans)
+        final scanMiners = msg['miners'];
+        if (scanMiners is List) {
+          final incoming2 = scanMiners.cast<Map<String, dynamic>>();
+          final merged2 = <String, Map<String, dynamic>>{};
+          for (final m in remoteMinersList) {
+            final ip = m['ip'] as String? ?? '';
+            if (ip.isNotEmpty) merged2[ip] = m;
+          }
+          for (final m in incoming2) {
+            final ip = m['ip'] as String? ?? '';
+            if (ip.isNotEmpty) merged2[ip] = m;
+          }
+          remoteMinersList = merged2.values.toList();
         }
         bridgeOnline = true;
         _setState(RelayState.bridgeOnline);
