@@ -67,6 +67,23 @@ class EspMinerAPI {
   static double _n(dynamic v) => v == null ? 0.0 : (v as num).toDouble();
   static int _i(dynamic v) => v == null ? 0 : (v as num).toInt();
 
+  /// Parse bestDiff — ESP-Miner returns it as a string like "1.23T", "500G",
+  /// or sometimes as a raw number. Returns 0 if unparseable.
+  static double _parseBestDiff(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    if (v is! String || v.isEmpty) return 0;
+    final s = v.trim().toUpperCase();
+    final suffixes = {'P': 1e15, 'T': 1e12, 'G': 1e9, 'M': 1e6, 'K': 1e3};
+    for (final entry in suffixes.entries) {
+      if (s.endsWith(entry.key)) {
+        final num = double.tryParse(s.substring(0, s.length - 1));
+        if (num != null) return num * entry.value;
+      }
+    }
+    return double.tryParse(s) ?? 0;
+  }
+
   MinerStats _parseSystemInfo(Map<String, dynamic> j) {
     // hashRate from ESP-Miner is in GH/s (matches MinerStats unit)
     // Some firmware (Luckyminer) uses avgHashRate instead of hashRate_1m
@@ -139,7 +156,8 @@ class EspMinerAPI {
           ? j['deviceModel'] as String
           : asicModel.isNotEmpty ? asicModel : (j['hostname'] as String? ?? ''),
       type: MinerType.detect(j['deviceModel'] as String? ?? asicModel),
-      bestShare: 0,
+      bestShare: _parseBestDiff(
+          j['bestDiff'] ?? j['best_diff'] ?? j['sessionDiff'] ?? j['session_diff'] ?? 0),
       // blockFound can be bool or int depending on firmware version
       blockFound: j['blockFound'] == true || _i(j['blockFound']) == 1,
       isUsingFallbackStratum: usingFallback,

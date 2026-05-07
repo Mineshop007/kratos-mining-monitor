@@ -10,6 +10,8 @@ import '../widgets/klaw.dart';
 import 'add_miner_screen.dart';
 import 'miner_detail_screen.dart';
 import 'fleet_oc_screen.dart';
+import 'hall_of_fame_screen.dart';
+import 'dashboard_settings_screen.dart';
 
 /// Fleet view tab — list / grid of all miners.
 /// Logic preserved from v1.0 DashboardScreen, theme + Klaw upgraded.
@@ -94,6 +96,18 @@ class _MinersScreenState extends State<MinersScreen> {
                       builder: (_) => const FleetOCScreen()),
                 ),
               ),
+            IconButton(
+              tooltip: 'Hall of Fame',
+              icon: const Icon(Icons.emoji_events, color: KratosColors.volt, size: 22),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const HallOfFameScreen())),
+            ),
+            IconButton(
+              tooltip: 'Customize dashboard',
+              icon: const Icon(Icons.tune, color: KratosColors.muted, size: 22),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DashboardSettingsScreen())),
+            ),
             IconButton(
               icon: Icon(
                   _grid

@@ -84,12 +84,12 @@ class BestDiffTracker extends ChangeNotifier {
     required String minerName,
     required MinerType type,
     required double bestShare,
+    String minerModel = '',
   }) {
     if (bestShare <= 0) return;
     final prev = _records[minerId];
 
     if (prev == null || bestShare > prev.bestShare) {
-      // Detect milestone crossings BEFORE updating.
       final previousMax = prev?.bestShare ?? 0;
       final crossed = <double>[];
       for (final t in milestoneThresholds) {
@@ -99,6 +99,7 @@ class BestDiffTracker extends ChangeNotifier {
       _records[minerId] = _BestDiffRecord(
         minerId: minerId,
         minerName: minerName,
+        minerModel: minerModel,
         type: type,
         bestShare: bestShare,
         achievedAt: DateTime.now(),
@@ -117,9 +118,9 @@ class BestDiffTracker extends ChangeNotifier {
         ));
       }
     } else {
-      // Keep last-seen name fresh even if no new record.
-      if (prev.minerName != minerName) {
-        _records[minerId] = prev.renamed(minerName);
+      // Keep name + model fresh even if no new record.
+      if (prev.minerName != minerName || (minerModel.isNotEmpty && prev.minerModel != minerModel)) {
+        _records[minerId] = prev.withMeta(minerName, minerModel);
         _save();
       }
     }
@@ -150,6 +151,7 @@ class BestDiffTracker extends ChangeNotifier {
 class _BestDiffRecord {
   final String minerId;
   final String minerName;
+  final String minerModel;
   final MinerType type;
   final double bestShare;
   final DateTime achievedAt;
@@ -157,14 +159,16 @@ class _BestDiffRecord {
   _BestDiffRecord({
     required this.minerId,
     required this.minerName,
+    this.minerModel = '',
     required this.type,
     required this.bestShare,
     required this.achievedAt,
   });
 
-  _BestDiffRecord renamed(String name) => _BestDiffRecord(
+  _BestDiffRecord withMeta(String name, String model) => _BestDiffRecord(
         minerId: minerId,
         minerName: name,
+        minerModel: model.isNotEmpty ? model : minerModel,
         type: type,
         bestShare: bestShare,
         achievedAt: achievedAt,
@@ -173,6 +177,7 @@ class _BestDiffRecord {
   Map<String, dynamic> toJson() => {
         'id': minerId,
         'name': minerName,
+        'model': minerModel,
         'type': type.name,
         'best': bestShare,
         'at': achievedAt.toIso8601String(),
@@ -181,6 +186,7 @@ class _BestDiffRecord {
   factory _BestDiffRecord.fromJson(Map<String, dynamic> j) => _BestDiffRecord(
         minerId: j['id'] as String,
         minerName: j['name'] as String,
+        minerModel: j['model'] as String? ?? '',
         type: MinerType.values.firstWhere(
           (t) => t.name == (j['type'] as String? ?? ''),
           orElse: () => MinerType.generic,
@@ -231,6 +237,7 @@ String formatBestDiff(double v) {
 class BestDiffRecordView {
   final String minerId;
   final String minerName;
+  final String minerModel;
   final MinerType type;
   final double bestShare;
   final DateTime achievedAt;
@@ -238,6 +245,7 @@ class BestDiffRecordView {
   const BestDiffRecordView({
     required this.minerId,
     required this.minerName,
+    this.minerModel = '',
     required this.type,
     required this.bestShare,
     required this.achievedAt,
@@ -246,6 +254,7 @@ class BestDiffRecordView {
   factory BestDiffRecordView.from(_BestDiffRecord r) => BestDiffRecordView(
         minerId: r.minerId,
         minerName: r.minerName,
+        minerModel: r.minerModel,
         type: r.type,
         bestShare: r.bestShare,
         achievedAt: r.achievedAt,

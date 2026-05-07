@@ -153,7 +153,8 @@ class MinerStore extends ChangeNotifier {
     bestDiffTracker.observe(
       minerId: miner.id,
       minerName: miner.name,
-      type: miner.type,
+      minerModel: s.model.isNotEmpty ? s.model : miner.type.displayName,
+      type: s.type != MinerType.generic ? s.type : miner.type,
       bestShare: s.bestShare,
     );
 
