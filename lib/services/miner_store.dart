@@ -6,6 +6,7 @@ import '../models/miner.dart';
 import 'cgminer_api.dart';
 import 'esp_miner_api.dart';
 import 'relay_service.dart';
+import 'global_leaderboard_service.dart';
 import 'btc_price.dart';
 import 'notification_service.dart';
 import 'best_diff_tracker.dart';
@@ -150,6 +151,7 @@ class MinerStore extends ChangeNotifier {
     }
 
     // Feed the best-diff tracker with the real, observed value only.
+    final prevBest = bestDiffTracker.records[miner.id]?.bestShare ?? 0;
     bestDiffTracker.observe(
       minerId: miner.id,
       minerName: miner.name,
@@ -157,6 +159,17 @@ class MinerStore extends ChangeNotifier {
       type: s.type != MinerType.generic ? s.type : miner.type,
       bestShare: s.bestShare,
     );
+    // Submit to global leaderboard when a new personal record is set
+    if (s.bestShare > prevBest && s.bestShare > 0) {
+      GlobalLeaderboardService.instance.submit(
+        minerId: miner.id,
+        minerName: miner.name,
+        minerModel: s.model.isNotEmpty ? s.model : miner.type.displayName,
+        type: s.type != MinerType.generic ? s.type : miner.type,
+        bestDiff: s.bestShare,
+        achievedAt: DateTime.now(),
+      );
+    }
 
     // Auto-detect name from model if default name
     if (s.model.isNotEmpty && miner.name.startsWith('Miner at ')) {
