@@ -12,8 +12,12 @@ class BtcPriceService {
 
   // Network hashrate-based profitability (live from mempool.space, 10-min cache)
   double _cachedBtcPerTh = 0.0000005; // fallback
+  double _cachedNetworkHashrateThs = 700e6; // ~700 EH/s fallback
   DateTime? _lastBtcPerThFetch;
   static const _btcPerThCacheDuration = Duration(minutes: 10);
+
+  /// Network hashrate in TH/s — used for solo block probability calculations
+  double get networkHashrateThs => _cachedNetworkHashrateThs;
 
   double get cachedPrice => _cachedPrice > 0 ? _cachedPrice : 93000;
 
@@ -65,6 +69,7 @@ class BtcPriceService {
           // (144 blocks/day × 3.125 BTC/block) / (network_hashrate_in_TH/s)
           final networkTh = currentHashrate / 1e12;
           _cachedBtcPerTh = (144 * 3.125) / networkTh;
+          _cachedNetworkHashrateThs = networkTh;
           _lastBtcPerThFetch = now;
         }
       }

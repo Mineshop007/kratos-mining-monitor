@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../main.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -10,6 +11,8 @@ import '../services/energy_report.dart';
 import 'faq_screen.dart';
 import 'circuit_monitor_screen.dart';
 import 'remote_access_screen.dart';
+import 'pool_presets_screen.dart';
+import '../widgets/klaw.dart';
 
 /// Settings tab — theme picker, kWh price input, support links. Real values only.
 class SettingsScreen extends StatefulWidget {
@@ -36,6 +39,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: kc.bg,
       appBar: AppBar(
         backgroundColor: kc.bg,
+        leading: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Image.asset('assets/images/klaw-mascot.png',
+              fit: BoxFit.contain, filterQuality: FilterQuality.medium),
+        ),
         title: Text('Settings',
             style: TextStyle(
                 fontSize: 20,
@@ -62,6 +70,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _ElectricitySection(),
           SizedBox(height: 18),
           _ToolsSection(),
+          SizedBox(height: 18),
+          _PoolPresetsSection(),
           SizedBox(height: 18),
           _SupportSection(),
           SizedBox(height: 18),
@@ -584,6 +594,25 @@ class _ExportRowState extends State<_ExportRow> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+}
+
+class _PoolPresetsSection extends StatelessWidget {
+  const _PoolPresetsSection();
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+    return _SectionShell(
+      title: 'Mining',
+      child: _ActionRow(
+        icon: Icons.dns_rounded,
+        label: 'Pool Presets',
+        sub: 'Save pool configs, apply to any miner in one tap',
+        color: KratosTheme.orange,
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const PoolPresetsScreen())),
+      ),
+    );
   }
 }
 

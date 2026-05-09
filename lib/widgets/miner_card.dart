@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../main.dart';
 import '../theme/volt_theme.dart';
 import 'package:provider/provider.dart';
 import '../models/miner.dart';
@@ -9,6 +10,8 @@ import '../services/autotune_service.dart';
 import '../services/dashboard_prefs.dart';
 import 'sparkline.dart';
 import 'miner_icon.dart';
+import '../services/miner_mode_prefs.dart';
+import '../utils/block_calc.dart';
 
 // ── List Card ─────────────────────────────────────────────────────────────────
 
@@ -135,6 +138,7 @@ class _MinerCardState extends State<MinerCard>
                       _CardFooter(
                         stats: s,
                         earningsPerDay: widget.earningsPerDay,
+                        minerId: widget.miner.ip,
                       ),
                   ],
                 ),
@@ -334,7 +338,7 @@ class _CardStats extends StatelessWidget {
     if (t > 75) return const Color(0xFFff4d4d);
     if (t > 65) return const Color(0xFFffd700);
     if (t <= 0) return const Color(0xFF6e7681);
-    return const Color(0xFFffa657); // orange — VR always runs hot
+    return const Color(0xFFffa657); // orange - VR always runs hot
   }
 
   Color _effColor(double jth) {
@@ -348,8 +352,46 @@ class _CardStats extends StatelessWidget {
 class _CardFooter extends StatelessWidget {
   final MinerStats stats;
   final double earningsPerDay;
+  final String minerId;
 
-  const _CardFooter({required this.stats, this.earningsPerDay = 0});
+  const _CardFooter({required this.stats, this.earningsPerDay = 0, this.minerId = ''});
+
+  List<Widget> _modeChip(BuildContext context) {
+    final poolUrl = stats.pools.isNotEmpty ? stats.pools.first.url : '';
+    final solo = MinerModePrefs.instance.isSolo(minerId, poolUrl: poolUrl);
+    final networkThs = BlockCalc.networkHashrateThs();
+    final hashrateThs = stats.hashrateAvg / 1000.0;
+
+    String label;
+    Color color;
+    if (solo) {
+      color = KratosTheme.orange;
+      if (networkThs > 0 && hashrateThs > 0) {
+        final days = BlockCalc.expectedDays(hashrateThs, networkThs);
+        label = BlockCalc.formatExpectedTime(days);
+      } else {
+        label = 'solo';
+      }
+    } else {
+      color = const Color(0xFFf7931a);
+      label = earningsPerDay > 0 ? '\$${earningsPerDay.toStringAsFixed(2)}/d' : '';
+    }
+    if (label.isEmpty) return [];
+    return [
+      const SizedBox(width: 8),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Text(label, style: TextStyle(fontSize: 10,
+            fontWeight: FontWeight.w700, color: color,
+            fontFamily: 'Courier')),
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -368,28 +410,7 @@ class _CardFooter extends StatelessWidget {
                   height: 24,
                 ),
               ),
-              if (earningsPerDay > 0) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFf7931a).withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                        color: const Color(0xFFf7931a).withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    '\$${earningsPerDay.toStringAsFixed(2)}/d',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFf7931a),
-                      fontFamily: 'Courier',
-                    ),
-                  ),
-                ),
-              ],
+              ..._modeChip(context),
             ],
           ),
         ],
@@ -582,7 +603,7 @@ class _MinerGridCardState extends State<MinerGridCard>
                     ),
                   ],
                   const SizedBox(height: 6),
-                  // Mini stats — only show enabled prefs
+                  // Mini stats - only show enabled prefs
                   _GridMiniStats(stats: s),
                   // Pool footer
                   if (s != null && s.pools.isNotEmpty) ...[
@@ -620,7 +641,7 @@ class _MinerGridCardState extends State<MinerGridCard>
                       ),
                     ),
                   ],
-                  // Efficiency bar — only if pref enabled
+                  // Efficiency bar - only if pref enabled
                   if (s != null && s.efficiency > 0 && DashboardPrefs.instance.showEfficiency) ...[
                     const SizedBox(height: 6),
                     _EfficiencyBar(jth: s.efficiency),
@@ -1015,7 +1036,7 @@ class _StatCell extends StatelessWidget {
       );
 }
 
-/// Thin gradient efficiency bar — green (efficient) → red (hot/wasteful)
+/// Thin gradient efficiency bar - green (efficient) → red (hot/wasteful)
 class _EfficiencyBar extends StatelessWidget {
   final double jth; // J/TH
   const _EfficiencyBar({required this.jth});
@@ -1058,7 +1079,7 @@ class _EfficiencyBar extends StatelessWidget {
   }
 }
 
-/// Grid card mini stats — respects DashboardPrefs toggles.
+/// Grid card mini stats - respects DashboardPrefs toggles.
 class _GridMiniStats extends StatelessWidget {
   final MinerStats? s;
   const _GridMiniStats({required MinerStats? stats}) : s = stats;
@@ -1235,7 +1256,7 @@ class _AutotuneChipState extends State<_AutotuneChip>
                         style: TextStyle(fontSize: 11)),
                     const SizedBox(width: 4),
                     Text(
-                      'Autotuning… $pct%',
+                      'Autotuning... $pct%',
                       style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,

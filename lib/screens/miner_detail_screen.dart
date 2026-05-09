@@ -15,7 +15,11 @@ import '../services/history_service.dart';
 import 'pool_editor_screen.dart';
 import 'oc_screen.dart';
 import 'schedule_screen.dart';
+import 'apply_preset_sheet.dart';
 import '../services/schedule_service.dart';
+import '../services/miner_mode_prefs.dart';
+import '../utils/block_calc.dart';
+import '../services/btc_price.dart';
 
 class MinerDetailScreen extends StatelessWidget {
   final Miner miner;
@@ -53,6 +57,7 @@ class MinerDetailScreen extends StatelessWidget {
         backgroundColor: KratosColors.of(context).bg,
         appBar: AppBar(
           backgroundColor: KratosColors.of(context).bg,
+          leading: const BackButton(),
           title: Row(children: [
             Expanded(
               child: Text(miner.name,
@@ -256,8 +261,32 @@ class MinerDetailScreen extends StatelessWidget {
             const SizedBox(height: 20),
 
             // Actions
+            // ── Solo / Pool toggle + block probability ───────────────
+            _SoloPoolToggle(miner: miner, stats: s),
+            const SizedBox(height: 12),
+
             _SectionLabel('ACTIONS'),
             const SizedBox(height: 8),
+            // Apply Pool Preset — for non-Avalon devices
+            if (miner.type != MinerType.avalonQ &&
+                miner.type != MinerType.avalonMini3 &&
+                miner.type != MinerType.avalonNano3s &&
+                miner.type != MinerType.avalonNano3) ...[  
+              _ActionBtn(
+                'Apply Pool Preset',
+                Icons.dns_rounded,
+                KratosTheme.orange,
+                () async {
+                  await showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
+                    builder: (_) => ApplyPresetSheet(miner: miner),
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
             if (miner.type == MinerType.avalonQ ||
                 miner.type == MinerType.avalonMini3 ||
                 miner.type == MinerType.avalonNano3s ||
@@ -1738,4 +1767,130 @@ class _BlockEtaRowState extends State<_BlockEtaRow>
       ),
     );
   }
+}
+
+// ── Solo / Pool toggle + stats ────────────────────────────────────────────────
+
+class _SoloPoolToggle extends StatefulWidget {
+  final Miner miner;
+  final MinerStats? stats;
+  const _SoloPoolToggle({required this.miner, this.stats});
+  @override
+  State<_SoloPoolToggle> createState() => _SoloPoolToggleState();
+}
+
+class _SoloPoolToggleState extends State<_SoloPoolToggle> {
+  bool? _isSolo;
+
+  @override
+  void initState() {
+    super.initState();
+    final poolUrl = widget.stats?.pools.isNotEmpty == true
+        ? widget.stats!.pools.first.url : '';
+    _isSolo = MinerModePrefs.instance.isSolo(widget.miner.ip, poolUrl: poolUrl);
+  }
+
+  Future<void> _toggle() async {
+    final next = !(_isSolo ?? false);
+    await MinerModePrefs.instance.setSolo(widget.miner.ip, next);
+    setState(() => _isSolo = next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+    final s = widget.stats;
+    final solo = _isSolo ?? false;
+    final color = solo ? KratosTheme.orange : KratosTheme.blue;
+    final networkThs = BlockCalc.networkHashrateThs();
+    final hashrateThs = (s?.hashrateAvg ?? 0) / 1000.0;
+    final btcPrice = BtcPriceService.instance.cachedPrice;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Icon(solo ? Icons.person : Icons.groups, color: color, size: 18),
+          const SizedBox(width: 8),
+          Text(solo ? 'Solo Mining' : 'Pool Mining',
+              style: TextStyle(fontWeight: FontWeight.w800,
+                  color: color, fontSize: 14)),
+          const Spacer(),
+          GestureDetector(
+            onTap: _toggle,
+            child: Container(
+              width: 52, height: 28,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: color.withOpacity(0.4)),
+              ),
+              child: Stack(children: [
+                AnimatedAlign(
+                  alignment: solo ? Alignment.centerRight : Alignment.centerLeft,
+                  duration: const Duration(milliseconds: 200),
+                  child: Padding(
+                    padding: const EdgeInsets.all(3),
+                    child: Container(
+                      width: 22, height: 22,
+                      decoration: BoxDecoration(
+                          color: color, shape: BoxShape.circle),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        if (solo) ...[
+          if (networkThs > 0 && hashrateThs > 0) ...[
+            _SoloStat('Expected time', BlockCalc.formatExpectedTime(
+                BlockCalc.expectedDays(hashrateThs, networkThs)), kc),
+            _SoloStat('Chance today',
+                BlockCalc.formatProbPct(BlockCalc.probInDays(hashrateThs, networkThs, 1)), kc),
+            _SoloStat('Chance this week',
+                BlockCalc.formatProbPct(BlockCalc.probInDays(hashrateThs, networkThs, 7)), kc),
+            _SoloStat('Chance this month',
+                BlockCalc.formatProbPct(BlockCalc.probInDays(hashrateThs, networkThs, 30)), kc),
+          ] else
+            Text('Hashrate required for calculation',
+                style: TextStyle(fontSize: 12, color: kc.muted)),
+        ] else ...[
+          if (hashrateThs > 0 && btcPrice > 0) ...[
+            _SoloStat('Daily earnings',
+                '\$${BtcPriceService.instance.dailyEarningsUsdSync(hashrateThs * 1000, btcPrice).toStringAsFixed(3)}', kc),
+            _SoloStat('Monthly',
+                '\$${(BtcPriceService.instance.dailyEarningsUsdSync(hashrateThs * 1000, btcPrice) * 30).toStringAsFixed(2)}', kc),
+            _SoloStat('BTC price', '\$${btcPrice.toStringAsFixed(0)}', kc),
+          ] else
+            Text('Waiting for hashrate data',
+                style: TextStyle(fontSize: 12, color: kc.muted)),
+        ],
+      ]),
+    );
+  }
+}
+
+class _SoloStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final KratosPalette kc;
+  const _SoloStat(this.label, this.value, this.kc);
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Row(children: [
+      Text(label, style: TextStyle(fontSize: 12, color: kc.muted)),
+      const Spacer(),
+      Text(value, style: TextStyle(fontSize: 12,
+          fontWeight: FontWeight.w700, color: kc.text,
+          fontFamily: 'Courier')),
+    ]),
+  );
 }

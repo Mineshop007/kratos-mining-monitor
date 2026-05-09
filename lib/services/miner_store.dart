@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/miner.dart';
 import 'cgminer_api.dart';
 import 'esp_miner_api.dart';
+import 'avalon_api.dart';
 import 'relay_service.dart';
 import 'global_leaderboard_service.dart';
 import 'btc_price.dart';
@@ -78,9 +79,32 @@ class MinerStore extends ChangeNotifier {
     if (miner.type.apiType == ApiType.espMinerHttp) {
       rawStats = await EspMinerAPI.instance.fetchAll(miner.ip, miner.port,
           remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
+    } else if (miner.type.apiType == ApiType.avalonHttp) {
+      // Canaan Avalon devices: HTTP REST first, supplement missing fields from CGMiner
+      rawStats = await AvalonAPI.instance.fetchStats(
+          miner.ip, miner.type,
+          remoteUrl: miner.remoteUrl,
+          isRemote: miner.isRemote);
+      // On LAN: always query CGMiner TCP too — HTTP doesn't return bestShare/pools on all firmware
+      if (!miner.isRemote) {
+        final cgStats = await CGMinerAPI.instance.fetchAll(
+            miner.ip, 4028, remoteUrl: miner.remoteUrl);
+        if (cgStats.status == MinerStatus.offline) {
+          // CGMiner unavailable — use HTTP stats only (already have them)
+        } else if (rawStats.status == MinerStatus.offline ||
+                   (rawStats.hashrate5s == 0 && rawStats.hashrateAvg == 0)) {
+          // HTTP failed entirely — use CGMiner
+          rawStats = cgStats;
+        } else {
+          // HTTP has hashrate — supplement any missing fields from CGMiner
+          // (bestShare, pools, power, frequency all may be missing from HTTP)
+          rawStats = rawStats.supplement(cgStats);
+        }
+      }
     } else {
       rawStats = await CGMinerAPI.instance.fetchAll(miner.ip, miner.port,
-          remoteUrl: miner.remoteUrl);
+          remoteUrl: miner.remoteUrl,
+          isRemote: miner.isRemote);
     }
 
     // Relay fallback: if direct fetch failed (offline) and this miner was
@@ -90,10 +114,21 @@ class MinerStore extends ChangeNotifier {
     if (rawStats.status == MinerStatus.offline &&
         !miner.isRemote &&
         RelayService.instance.state == RelayState.bridgeOnline) {
-      final fallback = await EspMinerAPI.instance.fetchAll(
-          miner.ip, miner.port, isRemote: true);
-      if (fallback.status != MinerStatus.offline) {
-        rawStats = fallback;
+      // For Avalon devices via relay: use isRemote=true (relay forwards HTTP)
+      if (miner.type.apiType == ApiType.avalonHttp) {
+        final fallback = await AvalonAPI.instance.fetchStats(
+            miner.ip, miner.type, isRemote: true);
+        if (fallback.status != MinerStatus.offline) {
+          rawStats = fallback;
+        }
+      } else if (miner.type.apiType == ApiType.cgminerTcp) {
+        final fallback = await CGMinerAPI.instance.fetchAll(
+            miner.ip, miner.port, isRemote: true);
+        if (fallback.status != MinerStatus.offline) rawStats = fallback;
+      } else {
+        final fallback = await EspMinerAPI.instance.fetchAll(
+            miner.ip, miner.port, isRemote: true);
+        if (fallback.status != MinerStatus.offline) rawStats = fallback;
       }
     }
 
@@ -196,13 +231,13 @@ class MinerStore extends ChangeNotifier {
             _fetch(miner);
           }
           _timers[miner.id] =
-              Timer.periodic(const Duration(seconds: 30), (_) => _fetch(miner));
+              Timer.periodic(const Duration(seconds: 5), (_) => _fetch(miner));
         });
       });
     } else {
       _fetch(miner);
       _timers[miner.id] =
-          Timer.periodic(const Duration(seconds: 30), (_) => _fetch(miner));
+          Timer.periodic(const Duration(seconds: 5), (_) => _fetch(miner));
     }
   }
 
@@ -264,6 +299,12 @@ class MinerStore extends ChangeNotifier {
   double get totalPower => stats.values
       .where((s) => s.status != MinerStatus.offline)
       .fold(0, (sum, s) => sum + s.powerDraw);
+
+  /// Fleet-wide efficiency in J/TH. 0 when no power data available.
+  double get fleetEfficiency {
+    final th = totalHashrate / 1000.0; // TH/s
+    return (th > 0 && totalPower > 0) ? totalPower / th : 0;
+  }
 
   double get totalDailyEarningsUsd =>
       BtcPriceService.instance.dailyEarningsUsdSync(totalHashrate, btcPrice);

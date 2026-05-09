@@ -13,6 +13,8 @@ import 'services/chat_service.dart';
 import 'services/history_service.dart';
 import 'services/relay_service.dart';
 import 'services/schedule_service.dart';
+import 'services/pool_preset_service.dart';
+import 'services/miner_mode_prefs.dart';
 import 'screens/home_screen.dart';
 import 'services/group_service.dart';
 import 'theme/volt_theme.dart';
@@ -28,6 +30,8 @@ void main() async {
   await HapticService.instance.init();
   await HistoryService.instance.init();
   await ScheduleService.instance.init();
+  await PoolPresetService.instance.init();
+  await MinerModePrefs.instance.init();
   // Auto-reconnect relay if a key was saved from a previous session
   RelayService.instance.reconnectSaved();
   runApp(const KratosApp());

@@ -13,6 +13,7 @@ class Klaw extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final image = Image.asset(
       'assets/images/klaw-mascot.png',
       width: size,
@@ -30,7 +31,7 @@ class Klaw extends StatelessWidget {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: KratosColors.volt.withOpacity(0.18),
+            color: kc.accent.withOpacity(0.18),
             blurRadius: size * 0.25,
             spreadRadius: size * 0.04,
           ),
@@ -59,6 +60,7 @@ class KlawEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Padding(
       padding: const EdgeInsets.all(32),
       child: Column(
@@ -69,29 +71,29 @@ class KlawEmptyState extends StatelessWidget {
               .animate()
               .fadeIn(duration: 400.ms)
               .scale(begin: const Offset(0.92, 0.92), end: const Offset(1, 1)),
-          const SizedBox(height: 22),
+          SizedBox(height: 22),
           Text(
             headline,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
-              color: KratosColors.text,
+              color: kc.text,
               letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             quip,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: KratosColors.muted,
+              color: kc.muted,
               height: 1.4,
             ),
           ),
           if (cta != null) ...[
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             cta!,
           ],
         ],
@@ -106,8 +108,9 @@ class KlawSplash extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Scaffold(
-      backgroundColor: KratosColors.bg,
+      backgroundColor: kc.bg,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -116,23 +119,23 @@ class KlawSplash extends StatelessWidget {
                 .animate()
                 .fadeIn(duration: 320.ms)
                 .scale(begin: const Offset(0.9, 0.9), end: const Offset(1, 1)),
-            const SizedBox(height: 28),
-            const Text(
+            SizedBox(height: 28),
+            Text(
               'KRATOS',
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.w900,
-                color: KratosColors.text,
+                color: kc.text,
                 letterSpacing: 4,
               ),
             ).animate().fadeIn(delay: 120.ms, duration: 320.ms),
-            const SizedBox(height: 6),
-            const Text(
+            SizedBox(height: 6),
+            Text(
               'forge your fleet',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: KratosColors.muted,
+                color: kc.muted,
                 letterSpacing: 2,
               ),
             ).animate().fadeIn(delay: 240.ms, duration: 320.ms),
