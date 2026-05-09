@@ -281,17 +281,33 @@ class MinerDetailScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
             ],
-            _ActionBtn(
-              'OC Settings',
-              Icons.bolt,
-              KratosTheme.purple,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => OCScreen(miner: miner, stats: s),
+            if (miner.type == MinerType.avalonQ ||
+                miner.type == MinerType.avalonMini3 ||
+                miner.type == MinerType.avalonNano3s ||
+                miner.type == MinerType.avalonNano3) ...[  
+              // Avalon home devices: OC via miner’s own web UI
+              _ActionBtn(
+                'OC Settings — Open Web UI',
+                Icons.bolt,
+                KratosTheme.purple,
+                () => launchUrl(
+                  Uri.parse('http://${miner.ip}'),
+                  mode: LaunchMode.externalApplication,
                 ),
               ),
-            ),
+            ] else ...[  
+              _ActionBtn(
+                'OC Settings',
+                Icons.bolt,
+                KratosTheme.purple,
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => OCScreen(miner: miner, stats: s),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             // Avalon Q / Mini 3 extras: standby, wake, schedule
             if (miner.type == MinerType.avalonQ ||
