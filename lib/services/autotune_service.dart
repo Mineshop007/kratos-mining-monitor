@@ -44,7 +44,7 @@ class AutotuneService extends ChangeNotifier {
     'bitaxe': (min: 300, max: 650, step: 10),
     'nerdqaxe':   (min: 350, max: 750, step: 10),   // Rev6: 750 MHz certified
     'nerdoctaxe': (min: 350, max: 750, step: 10),   // NerdOctaxe: 750 MHz max
-    'avalonNano': (min: 500, max: 600, step: 12),
+    'avalonNano': (min: 480, max: 600, step: 12), // Nano 3S: 480–600 MHz
   };
 
   static ({int min, int max, int step}) _getRange(MinerType type) {

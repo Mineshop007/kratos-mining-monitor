@@ -1,6 +1,6 @@
 // ── Miner model ───────────────────────────────────────────────────────────────
 
-enum ApiType { espMinerHttp, cgminerTcp }
+enum ApiType { espMinerHttp, avalonHttp, cgminerTcp }
 
 enum MinerStatus { online, offline, warning, unknown }
 
@@ -37,14 +37,26 @@ enum MinerType {
     generic      => 'Miner',
   };
 
-  // ESP-Miner HTTP (port 80) for BitAxe family; cgminer TCP (port 4028) for everything else
+  // ESP-Miner HTTP (port 80) for BitAxe family
+  // Avalon HTTP REST for Canaan devices
+  // CGMiner TCP (port 4028) for everything else
   ApiType get apiType => switch (this) {
     bitaxeGamma || bitaxeUltra || bitaxeGT || nerdqaxe || nerdoctaxe || luckyMiner =>
         ApiType.espMinerHttp,
+    // Nano 3S and Nano 3: OpenWrt-based, HTTP REST API available
+    avalonNano3s || avalonNano3 =>
+        ApiType.avalonHttp,
+    // Mini 3 and Q: CGMiner TCP on port 4028 (standard Canaan protocol)
+    avalonMini3 || avalonQ =>
+        ApiType.cgminerTcp,
     _ => ApiType.cgminerTcp,
   };
 
-  int get defaultPort => apiType == ApiType.espMinerHttp ? 80 : 4028;
+  int get defaultPort => switch (apiType) {
+    ApiType.espMinerHttp => 80,
+    ApiType.avalonHttp   => 80,
+    ApiType.cgminerTcp   => 4028,
+  };
 
   static MinerType detect(String model) {
     final m = model.toLowerCase();
@@ -55,10 +67,12 @@ enum MinerType {
     // NerdAxe firmware returns deviceModel like 'NerdQAxe++' or 'NerdOCTAXE-γ'
     if (m.contains('nerdqaxe') || m.contains('nerdqax') || m.contains('nerdq')) return nerdqaxe;
     if (m.contains('nerdoct') || m.contains('nerdoctaxe')) return nerdoctaxe;
-    if (m.contains('nano3s') || m.contains('nano 3s')) return avalonNano3s;
-    if (m.contains('mini3') || m.contains('mini 3')) return avalonMini3;
-    if (m.contains('avalonq') || m.contains('avalon q')) return avalonQ;
-    if (m.contains('nano3') || m.contains('nano 3')) return avalonNano3;
+    if (m.contains('nano3s') || m.contains('nano 3s') || m.contains('nano-3s')) return avalonNano3s;
+    if (m.contains('mini3') || m.contains('mini 3') || m.contains('mini-3')
+        || m.contains('avalonmini') || m.contains('1161')) return avalonMini3;
+    if (m.contains('avalonq') || m.contains('avalon q') || m.contains('avalon-q')
+        || m.contains('avalonq90') || m.contains('avalon_q')) return avalonQ;
+    if (m.contains('nano3') || m.contains('nano 3') || m.contains('nano-3')) return avalonNano3;
     if (m.contains('antminer') || m.contains('bitmain')) return antminer;
     if (m.contains('whatsminer') || m.contains('microbt')) return whatsminer;
     if (m.contains('goldshell')) return goldshell;
@@ -135,6 +149,10 @@ class MinerStats {
   final bool blockFound;
   final bool isUsingFallbackStratum;
   final int coreVoltage; // mV (ESP-Miner devices)
+  final double vrTemp;    // °C — voltage regulator / MOSFET temperature
+  final int workMode;     // Avalon Q: 0=Eco, 1=Standard, 2=Super (-1=unknown)
+  final int minerState;   // Avalon Q: 0=init, 1=working, 2=standby (-1=unknown)
+  bool get isStandby => minerState == 2;
 
   MinerStats({
     this.hashrate5s = 0,
@@ -160,9 +178,42 @@ class MinerStats {
     this.blockFound = false,
     this.isUsingFallbackStratum = false,
     this.coreVoltage = 0,
+    this.vrTemp = 0,
+    this.workMode = -1,
+    this.minerState = -1,
   }) : lastUpdated = lastUpdated ?? DateTime.now();
 
   static MinerStats get offline => MinerStats(status: MinerStatus.offline);
+
+  /// Fill in zero/empty fields from [other] — used when HTTP gives hashrate
+  /// but CGMiner gives bestShare, pools, etc.
+  MinerStats supplement(MinerStats other) => MinerStats(
+    hashrate5s:   hashrate5s  > 0 ? hashrate5s  : other.hashrate5s,
+    hashrateAvg:  hashrateAvg > 0 ? hashrateAvg : other.hashrateAvg,
+    hashRate1h:   hashRate1h  > 0 ? hashRate1h  : other.hashRate1h,
+    outTemp:      outTemp  > 0 ? outTemp  : other.outTemp,
+    fanRPM:       fanRPM   > 0 ? fanRPM   : other.fanRPM,
+    fanPercent:   fanPercent > 0 ? fanPercent : other.fanPercent,
+    accepted:     accepted  > 0 ? accepted  : other.accepted,
+    rejected:     rejected  > 0 ? rejected  : other.rejected,
+    hardwareErrors: hardwareErrors > 0 ? hardwareErrors : other.hardwareErrors,
+    uptime:       uptime    > 0 ? uptime    : other.uptime,
+    pools:        pools.isNotEmpty ? pools : other.pools,
+    frequency:    frequency > 0 ? frequency : other.frequency,
+    powerDraw:    powerDraw > 0 ? powerDraw : other.powerDraw,
+    bestShare:    bestShare > 0 ? bestShare : other.bestShare,
+    hashrateHistory: hashrateHistory,
+    status:       status,
+    lastUpdated:  lastUpdated,
+    firmware:     firmware.isNotEmpty ? firmware : other.firmware,
+    model:        model.isNotEmpty ? model : other.model,
+    type:         type != MinerType.generic ? type : other.type,
+    blockFound:   blockFound || other.blockFound,
+    isUsingFallbackStratum: isUsingFallbackStratum,
+    coreVoltage:  coreVoltage > 0 ? coreVoltage : other.coreVoltage,
+    workMode:     workMode >= 0 ? workMode : other.workMode,
+    minerState:   minerState >= 0 ? minerState : other.minerState,
+  );
 
   MinerStats withHistory(List<double> history) => MinerStats(
     hashrate5s: hashrate5s,
@@ -188,11 +239,24 @@ class MinerStats {
     blockFound: blockFound,
     isUsingFallbackStratum: isUsingFallbackStratum,
     coreVoltage: coreVoltage,
+    vrTemp: vrTemp,
+    workMode: workMode,
+    minerState: minerState,
   );
 
   // Computed
   double get efficiency => powerDraw > 0 && hashrateAvg > 0 ? powerDraw / (hashrateAvg / 1000.0) : 0;
   double get rejectRate => accepted > 0 ? rejected / (accepted + rejected) * 100 : 0;
+
+  /// Format bestShare as human-readable difficulty string (T / G / M / K)
+  String get bestShareFormatted {
+    if (bestShare <= 0) return '--';
+    if (bestShare >= 1e12) return '${(bestShare / 1e12).toStringAsFixed(2)}T';
+    if (bestShare >= 1e9)  return '${(bestShare / 1e9).toStringAsFixed(1)}G';
+    if (bestShare >= 1e6)  return '${(bestShare / 1e6).toStringAsFixed(1)}M';
+    if (bestShare >= 1e3)  return '${(bestShare / 1e3).toStringAsFixed(1)}K';
+    return bestShare.toStringAsFixed(0);
+  }
 
   String get uptimeFormatted {
     if (uptime < 60) return '${uptime}s';

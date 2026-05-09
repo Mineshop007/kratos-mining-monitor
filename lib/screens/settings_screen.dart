@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../theme/volt_theme.dart';
 import '../services/theme_service.dart';
 import '../services/miner_store.dart';
@@ -10,30 +11,45 @@ import 'faq_screen.dart';
 import 'circuit_monitor_screen.dart';
 import 'remote_access_screen.dart';
 
-/// Settings tab — theme picker (only Circuit + Volt unlocked in 1.2.0),
-/// kWh price input, support links. Real values only.
-class SettingsScreen extends StatelessWidget {
+/// Settings tab — theme picker, kWh price input, support links. Real values only.
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  KratosPalette get kc => KratosColors.of(context);
+  String _version = '';
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _version = 'v${info.version}');
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: KratosColors.bg,
+      backgroundColor: kc.bg,
       appBar: AppBar(
-        backgroundColor: KratosColors.bg,
-        title: const Text('Settings',
+        backgroundColor: kc.bg,
+        title: Text('Settings',
             style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: KratosColors.text)),
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 18),
-            child: Center(
-                child: Text('v1.5.0',
-                    style: TextStyle(
-                        color: KratosColors.muted, fontSize: 13))),
-          ),
+                color: kc.text)),
+        actions: [
+          if (_version.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 18),
+              child: Center(
+                  child: Text(_version,
+                      style: TextStyle(
+                          color: kc.muted, fontSize: 13))),
+            ),
         ],
       ),
       body: ListView(
@@ -63,6 +79,7 @@ class _SectionShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -70,19 +87,19 @@ class _SectionShell extends StatelessWidget {
           padding: const EdgeInsets.only(left: 6, bottom: 8),
           child: Text(
             title.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: KratosColors.muted,
+              color: kc.muted,
               letterSpacing: 1.2,
             ),
           ),
         ),
         Container(
           decoration: BoxDecoration(
-            color: KratosColors.surface.withOpacity(0.7),
+            color: kc.surface.withOpacity(0.7),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: KratosColors.volt.withOpacity(0.08)),
+            border: Border.all(color: kc.accent.withOpacity(0.08)),
           ),
           clipBehavior: Clip.antiAlias,
           child: child,
@@ -97,6 +114,7 @@ class _ThemeSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return _SectionShell(
       title: 'Theme',
       child: Padding(
@@ -137,9 +155,10 @@ class _ThemeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final locked = !name.unlocked;
     return InkWell(
-      onTap: locked ? null : onTap,
+      onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         decoration: BoxDecoration(
@@ -147,15 +166,15 @@ class _ThemeTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: active
-                ? KratosColors.voltBright
+                ? _accentForTheme(name)
                 : Colors.white.withOpacity(0.06),
             width: active ? 2 : 1,
           ),
           boxShadow: active
               ? [
                   BoxShadow(
-                      color: KratosColors.volt.withOpacity(0.4),
-                      blurRadius: 14),
+                      color: _accentForTheme(name).withOpacity(0.5),
+                      blurRadius: 16),
                 ]
               : null,
         ),
@@ -166,25 +185,13 @@ class _ThemeTile extends StatelessWidget {
           children: [
             Text(
               name.displayName,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
-                color: locked
-                    ? KratosColors.muted
-                    : Colors.white.withOpacity(0.95),
+                color: Colors.white,
                 letterSpacing: 0.6,
               ),
             ),
-            if (locked) ...[
-              const SizedBox(height: 2),
-              const Text(
-                'soon',
-                style: TextStyle(
-                  fontSize: 9,
-                  color: KratosColors.muted,
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -195,39 +202,47 @@ class _ThemeTile extends StatelessWidget {
     switch (n) {
       case KratosThemeName.circuit:
         return const LinearGradient(
-          colors: [Color(0xFF0A1816), Color(0xFF050A0B)],
+          colors: [Color(0xFF0D2018), Color(0xFF050A0B)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );
       case KratosThemeName.volt:
         return const LinearGradient(
-          colors: [
-            KratosColors.volt,
-            Color(0xFF02211A),
-            Color(0xFF000000),
-          ],
-          stops: [0.0, 0.6, 1.0],
+          colors: [Color(0xFF00E676), Color(0xFF02211A), Color(0xFF000000)],
+          stops: [0.0, 0.55, 1.0],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         );
       case KratosThemeName.pulse:
         return const LinearGradient(
-          colors: [Color(0xFF0A2B1F), KratosColors.volt, Color(0xFF053A28)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+          colors: [Color(0xFF3D0060), Color(0xFFE040FB), Color(0xFF090010)],
+          stops: [0.0, 0.5, 1.0],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
         );
       case KratosThemeName.stealth:
         return const LinearGradient(
-          colors: [Colors.black, Colors.black],
+          colors: [Color(0xFF1A1A1A), Color(0xFF000000)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         );
       case KratosThemeName.chrome:
         return const LinearGradient(
-          colors: [Color(0xFF3A4A48), Color(0xFF1A2826)],
+          colors: [Color(0xFF4A6A80), Color(0xFF1A2A38), Color(0xFF080C10)],
+          stops: [0.0, 0.5, 1.0],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         );
     }
   }
+
+  Color _accentForTheme(KratosThemeName n) => switch (n) {
+    KratosThemeName.circuit => const Color(0xFF39FFA0),
+    KratosThemeName.volt    => const Color(0xFF5DFFB0),
+    KratosThemeName.pulse   => const Color(0xFFF8A0FF),
+    KratosThemeName.stealth => const Color(0xFFFFFFFF),
+    KratosThemeName.chrome  => const Color(0xFF9ADAF8),
+  };
 }
 
 class _HapticsSection extends StatefulWidget {
@@ -238,10 +253,13 @@ class _HapticsSection extends StatefulWidget {
 }
 
 class _HapticsSectionState extends State<_HapticsSection> {
+  KratosPalette get kc => KratosColors.of(context);
+
   HapticIntensity _intensity = HapticService.instance.intensity;
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return _SectionShell(
       title: 'Haptics',
       child: Padding(
@@ -250,9 +268,9 @@ class _HapticsSectionState extends State<_HapticsSection> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: const [
+              children: [
                 Icon(Icons.vibration_rounded,
-                    size: 22, color: KratosColors.cyan),
+                    size: 22, color: kc.secondary),
                 SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -262,16 +280,16 @@ class _HapticsSectionState extends State<_HapticsSection> {
                           style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: KratosColors.text)),
+                              color: kc.text)),
                       Text('one quick pulse per accepted share',
                           style: TextStyle(
-                              fontSize: 11, color: KratosColors.muted)),
+                              fontSize: 11, color: kc.muted)),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -286,21 +304,21 @@ class _HapticsSectionState extends State<_HapticsSection> {
                       HapticService.instance.setIntensity(v);
                       HapticService.instance.onShareAccepted();
                     },
-                    selectedColor: KratosColors.volt.withOpacity(0.20),
-                    backgroundColor: KratosColors.surface2,
+                    selectedColor: kc.accent.withOpacity(0.20),
+                    backgroundColor: kc.surface2,
                     labelStyle: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
                       color: _intensity == v
-                          ? KratosColors.voltBright
-                          : KratosColors.muted,
+                          ? kc.accentBright
+                          : kc.muted,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(99),
                       side: BorderSide(
                         color: _intensity == v
-                            ? KratosColors.volt
-                            : KratosColors.line,
+                            ? kc.accent
+                            : kc.line,
                       ),
                     ),
                   ),
@@ -339,15 +357,16 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return _SectionShell(
       title: 'Electricity',
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         child: Row(
           children: [
-            const Icon(Icons.bolt, size: 22, color: KratosColors.warning),
-            const SizedBox(width: 12),
-            const Expanded(
+            Icon(Icons.bolt, size: 22, color: KratosColors.warning),
+            SizedBox(width: 12),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -355,10 +374,10 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: KratosColors.text)),
+                          color: kc.text)),
                   Text('used to compute cost & net earnings',
                       style: TextStyle(
-                          fontSize: 11, color: KratosColors.muted)),
+                          fontSize: 11, color: kc.muted)),
                 ],
               ),
             ),
@@ -369,10 +388,10 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
                 keyboardType: const TextInputType.numberWithOptions(
                     decimal: true),
                 textAlign: TextAlign.end,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: KratosColors.text,
+                  color: kc.text,
                   fontFamily: 'monospace',
                 ),
                 decoration: InputDecoration(
@@ -381,16 +400,16 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: KratosColors.line),
+                    borderSide: BorderSide(color: kc.line),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: KratosColors.line),
+                    borderSide: BorderSide(color: kc.line),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide:
-                        const BorderSide(color: KratosColors.volt, width: 2),
+                        BorderSide(color: kc.accent, width: 2),
                   ),
                 ),
                 onSubmitted: (v) {
@@ -418,6 +437,7 @@ class _ToolsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return _SectionShell(
       title: 'Tools',
       child: Column(
@@ -433,10 +453,10 @@ class _ToolsSection extends StatelessWidget {
                   builder: (_) => const CircuitMonitorScreen()),
             ),
           ),
-          const Divider(height: 1, color: KratosColors.line),
+          Divider(height: 1, color: kc.line),
           _ExportRow(),
-          const Divider(height: 1, color: KratosColors.line),
-          const Divider(height: 1, color: KratosColors.line),
+          Divider(height: 1, color: kc.line),
+          Divider(height: 1, color: kc.line),
           _ActionRow(
             icon: Icons.lan_outlined,
             color: KratosColors.info,
@@ -448,10 +468,10 @@ class _ToolsSection extends StatelessWidget {
                   builder: (_) => const RemoteAccessScreen()),
             ),
           ),
-          const Divider(height: 1, color: KratosColors.line),
+          Divider(height: 1, color: kc.line),
           _ActionRow(
             icon: Icons.menu_book_rounded,
-            color: KratosColors.cyan,
+            color: kc.secondary,
             label: 'FAQ',
             sub: 'Real answers to first-week questions',
             onTap: () => Navigator.push(
@@ -482,6 +502,7 @@ class _ActionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -497,25 +518,25 @@ class _ActionRow extends StatelessWidget {
               ),
               child: Icon(icon, size: 16, color: color),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(label,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: KratosColors.text)),
-                  const SizedBox(height: 2),
+                          color: kc.text)),
+                  SizedBox(height: 2),
                   Text(sub,
-                      style: const TextStyle(
-                          fontSize: 11, color: KratosColors.muted)),
+                      style: TextStyle(
+                          fontSize: 11, color: kc.muted)),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                size: 18, color: KratosColors.muted),
+            Icon(Icons.chevron_right_rounded,
+                size: 18, color: kc.muted),
           ],
         ),
       ),
@@ -533,9 +554,10 @@ class _ExportRowState extends State<_ExportRow> {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return _ActionRow(
       icon: Icons.ios_share_rounded,
-      color: KratosColors.volt,
+      color: kc.accent,
       label: 'Export energy report (CSV)',
       sub: _busy
           ? 'Building report…'
@@ -570,6 +592,7 @@ class _SupportSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return _SectionShell(
       title: 'Support',
       child: Column(
@@ -580,19 +603,19 @@ class _SupportSection extends StatelessWidget {
             url: 'https://discord.gg/yWtYegkDJw',
             color: const Color(0xFF5865F2),
           ),
-          const Divider(height: 1, color: KratosColors.line),
+          Divider(height: 1, color: kc.line),
           _LinkRow(
             icon: Icons.shopping_bag_rounded,
             label: 'Buy hardware on Mineshop',
             url: 'https://mineshop.eu/?utm_source=kratos_app',
-            color: KratosColors.volt,
+            color: kc.accent,
           ),
-          const Divider(height: 1, color: KratosColors.line),
+          Divider(height: 1, color: kc.line),
           _LinkRow(
-            icon: Icons.menu_book_rounded,
-            label: 'Mineshop blog — daily mining articles',
-            url: 'https://mineshop.eu/blog?utm_source=kratos_app',
-            color: KratosColors.cyan,
+            icon: Icons.workspace_premium_rounded,
+            label: 'Mining Chest — earn points on solo pool',
+            url: 'https://solo.mineshop.eu?utm_source=kratos_app',
+            color: const Color(0xFFFFB300),
           ),
         ],
       ),
@@ -615,6 +638,7 @@ class _LinkRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return InkWell(
       onTap: () => launchUrl(Uri.parse(url),
           mode: LaunchMode.externalApplication),
@@ -631,16 +655,16 @@ class _LinkRow extends StatelessWidget {
               ),
               child: Icon(icon, size: 16, color: color),
             ),
-            const SizedBox(width: 14),
+            SizedBox(width: 14),
             Expanded(
               child: Text(label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: KratosColors.text)),
+                      color: kc.text)),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                size: 18, color: KratosColors.muted),
+            Icon(Icons.chevron_right_rounded,
+                size: 18, color: kc.muted),
           ],
         ),
       ),
@@ -653,22 +677,23 @@ class _AboutSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return _SectionShell(
       title: 'About',
       child: Column(
-        children: const [
+        children: [
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                Icon(Icons.bolt_rounded, color: KratosColors.volt, size: 20),
+                Icon(Icons.bolt_rounded, color: kc.accent, size: 20),
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     'Kratos · Volt — Mining monitor by Mineshop.\nReal data. No fakes. Forge your fleet.',
                     style: TextStyle(
                         fontSize: 13,
-                        color: KratosColors.muted,
+                        color: kc.muted,
                         height: 1.4),
                   ),
                 ),

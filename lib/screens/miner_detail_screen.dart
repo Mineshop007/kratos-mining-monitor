@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../theme/volt_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -13,6 +14,8 @@ import '../services/miner_store.dart';
 import '../services/history_service.dart';
 import 'pool_editor_screen.dart';
 import 'oc_screen.dart';
+import 'schedule_screen.dart';
+import '../services/schedule_service.dart';
 
 class MinerDetailScreen extends StatelessWidget {
   final Miner miner;
@@ -47,25 +50,25 @@ class MinerDetailScreen extends StatelessWidget {
     return Consumer<MinerStore>(builder: (ctx, store, _) {
       final s = store.stats[miner.id];
       return Scaffold(
-        backgroundColor: KratosTheme.bg,
+        backgroundColor: KratosColors.of(context).bg,
         appBar: AppBar(
-          backgroundColor: KratosTheme.bg,
+          backgroundColor: KratosColors.of(context).bg,
           title: Row(children: [
             Expanded(
               child: Text(miner.name,
-                  style: const TextStyle(color: KratosTheme.textPrim),
+                  style: TextStyle(color: KratosColors.of(context).text),
                   overflow: TextOverflow.ellipsis),
             ),
             if (miner.isRemote) ...[const SizedBox(width: 6), _RemoteBadge()],
           ]),
           actions: [
             IconButton(
-              icon: const Icon(Icons.edit_outlined, color: KratosTheme.muted),
+              icon: Icon(Icons.edit_outlined, color: KratosColors.of(context).muted),
               tooltip: 'Edit miner',
               onPressed: () => _showEditSheet(context, miner, store),
             ),
             IconButton(
-              icon: const Icon(Icons.refresh, color: KratosTheme.muted),
+              icon: Icon(Icons.refresh, color: KratosColors.of(context).muted),
               onPressed: () => store.refreshOne(miner),
             ),
           ],
@@ -121,14 +124,14 @@ class MinerDetailScreen extends StatelessWidget {
                   'REJECTED',
                   '${s?.rejected ?? 0}',
                   Icons.cancel,
-                  (s?.rejected ?? 0) > 0 ? KratosTheme.red : KratosTheme.muted,
+                  (s?.rejected ?? 0) > 0 ? KratosTheme.red : KratosColors.of(context).muted,
                   onTap: s != null ? () => _showShareStats(context, s.accepted, s.rejected) : null,
                 ),
                 _StatCard(
                   'HW ERRORS',
                   '${s?.hardwareErrors ?? 0}',
                   Icons.warning_amber,
-                  (s?.hardwareErrors ?? 0) > 0 ? KratosTheme.red : KratosTheme.muted,
+                  (s?.hardwareErrors ?? 0) > 0 ? KratosTheme.red : KratosColors.of(context).muted,
                   onTap: () => _showHwErrorInfo(context, s?.hardwareErrors ?? 0),
                 ),
                 _StatCard(
@@ -273,6 +276,33 @@ class MinerDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
+            // Avalon Q / Mini 3 extras: standby, wake, schedule
+            if (miner.type == MinerType.avalonQ ||
+                miner.type == MinerType.avalonMini3) ...[
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(child: _ActionBtn(
+                  s?.isStandby == true ? 'Wake Up' : 'Standby',
+                  s?.isStandby == true ? Icons.wb_sunny_outlined : Icons.bedtime_outlined,
+                  s?.isStandby == true ? Colors.amber : Colors.orange,
+                  () => s?.isStandby == true
+                      ? _confirmAction(context, 'Wake Up',
+                          () => CGMinerAPI.instance.softOn(miner.ip, miner.port,
+                              remoteUrl: miner.remoteUrl, isRemote: miner.isRemote))
+                      : _confirmAction(context, 'Standby',
+                          () => CGMinerAPI.instance.softOff(miner.ip, miner.port,
+                              remoteUrl: miner.remoteUrl, isRemote: miner.isRemote)),
+                )),
+                const SizedBox(width: 8),
+                Expanded(child: _ActionBtn(
+                  'Schedule',
+                  Icons.schedule,
+                  const Color(0xFF9C27B0),
+                  () => Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => ScheduleScreen(miner: miner))),
+                )),
+              ]),
+            ],
             _ActionBtn('Restart Miner', Icons.restart_alt, KratosTheme.red,
                 () => _confirmRestart(context)),
             if (miner.type.apiType == ApiType.espMinerHttp) ...[
@@ -280,14 +310,14 @@ class MinerDetailScreen extends StatelessWidget {
               _ActionBtn(
                 'Pause Mining',
                 Icons.pause_circle_outline,
-                KratosTheme.muted,
+                KratosColors.of(context).muted,
                 () => _confirmAction(context, 'Pause', _pause),
               ),
               const SizedBox(height: 8),
               _ActionBtn(
                 'Resume Mining',
                 Icons.play_circle_outline,
-                KratosTheme.neon,
+                KratosColors.of(context).accent,
                 () => _confirmAction(context, 'Resume', _resume),
               ),
             ],
@@ -328,18 +358,18 @@ class MinerDetailScreen extends StatelessWidget {
     showDialog(
       context: ctx,
       builder: (_) => AlertDialog(
-        backgroundColor: KratosTheme.surface,
-        title: const Text('Restart Miner?',
-            style: TextStyle(color: KratosTheme.textPrim)),
+        backgroundColor: KratosColors.of(ctx).surface,
+        title: Text('Restart Miner?',
+            style: TextStyle(color: KratosColors.of(ctx).text)),
         content: Text(
           'Restart ${miner.name}? It will be offline for ~60 seconds.',
-          style: const TextStyle(color: KratosTheme.muted),
+          style: TextStyle(color: KratosColors.of(ctx).muted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel',
-                style: TextStyle(color: KratosTheme.muted)),
+            child: Text('Cancel',
+                style: TextStyle(color: KratosColors.of(ctx).muted)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -352,7 +382,7 @@ class MinerDetailScreen extends StatelessWidget {
                   content: Text(ok
                       ? 'Restart sent — back online in ~60s'
                       : 'Restart failed'),
-                  backgroundColor: KratosTheme.surface,
+                  backgroundColor: KratosColors.of(ctx).surface,
                 ));
               }
             },
@@ -369,7 +399,7 @@ class MinerDetailScreen extends StatelessWidget {
     if (ctx.mounted) {
       ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
         content: Text(ok ? '$label sent' : '$label failed'),
-        backgroundColor: KratosTheme.surface,
+        backgroundColor: KratosColors.of(ctx).surface,
       ));
     }
   }
@@ -377,7 +407,7 @@ class MinerDetailScreen extends StatelessWidget {
   Color _tempColor(double t) {
     if (t > 85) return KratosTheme.red;
     if (t > 75) return KratosTheme.orange;
-    return KratosTheme.muted;
+    return KratosColors.muted;
   }
 }
 
@@ -457,9 +487,9 @@ class _HashrateChartState extends State<_HashrateChart> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: KratosTheme.surface,
+        color: KratosColors.of(context).surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KratosTheme.border),
+        border: Border.all(color: KratosColors.of(context).line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -479,29 +509,29 @@ class _HashrateChartState extends State<_HashrateChart> {
             ),
             if (avg > 0)
               Text('avg ${_formatHashrate(avg)}',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 11,
-                      color: KratosTheme.muted,
+                      color: KratosColors.of(context).muted,
                       fontFamily: 'Courier')),
           ]),
           const SizedBox(height: 10),
           SizedBox(
             height: 140,
             child: _loading
-                ? const Center(
+                ? Center(
                     child: SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: KratosTheme.neon)))
+                            color: KratosColors.of(context).accent)))
                 : _points.length < 2
                     ? Center(
                         child: Text(
                             'No data yet — collecting samples…',
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontSize: 12,
-                                color: KratosTheme.muted)),
+                                color: KratosColors.of(context).muted)),
                       )
                     : _buildChart(),
           ),
@@ -530,7 +560,7 @@ class _HashrateChartState extends State<_HashrateChart> {
           show: true,
           horizontalInterval: (maxY - minY) / 4,
           getDrawingHorizontalLine: (_) =>
-              FlLine(color: KratosTheme.border, strokeWidth: 0.5),
+              FlLine(color: KratosColors.of(context).line, strokeWidth: 0.5),
           drawVerticalLine: false,
         ),
         titlesData: FlTitlesData(
@@ -575,13 +605,13 @@ class _HashrateChartState extends State<_HashrateChart> {
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            color: KratosTheme.neon,
+            color: KratosColors.volt,
             barWidth: 2,
             isStrokeCapRound: true,
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: KratosTheme.neon.withOpacity(0.1),
+              color: KratosColors.volt.withOpacity(0.1),
             ),
           ),
         ],
@@ -623,13 +653,13 @@ class _TfPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: selected
-              ? KratosTheme.neon.withOpacity(0.12)
-              : KratosTheme.surface,
+              ? KratosColors.of(context).accent.withOpacity(0.12)
+              : KratosColors.of(context).surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
               color: selected
-                  ? KratosTheme.neon.withOpacity(0.5)
-                  : KratosTheme.border),
+                  ? KratosColors.of(context).accent.withOpacity(0.5)
+                  : KratosColors.of(context).line),
         ),
         child: Text(
           label,
@@ -637,7 +667,7 @@ class _TfPill extends StatelessWidget {
             fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
-            color: selected ? KratosTheme.neon : KratosTheme.muted,
+            color: selected ? KratosColors.of(context).accent : KratosColors.of(context).muted,
           ),
         ),
       ),
@@ -712,32 +742,51 @@ class _HashrateHero extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 24),
         decoration: BoxDecoration(
           gradient: LinearGradient(colors: [
-            KratosTheme.neon.withOpacity(0.05),
+            KratosColors.of(context).accent.withOpacity(0.05),
             Colors.transparent
           ], begin: Alignment.topCenter, end: Alignment.bottomCenter),
         ),
         child: Column(children: [
           Text(
             stats?.hashrateFormatted ?? '--',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 44,
               fontWeight: FontWeight.w900,
-              color: KratosTheme.neon,
+              color: KratosColors.of(context).accent,
               fontFamily: 'Courier',
             ),
           ),
-          const Text('AVG HASHRATE',
+          Text('AVG HASHRATE',
               style: TextStyle(
                   fontSize: 11,
-                  color: KratosTheme.muted,
+                  color: KratosColors.of(context).muted,
                   letterSpacing: 2)),
           if (stats != null && stats!.hashrate5s > 0)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 '5s: ${_fmtHashrate(stats!.hashrate5s)}  ·  trend: ${_trendLabel(stats!.trendDirection)}',
-                style: const TextStyle(
-                    fontSize: 12, color: KratosTheme.muted),
+                style: TextStyle(
+                    fontSize: 12, color: KratosColors.of(context).muted),
+              ),
+            ),
+          if (stats?.isStandby == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                ),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.bedtime_outlined, size: 14, color: Colors.orange),
+                  SizedBox(width: 6),
+                  Text('STANDBY', style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w800,
+                      color: Colors.orange, letterSpacing: 1.5)),
+                ]),
               ),
             ),
         ]),
@@ -780,12 +829,12 @@ class _StatCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: isWarning
                 ? KratosTheme.red.withOpacity(0.07)
-                : KratosTheme.surface,
+                : KratosColors.of(context).surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isWarning
                   ? KratosTheme.red.withOpacity(0.4)
-                  : KratosTheme.border,
+                  : KratosColors.of(context).line,
               width: isWarning ? 1.5 : 1,
             ),
           ),
@@ -808,15 +857,15 @@ class _StatCard extends StatelessWidget {
             Text(value,
                 style: TextStyle(
                     fontSize: 18, fontWeight: FontWeight.bold,
-                    color: KratosTheme.textPrim, fontFamily: 'Courier')),
+                    color: KratosColors.of(context).text, fontFamily: 'Courier')),
             const SizedBox(height: 2),
             Text(label,
-                style: const TextStyle(
-                    fontSize: 9, color: KratosTheme.muted, letterSpacing: 1)),
+                style: TextStyle(
+                    fontSize: 9, color: KratosColors.of(context).muted, letterSpacing: 1)),
             if (onTap != null) ...[  
               const SizedBox(height: 4),
-              const Text('tap for details',
-                  style: TextStyle(fontSize: 7, color: KratosTheme.muted,
+              Text('tap for details',
+                  style: TextStyle(fontSize: 7, color: KratosColors.of(context).muted,
                       letterSpacing: 0.5)),
             ],
           ]),
@@ -849,9 +898,9 @@ class _InfoCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
               Text(label,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 9,
-                      color: KratosTheme.muted,
+                      color: KratosColors.of(context).muted,
                       letterSpacing: 1)),
               Text(value,
                   style: TextStyle(
@@ -873,16 +922,16 @@ class _PoolRow extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: KratosTheme.surface,
+          color: KratosColors.of(context).surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: KratosTheme.border),
+          border: Border.all(color: KratosColors.of(context).line),
         ),
         child: Row(children: [
           Container(
             width: 7,
             height: 7,
             decoration: BoxDecoration(
-              color: pool.active ? KratosTheme.neon : KratosTheme.muted,
+              color: pool.active ? KratosColors.of(context).accent : KratosColors.of(context).muted,
               shape: BoxShape.circle,
             ),
           ),
@@ -892,14 +941,14 @@ class _PoolRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
             Text(pool.cleanUrl,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13,
-                    color: KratosTheme.textPrim,
+                    color: KratosColors.of(context).text,
                     fontFamily: 'Courier'),
                 overflow: TextOverflow.ellipsis),
             Text(pool.user,
-                style: const TextStyle(
-                    fontSize: 11, color: KratosTheme.muted)),
+                style: TextStyle(
+                    fontSize: 11, color: KratosColors.of(context).muted)),
           ])),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(pool.status,
@@ -907,12 +956,12 @@ class _PoolRow extends StatelessWidget {
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: pool.active
-                        ? KratosTheme.neon
+                        ? KratosColors.of(context).accent
                         : KratosTheme.red)),
             Text('${pool.accepted}A / ${pool.rejected}R',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 10,
-                    color: KratosTheme.muted,
+                    color: KratosColors.of(context).muted,
                     fontFamily: 'Courier')),
           ]),
         ]),
@@ -925,10 +974,10 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(
+      style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: KratosTheme.muted,
+          color: KratosColors.of(context).muted,
           letterSpacing: 1.5));
 }
 
@@ -939,22 +988,22 @@ void _showTempInfo(BuildContext ctx, double temp) {
   final msg = temp < 60 ? 'Running great. No action needed.'
       : temp < 72 ? 'Normal range. Keep an eye on airflow.'
       : 'High temp! Check fan speed and airflow. Risk of throttling.';
-  final color = temp < 60 ? KratosTheme.neon : temp < 72 ? KratosTheme.orange : KratosTheme.red;
+  final color = temp < 60 ? KratosColors.of(ctx).accent : temp < 72 ? KratosTheme.orange : KratosTheme.red;
   showDialog(context: ctx, builder: (_) => AlertDialog(
-    backgroundColor: KratosTheme.surface,
-    title: Text('🌡️  ${temp.toInt()}°C', style: const TextStyle(color: KratosTheme.textPrim)),
+    backgroundColor: KratosColors.of(ctx).surface,
+    title: Text('🌡️  ${temp.toInt()}°C', style: TextStyle(color: KratosColors.of(ctx).text)),
     content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
       const SizedBox(height: 8),
-      Text(msg, style: const TextStyle(color: KratosTheme.muted, height: 1.5)),
+      Text(msg, style: TextStyle(color: KratosColors.of(ctx).muted, height: 1.5)),
       const SizedBox(height: 12),
-      const Divider(color: KratosTheme.border),
+      Divider(color: KratosColors.of(ctx).line),
       for (final r in [('🟢 Cool', '< 60°C'), ('🟡 Warm', '60–72°C'), ('🔴 Hot', '> 72°C')])
         Padding(padding: const EdgeInsets.symmetric(vertical: 2),
             child: Row(children: [
-              Text(r.$1, style: const TextStyle(fontSize: 13, color: KratosTheme.textPrim)),
+              Text(r.$1, style: TextStyle(fontSize: 13, color: KratosColors.of(ctx).text)),
               const Spacer(),
-              Text(r.$2, style: const TextStyle(fontSize: 12, color: KratosTheme.muted, fontFamily: 'Courier')),
+              Text(r.$2, style: TextStyle(fontSize: 12, color: KratosColors.of(ctx).muted, fontFamily: 'Courier')),
             ])),
     ]),
     actions: [TextButton(onPressed: () => Navigator.pop(ctx),
@@ -964,7 +1013,7 @@ void _showTempInfo(BuildContext ctx, double temp) {
 
 void _showFanSheet(BuildContext ctx, Miner miner, int fanPct) {
   showModalBottomSheet(context: ctx, isScrollControlled: true,
-    backgroundColor: KratosTheme.surface,
+    backgroundColor: KratosColors.of(ctx).surface,
     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (_) => _FanControlSheet(miner: miner, initialPercent: fanPct));
 }
@@ -972,22 +1021,22 @@ void _showFanSheet(BuildContext ctx, Miner miner, int fanPct) {
 void _showShareStats(BuildContext ctx, int accepted, int rejected) {
   final total = accepted + rejected;
   final rate = total > 0 ? accepted / total * 100.0 : 100.0;
-  final color = rate >= 99 ? KratosTheme.neon : rate >= 95 ? KratosTheme.orange : KratosTheme.red;
+  final color = rate >= 99 ? KratosColors.of(ctx).accent : rate >= 95 ? KratosTheme.orange : KratosTheme.red;
   showDialog(context: ctx, builder: (_) => AlertDialog(
-    backgroundColor: KratosTheme.surface,
-    title: const Text('⚡ Share Stats', style: TextStyle(color: KratosTheme.textPrim)),
+    backgroundColor: KratosColors.of(ctx).surface,
+    title: Text('⚡ Share Stats', style: TextStyle(color: KratosColors.of(ctx).text)),
     content: Column(mainAxisSize: MainAxisSize.min, children: [
-      for (final r in [('Accepted', '$accepted', const Color(0xFF3FB950)), ('Rejected', '$rejected', KratosTheme.red), ('Total', '$total', KratosTheme.muted)])
+      for (final r in [('Accepted', '$accepted', Color(0xFF3FB950)), ('Rejected', '$rejected', KratosTheme.red), ('Total', '$total', KratosColors.of(ctx).muted)])
         Padding(padding: const EdgeInsets.symmetric(vertical: 3),
             child: Row(children: [
-              Text(r.$1, style: const TextStyle(color: KratosTheme.muted, fontSize: 13)),
+              Text(r.$1, style: TextStyle(color: KratosColors.of(ctx).muted, fontSize: 13)),
               const Spacer(),
               Text(r.$2, style: TextStyle(color: r.$3, fontFamily: 'Courier', fontSize: 14, fontWeight: FontWeight.bold)),
             ])),
-      const Divider(color: KratosTheme.border, height: 20),
+      Divider(color: KratosColors.of(ctx).line, height: 20),
       Text('${rate.toStringAsFixed(2)}%', style: TextStyle(fontSize: 28,
           fontWeight: FontWeight.bold, color: color, fontFamily: 'Courier')),
-      const Text('acceptance rate', style: TextStyle(fontSize: 12, color: KratosTheme.muted)),
+      Text('acceptance rate', style: TextStyle(fontSize: 12, color: KratosColors.of(ctx).muted)),
     ]),
     actions: [TextButton(onPressed: () => Navigator.pop(ctx),
         child: const Text('Close', style: TextStyle(color: KratosTheme.orange)))],
@@ -996,13 +1045,13 @@ void _showShareStats(BuildContext ctx, int accepted, int rejected) {
 
 void _showHwErrorInfo(BuildContext ctx, int errors) {
   showDialog(context: ctx, builder: (_) => AlertDialog(
-    backgroundColor: KratosTheme.surface,
+    backgroundColor: KratosColors.of(ctx).surface,
     title: Text(errors > 0 ? '⚠️ HW Errors: $errors' : '✅ No HW Errors',
-        style: const TextStyle(color: KratosTheme.textPrim)),
+        style: TextStyle(color: KratosColors.of(ctx).text)),
     content: Text(errors == 0
         ? 'ASIC is working cleanly. HW errors = failed nonce calculations at chip level.'
         : 'HW errors = failed nonce calculations.\nA few/hour is normal. High counts suggest:\n\n• OC too high → reduce frequency\n• Core voltage too low\n• ASIC degradation or overheating',
-        style: const TextStyle(color: KratosTheme.muted, height: 1.5)),
+        style: TextStyle(color: KratosColors.of(ctx).muted, height: 1.5)),
     actions: [TextButton(onPressed: () => Navigator.pop(ctx),
         child: const Text('OK', style: TextStyle(color: KratosTheme.orange)))],
   ));
@@ -1012,15 +1061,15 @@ void _showUptimeInfo(BuildContext ctx, int secs) {
   final started = DateTime.now().subtract(Duration(seconds: secs));
   final d = secs ~/ 86400; final h = (secs % 86400) ~/ 3600; final m = (secs % 3600) ~/ 60;
   showDialog(context: ctx, builder: (_) => AlertDialog(
-    backgroundColor: KratosTheme.surface,
-    title: const Text('⏱ Uptime', style: TextStyle(color: KratosTheme.textPrim)),
+    backgroundColor: KratosColors.of(ctx).surface,
+    title: Text('⏱ Uptime', style: TextStyle(color: KratosColors.of(ctx).text)),
     content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('${d}d ${h}h ${m}m', style: const TextStyle(fontSize: 24,
-          fontWeight: FontWeight.bold, color: KratosTheme.textPrim, fontFamily: 'Courier')),
+      Text('${d}d ${h}h ${m}m', style: TextStyle(fontSize: 24,
+          fontWeight: FontWeight.bold, color: KratosColors.of(ctx).text, fontFamily: 'Courier')),
       const SizedBox(height: 8),
       Text('Since: ${started.day.toString().padLeft(2,'0')}/${started.month.toString().padLeft(2,'0')}/${started.year}  '
           '${started.hour.toString().padLeft(2,'0')}:${started.minute.toString().padLeft(2,'0')}',
-          style: const TextStyle(color: KratosTheme.muted, fontFamily: 'Courier')),
+          style: TextStyle(color: KratosColors.of(ctx).muted, fontFamily: 'Courier')),
     ]),
     actions: [TextButton(onPressed: () => Navigator.pop(ctx),
         child: const Text('OK', style: TextStyle(color: KratosTheme.orange)))],
@@ -1047,13 +1096,13 @@ class _FanControlSheetState extends State<_FanControlSheet> {
     return Padding(padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bot),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Container(width: 36, height: 4, decoration: BoxDecoration(
-            color: KratosTheme.border, borderRadius: BorderRadius.circular(2))),
+            color: KratosColors.of(ctx).line, borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 16),
         Row(children: [
           const Icon(Icons.air, color: KratosTheme.blue),
           const SizedBox(width: 10),
-          const Text('Fan Speed', style: TextStyle(fontSize: 16,
-              fontWeight: FontWeight.w800, color: KratosTheme.textPrim)),
+          Text('Fan Speed', style: TextStyle(fontSize: 16,
+              fontWeight: FontWeight.w800, color: KratosColors.of(ctx).text)),
           const Spacer(),
           Text('$_fan%', style: const TextStyle(fontSize: 20,
               fontWeight: FontWeight.bold, color: KratosTheme.blue, fontFamily: 'Courier')),
@@ -1061,13 +1110,13 @@ class _FanControlSheetState extends State<_FanControlSheet> {
         const SizedBox(height: 12),
         SliderTheme(data: SliderTheme.of(ctx).copyWith(
             activeTrackColor: KratosTheme.blue, thumbColor: KratosTheme.blue,
-            inactiveTrackColor: KratosTheme.border,
+            inactiveTrackColor: KratosColors.of(ctx).line,
             overlayColor: KratosTheme.blue.withOpacity(0.15)),
           child: Slider(value: _fan.toDouble(), min: 0, max: 100, divisions: 20,
               onChanged: (v) => setState(() => _fan = v.round()))),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          const Text('0% (auto)', style: TextStyle(fontSize: 10, color: KratosTheme.muted)),
-          const Text('100% (max)', style: TextStyle(fontSize: 10, color: KratosTheme.muted)),
+          Text('0% (auto)', style: TextStyle(fontSize: 10, color: KratosColors.of(ctx).muted)),
+          Text('100% (max)', style: TextStyle(fontSize: 10, color: KratosColors.of(ctx).muted)),
         ]),
         const SizedBox(height: 16),
         SizedBox(width: double.infinity, child: FilledButton(
@@ -1089,7 +1138,7 @@ void _showEditSheet(BuildContext context, Miner miner, MinerStore store) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: KratosTheme.surface,
+    backgroundColor: KratosColors.of(context).surface,
     shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
     builder: (_) => _EditMinerSheet(miner: miner, store: store),
@@ -1177,12 +1226,12 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Handle
           Center(child: Container(width: 36, height: 4,
-              decoration: BoxDecoration(color: KratosTheme.border,
+              decoration: BoxDecoration(color: KratosColors.of(context).line,
                   borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 16),
-          const Text('Edit Miner',
+          Text('Edit Miner',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800,
-                  color: KratosTheme.textPrim)),
+                  color: KratosColors.of(context).text)),
           const SizedBox(height: 16),
 
           // Name
@@ -1237,15 +1286,15 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: KratosTheme.neon.withOpacity(0.08),
+                color: KratosColors.of(context).accent.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: KratosTheme.neon.withOpacity(0.3)),
+                border: Border.all(color: KratosColors.of(context).accent.withOpacity(0.3)),
               ),
               child: Row(children: [
-                const Icon(Icons.check_circle_outline, color: KratosTheme.neon, size: 15),
+                Icon(Icons.check_circle_outline, color: KratosColors.of(context).accent, size: 15),
                 const SizedBox(width: 8),
                 Text('Detected: ${_type.displayName}',
-                    style: const TextStyle(fontSize: 13, color: KratosTheme.neon,
+                    style: TextStyle(fontSize: 13, color: KratosColors.of(context).accent,
                         fontWeight: FontWeight.w600)),
               ]),
             ),
@@ -1264,13 +1313,13 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
                   duration: const Duration(milliseconds: 130),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                   decoration: BoxDecoration(
-                    color: sel ? KratosTheme.orange.withOpacity(0.15) : KratosTheme.bg,
+                    color: sel ? KratosTheme.orange.withOpacity(0.15) : KratosColors.of(context).bg,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: sel ? KratosTheme.orange : KratosTheme.border),
+                    border: Border.all(color: sel ? KratosTheme.orange : KratosColors.of(context).line),
                   ),
                   child: Text(t.displayName,
                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                          color: sel ? KratosTheme.orange : KratosTheme.textPrim)),
+                          color: sel ? KratosTheme.orange : KratosColors.of(context).text)),
                 ),
               );
             }).toList(),
@@ -1280,11 +1329,11 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: _type.apiType == ApiType.espMinerHttp
-                  ? KratosTheme.neon.withOpacity(0.07)
+                  ? KratosColors.of(context).accent.withOpacity(0.07)
                   : KratosTheme.blue.withOpacity(0.07),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: _type.apiType == ApiType.espMinerHttp
-                  ? KratosTheme.neon.withOpacity(0.25) : KratosTheme.blue.withOpacity(0.25)),
+                  ? KratosColors.of(context).accent.withOpacity(0.25) : KratosTheme.blue.withOpacity(0.25)),
             ),
             child: Text(
               _type.apiType == ApiType.espMinerHttp
@@ -1292,7 +1341,7 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
                   : 'CGMiner TCP API · port ${_type.defaultPort}',
               style: TextStyle(fontSize: 11,
                   color: _type.apiType == ApiType.espMinerHttp
-                      ? KratosTheme.neon : KratosTheme.blue,
+                      ? KratosColors.of(context).accent : KratosTheme.blue,
                   fontWeight: FontWeight.w600),
             ),
           ),
@@ -1318,23 +1367,23 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
   }
 
   Widget _editLabel(String t) => Text(t,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-          color: KratosTheme.muted, letterSpacing: 1.5));
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+          color: KratosColors.of(context).muted, letterSpacing: 1.5));
 
   Widget _editField(TextEditingController ctrl, String hint,
       {TextInputType type = TextInputType.text}) =>
       TextField(
         controller: ctrl,
         keyboardType: type,
-        style: const TextStyle(color: KratosTheme.textPrim, fontFamily: 'Courier'),
+        style: TextStyle(color: KratosColors.of(context).text, fontFamily: 'Courier'),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: KratosTheme.muted),
-          filled: true, fillColor: KratosTheme.bg,
+          hintStyle: TextStyle(color: KratosColors.of(context).muted),
+          filled: true, fillColor: KratosColors.of(context).bg,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: KratosTheme.border)),
+              borderSide: BorderSide(color: KratosColors.of(context).line)),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: KratosTheme.border)),
+              borderSide: BorderSide(color: KratosColors.of(context).line)),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: KratosTheme.orange)),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1355,15 +1404,15 @@ class _InfoRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-          color: KratosTheme.surface, borderRadius: BorderRadius.circular(8)),
+          color: KratosColors.of(context).surface, borderRadius: BorderRadius.circular(8)),
       child: Row(children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: KratosTheme.muted)),
+        Text(label, style: TextStyle(fontSize: 13, color: KratosColors.of(context).muted)),
         const Spacer(),
-        Text(value, style: const TextStyle(
-            fontSize: 13, color: KratosTheme.textPrim, fontFamily: 'Courier')),
+        Text(value, style: TextStyle(
+            fontSize: 13, color: KratosColors.of(context).text, fontFamily: 'Courier')),
         if (copyable) ...[  
           const SizedBox(width: 8),
-          const Icon(Icons.copy, size: 13, color: KratosTheme.muted),
+          Icon(Icons.copy, size: 13, color: KratosColors.of(context).muted),
         ],
       ]),
     );
@@ -1471,32 +1520,32 @@ class _FanSpeedControlState extends State<_FanSpeedControl> {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: KratosTheme.surface,
+          color: KratosColors.of(context).surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: KratosTheme.border),
+          border: Border.all(color: KratosColors.of(context).line),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Icon(Icons.air, size: 14, color: KratosTheme.muted),
+            Icon(Icons.air, size: 14, color: KratosColors.of(context).muted),
             const SizedBox(width: 6),
-            const Text('FAN SPEED',
+            Text('FAN SPEED',
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
-                    color: KratosTheme.muted,
+                    color: KratosColors.of(context).muted,
                     letterSpacing: 1.5)),
             const Spacer(),
             Text('${_value.round()}%',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13,
-                    color: KratosTheme.textPrim,
+                    color: KratosColors.of(context).text,
                     fontFamily: 'Courier')),
           ]),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: KratosTheme.blue,
               thumbColor: KratosTheme.blue,
-              inactiveTrackColor: KratosTheme.border,
+              inactiveTrackColor: KratosColors.of(context).line,
               overlayColor: KratosTheme.blue.withOpacity(0.15),
             ),
             child: Slider(
@@ -1514,7 +1563,7 @@ class _FanSpeedControlState extends State<_FanSpeedControl> {
               child: FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor:
-                      _setting ? KratosTheme.border : KratosTheme.blue,
+                      _setting ? KratosColors.of(context).line : KratosTheme.blue,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   shape: RoundedRectangleBorder(
@@ -1531,7 +1580,7 @@ class _FanSpeedControlState extends State<_FanSpeedControl> {
                 style: TextStyle(
                     fontSize: 12,
                     color: _fanResult!.startsWith('✅')
-                        ? KratosTheme.neon
+                        ? KratosColors.of(context).accent
                         : KratosTheme.red,
                     fontFamily: 'Courier')),
           ],
@@ -1622,9 +1671,9 @@ class _BlockEtaRowState extends State<_BlockEtaRow>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: KratosTheme.surface,
+          color: KratosColors.of(context).surface,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: KratosTheme.border),
+          border: Border.all(color: KratosColors.of(context).line),
         ),
         child: Row(children: [
           RotationTransition(
@@ -1634,14 +1683,14 @@ class _BlockEtaRowState extends State<_BlockEtaRow>
               color: KratosTheme.orange, size: 16),
           ),
           const SizedBox(width: 10),
-          const Text('BLOCK ETA',
-              style: TextStyle(fontSize: 11, color: KratosTheme.muted,
+          Text('BLOCK ETA',
+              style: TextStyle(fontSize: 11, color: KratosColors.of(context).muted,
                   letterSpacing: 1, fontWeight: FontWeight.w600)),
           const Spacer(),
           Text(_loading ? 'calculating…' : _blockEta,
               style: TextStyle(
                   fontSize: 14, fontWeight: FontWeight.bold,
-                  color: _loading ? KratosTheme.muted : KratosTheme.orange,
+                  color: _loading ? KratosColors.of(context).muted : KratosTheme.orange,
                   fontFamily: 'Courier')),
         ]),
       ),

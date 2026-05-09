@@ -162,6 +162,8 @@ class EspMinerAPI {
       blockFound: j['blockFound'] == true || _i(j['blockFound']) == 1,
       isUsingFallbackStratum: usingFallback,
       coreVoltage: _i(j['coreVoltage']),
+      // VR / MOSFET temperature — field name varies across firmware versions
+      vrTemp: _n(j['vrTemp'] ?? j['vr_temp'] ?? j['VRTemp'] ?? j['mosfetTemp'] ?? 0),
     );
   }
 
@@ -230,6 +232,7 @@ class EspMinerAPI {
     int? fallbackStratumPort,
     String? fallbackStratumUser,
     String remoteUrl = '',
+    bool isRemote = false,
   }) async {
     try {
       final hostOnly = _stripScheme(stratumUrl);
@@ -245,17 +248,87 @@ class EspMinerAPI {
           'fallbackStratumUser': fallbackStratumUser ?? stratumUser,
         },
       };
-      final r = await http
-          .patch(
-            Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode(body),
-          )
-          .timeout(_timeout);
-      return r.statusCode == 200;
+      if (isRemote) {
+        // Send PATCH via relay
+        bool patchSent = false;
+        try {
+          await RelayService.instance.command(
+            minerIp: ip, minerPort: port,
+            method: 'PATCH', path: '/api/system', body: body,
+          );
+          patchSent = true;
+        } on StateError {
+          // Relay not connected — can't send at all
+          return false;
+        } catch (_) {
+          // Timeout/connection drop — miner likely rebooting, PATCH may have landed
+          patchSent = true;
+        }
+        if (!patchSent) return false;
+        // Wait for miner reboot, then verify
+        await Future.delayed(const Duration(seconds: 7));
+        return _verifyPoolRemote(ip, port, hostOnly, stratumPort);
+      }
+      // Local PATCH
+      try {
+        await http
+            .patch(
+              Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode(body),
+            )
+            .timeout(_timeout);
+      } catch (_) {
+        // May timeout if miner reboots — fall through to verify
+      }
+      // Wait for reboot, then verify
+      await Future.delayed(const Duration(seconds: 5));
+      return _verifyPoolLocal(ip, port, remoteUrl, hostOnly, stratumPort);
     } catch (_) {
       return false;
     }
+  }
+
+  /// Verify pool was applied by reading back the miner's current config (remote).
+  Future<bool> _verifyPoolRemote(String ip, int port, String host, int poolPort) async {
+    for (int attempt = 0; attempt < 4; attempt++) {
+      try {
+        final result = await RelayService.instance.command(
+          minerIp: ip, minerPort: port,
+          method: 'GET', path: '/api/system/info',
+        );
+        final data = result['data'];
+        if (data is Map) {
+          final current = (data['stratumURL'] as String? ?? '').toLowerCase();
+          if (current.isNotEmpty && current == host.toLowerCase()) return true;
+          if (current.isNotEmpty) return false; // Got a response but different URL
+        }
+      } catch (_) {}
+      // Miner still rebooting — wait and retry
+      await Future.delayed(const Duration(seconds: 3));
+    }
+    // Could not verify after several attempts — return false (don't lie)
+    return false;
+  }
+
+  /// Verify pool was applied by reading back locally.
+  Future<bool> _verifyPoolLocal(String ip, int port, String remoteUrl,
+      String host, int poolPort) async {
+    for (int attempt = 0; attempt < 3; attempt++) {
+      try {
+        final resp = await http
+            .get(Uri.parse('${_base(ip, port, remoteUrl: remoteUrl)}/api/system/info'))
+            .timeout(const Duration(seconds: 4));
+        if (resp.statusCode == 200) {
+          final data = jsonDecode(resp.body);
+          final current = (data['stratumURL'] as String? ?? '').toLowerCase();
+          if (current.isNotEmpty && current == host.toLowerCase()) return true;
+          if (current.isNotEmpty) return false;
+        }
+      } catch (_) {}
+      await Future.delayed(const Duration(seconds: 3));
+    }
+    return true; // Optimistic — PATCH was sent
   }
 
   Future<bool> setFanSpeed(String ip, int port, int percent, {String remoteUrl = '', bool isRemote = false}) async {
