@@ -13,6 +13,7 @@ import 'miner_icon.dart';
 import 'uptime_ticker.dart';
 import '../services/miner_mode_prefs.dart';
 import '../utils/block_calc.dart';
+import '../screens/solo_luck_sheet.dart';
 
 // ── List Card ─────────────────────────────────────────────────────────────────
 
@@ -384,19 +385,32 @@ class _CardFooter extends StatelessWidget {
       label = earningsPerDay > 0 ? '\$${earningsPerDay.toStringAsFixed(2)}/d' : '';
     }
     if (label.isEmpty) return [];
+    final chip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 10,
+          fontWeight: FontWeight.w700, color: color,
+          fontFamily: 'Courier')),
+    );
+    // Solo chips are tappable — opens the full probability breakdown
+    final tappable = solo && networkThs > 0 && hashrateThs > 0;
     return [
       const SizedBox(width: 8),
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Text(label, style: TextStyle(fontSize: 10,
-            fontWeight: FontWeight.w700, color: color,
-            fontFamily: 'Courier')),
-      ),
+      tappable
+          ? GestureDetector(
+              onTap: () => showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                isScrollControlled: true,
+                builder: (_) => SoloLuckSheet(fleetHashrateThs: hashrateThs),
+              ),
+              child: chip,
+            )
+          : chip,
     ];
   }
 

@@ -5,6 +5,7 @@ import '../main.dart';
 import '../services/miner_store.dart';
 import '../utils/block_calc.dart';
 import '../services/btc_price.dart';
+import '../screens/solo_luck_sheet.dart';
 
 class FleetSummaryBar extends StatelessWidget {
   const FleetSummaryBar({super.key});
@@ -108,11 +109,20 @@ class FleetSummaryBar extends StatelessWidget {
                 final hasSoloPools = store.stats.values.any((s) =>
                   s.pools.any((p) => BlockCalc.isSoloPool(p.url)));
                 if (hasSoloPools && networkThs > 0 && fleetThs > 0) {
-                  return _StatBlock(
-                    label: 'SOLO/MO',
-                    value: BlockCalc.formatOneInX(fleetThs, networkThs),
-                    color: KratosTheme.orange,
-                    icon: Icons.casino_outlined,
+                  return GestureDetector(
+                    onTap: () => showModalBottomSheet(
+                      context: ctx,
+                      backgroundColor: Colors.transparent,
+                      isScrollControlled: true,
+                      builder: (_) => SoloLuckSheet(fleetHashrateThs: fleetThs),
+                    ),
+                    child: _StatBlock(
+                      label: 'SOLO/MO',
+                      value: BlockCalc.formatOneInX(fleetThs, networkThs),
+                      color: KratosTheme.orange,
+                      icon: Icons.casino_outlined,
+                      tappable: true,
+                    ),
                   );
                 }
                 final net = store.totalDailyEarningsUsd - store.totalDailyCostUsd;
@@ -144,6 +154,7 @@ class _StatBlock extends StatelessWidget {
   final String? subValue;
   final Color color;
   final IconData icon;
+  final bool tappable;
 
   const _StatBlock({
     required this.label,
@@ -151,6 +162,7 @@ class _StatBlock extends StatelessWidget {
     this.subValue,
     required this.color,
     required this.icon,
+    this.tappable = false,
   });
 
   @override
@@ -184,12 +196,19 @@ class _StatBlock extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(
-            fontSize: 8,
-            color: Color(0xFF6e7681),
-            letterSpacing: 1.2,
-            fontWeight: FontWeight.w600,
-          )),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(label, style: const TextStyle(
+              fontSize: 8,
+              color: Color(0xFF6e7681),
+              letterSpacing: 1.2,
+              fontWeight: FontWeight.w600,
+            )),
+            if (tappable) ...[  
+              const SizedBox(width: 2),
+              const Icon(Icons.touch_app, size: 7,
+                  color: Color(0xFF6e7681)),
+            ],
+          ]),
         ],
       ),
     ),

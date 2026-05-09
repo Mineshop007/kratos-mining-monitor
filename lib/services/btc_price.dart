@@ -16,8 +16,20 @@ class BtcPriceService {
   DateTime? _lastBtcPerThFetch;
   static const _btcPerThCacheDuration = Duration(minutes: 10);
 
-  /// Network hashrate in TH/s — used for solo block probability calculations
+  // BCH network data
+  double _cachedBchNetworkHashrateThs = 3e6; // ~3 EH/s fallback
+  double _cachedBchPriceUsd = 400;           // fallback
+  DateTime? _lastBchFetch;
+  static const _bchCacheDuration = Duration(minutes: 15);
+
+  /// BTC network hashrate in TH/s
   double get networkHashrateThs => _cachedNetworkHashrateThs;
+
+  /// BCH network hashrate in TH/s
+  double get bchNetworkHashrateThs => _cachedBchNetworkHashrateThs;
+
+  /// BCH price in USD
+  double get bchPriceUsd => _cachedBchPriceUsd;
 
   double get cachedPrice => _cachedPrice > 0 ? _cachedPrice : 93000;
 
@@ -47,8 +59,9 @@ class BtcPriceService {
     } catch (_) {
       // Use cached or fallback
     }
-    // Also refresh network hashrate in background
+    // Also refresh network hashrate + BCH in background
     _refreshBtcPerTh();
+    _refreshBch();
     return _cachedPrice > 0 ? _cachedPrice : 93000;
   }
 
@@ -76,6 +89,37 @@ class BtcPriceService {
     } catch (_) {
       // Keep fallback value
     }
+  }
+
+  Future<void> _refreshBch() async {
+    final now = DateTime.now();
+    if (_lastBchFetch != null &&
+        now.difference(_lastBchFetch!) < _bchCacheDuration) return;
+    try {
+      // BCH price via CoinGecko
+      final r = await http.get(Uri.parse(
+          'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin-cash&vs_currencies=usd'
+      )).timeout(const Duration(seconds: 8));
+      if (r.statusCode == 200) {
+        final j = jsonDecode(r.body) as Map<String, dynamic>;
+        final p = ((j['bitcoin-cash']?['usd']) as num?)?.toDouble() ?? 0;
+        if (p > 0) _cachedBchPriceUsd = p;
+      }
+
+      // BCH network hashrate via Blockchair
+      final r2 = await http.get(Uri.parse(
+          'https://api.blockchair.com/bitcoin-cash/stats'
+      )).timeout(const Duration(seconds: 10));
+      if (r2.statusCode == 200) {
+        final j2 = jsonDecode(r2.body) as Map<String, dynamic>;
+        final hashes = (j2['data']?['hashrate_mean'] as num?)?.toDouble() ?? 0;
+        if (hashes > 0) {
+          // Blockchair returns hashes/s
+          _cachedBchNetworkHashrateThs = hashes / 1e12;
+        }
+      }
+      _lastBchFetch = now;
+    } catch (_) {}
   }
 
   // USD/day for a miner with given hashrate (GH/s)
