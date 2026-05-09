@@ -369,10 +369,9 @@ class _CardFooter extends StatelessWidget {
     if (solo) {
       color = KratosTheme.orange;
       if (networkThs > 0 && hashrateThs > 0) {
-        final days = BlockCalc.expectedDays(hashrateThs, networkThs);
-        label = BlockCalc.formatExpectedTime(days);
+        label = BlockCalc.formatOneInX(hashrateThs, networkThs) + '/mo';
       } else {
-        label = 'solo ⌛';
+        label = 'solo';
       }
     } else {
       color = const Color(0xFFf7931a);
@@ -633,8 +632,7 @@ class _MinerGridCardState extends State<MinerGridCard>
                     String label = '';
                     Color color = const Color(0xFFf7931a);
                     if (isSolo && networkThs > 0 && hashrateThs > 0) {
-                      label = BlockCalc.formatExpectedTime(
-                          BlockCalc.expectedDays(hashrateThs, networkThs));
+                      label = BlockCalc.formatOneInX(hashrateThs, networkThs) + '/mo';
                       color = KratosTheme.orange;
                     } else if (!isSolo && widget.earningsPerDay > 0) {
                       label = '\$${widget.earningsPerDay.toStringAsFixed(2)}/d';

@@ -221,7 +221,8 @@ class CGMinerAPI {
         for (final v in sm.values) {
           if (v is String && (
               v.contains('ITemp[') || v.contains('WORKMODE[') ||
-              v.contains('GHSspd[') || v.contains('TMax['))) {
+              v.contains('GHSspd[') || v.contains('THSspd[') ||
+              v.contains('TMax['))) {
             mmids.add(v);
           }
         }
@@ -348,14 +349,18 @@ class CGMinerAPI {
         }
         if (mmids.isEmpty) {
           for (final v in sm.values) {
-            if (v is String && (v.contains('GHSspd[') || v.contains('GHSmm['))) mmids.add(v);
+            if (v is String && (v.contains('GHSspd[') || v.contains('THSspd[') || v.contains('GHSmm['))) mmids.add(v);
           }
         }
         for (final mmid in mmids) {
-          // GHSspd = Avalon Q (GH/s). GHSmm = older Avalon (GH/s).
+          // GHSspd = Avalon Q CGI (GH/s). THSspd = ha_avalonq firmware (TH/s). GHSmm = older Avalon (GH/s).
           double ghs = _parseField(mmid, 'GHSspd');
+          if (ghs == 0) {
+            final ths = _parseField(mmid, 'THSspd'); // TH/s → GH/s
+            if (ths > 0) ghs = ths * 1000.0;
+          }
           if (ghs == 0) ghs = _parseField(mmid, 'GHSmm');
-          ghsTotal += ghs;
+          if (ghs > 0) ghsTotal += ghs;
         }
       }
       if (ghsTotal > 0) {

@@ -135,8 +135,8 @@ class MinerStore extends ChangeNotifier {
     // Accumulate hashrate history (last 30 readings)
     final prev = stats[miner.id];
     final history = List<double>.from(prev?.hashrateHistory ?? []);
-    if (rawStats.status != MinerStatus.offline && rawStats.hashrateAvg > 0) {
-      history.add(rawStats.hashrateAvg);
+    if (rawStats.status != MinerStatus.offline && rawStats.hashrateDisplay > 0) {
+      history.add(rawStats.hashrateDisplay);
       if (history.length > 30) history.removeAt(0);
     }
     final s = rawStats.withHistory(history);
@@ -291,10 +291,11 @@ class MinerStore extends ChangeNotifier {
 
   // ── Computed ─────────────────────────────────────────────────────────────
 
+  // Use live 5s hashrate when available — matches what HashWatcher shows as "Real Hashrate"
   double get totalHashrate => stats.values
       .where((s) =>
           s.status == MinerStatus.online || s.status == MinerStatus.warning)
-      .fold(0, (sum, s) => sum + s.hashrateAvg);
+      .fold(0, (sum, s) => sum + s.hashrateDisplay);
 
   double get totalPower => stats.values
       .where((s) => s.status != MinerStatus.offline)

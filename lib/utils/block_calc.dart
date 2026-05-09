@@ -44,14 +44,25 @@ class BlockCalc {
   /// Format expected days as human-readable string: "~47y", "~3mo", "~12d"
   static String formatExpectedTime(double days) {
     if (days == double.infinity || days <= 0) return '∞';
-    if (days >= 365 * 1000) return '>${(days / 365).round() ~/ 1000}ky';
+    if (days >= 365 * 1000) return '~${((days / 365) / 1000).toStringAsFixed(0)}ky';
     if (days >= 365) {
       final y = days / 365;
-      return y >= 100 ? '~${y.round()}y' : '~${y.toStringAsFixed(0)}y';
+      return '~${y >= 100 ? y.round().toString() : y.toStringAsFixed(0)}y';
     }
     if (days >= 30) return '~${(days / 30).toStringAsFixed(0)}mo';
     if (days >= 1)  return '~${days.toStringAsFixed(0)}d';
     return '~${(days * 24).toStringAsFixed(0)}h';
+  }
+
+  /// Format as "1 in X" monthly chance (HashWatcher style)
+  static String formatOneInX(double hashrateThs, double networkHashrateThs) {
+    if (hashrateThs <= 0 || networkHashrateThs <= 0) return '1 in ∞';
+    final prob30 = probInDays(hashrateThs, networkHashrateThs, 30);
+    if (prob30 <= 0) return '1 in ∞';
+    final oneIn = (1 / prob30).round();
+    if (oneIn > 999999) return '1 in ${(oneIn / 1000000).toStringAsFixed(1)}M';
+    if (oneIn > 9999)   return '1 in ${(oneIn / 1000).toStringAsFixed(0)}k';
+    return '1 in $oneIn';
   }
 
   /// Format probability as percentage string: "0.0021%"

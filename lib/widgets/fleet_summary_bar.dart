@@ -108,10 +108,9 @@ class FleetSummaryBar extends StatelessWidget {
                 final hasSoloPools = store.stats.values.any((s) =>
                   s.pools.any((p) => BlockCalc.isSoloPool(p.url)));
                 if (hasSoloPools && networkThs > 0 && fleetThs > 0) {
-                  final days = BlockCalc.expectedDays(fleetThs, networkThs);
                   return _StatBlock(
-                    label: 'SOLO LUCK',
-                    value: BlockCalc.formatExpectedTime(days),
+                    label: 'SOLO/MO',
+                    value: BlockCalc.formatOneInX(fleetThs, networkThs),
                     color: KratosTheme.orange,
                     icon: Icons.casino_outlined,
                   );

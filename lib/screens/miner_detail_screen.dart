@@ -1803,7 +1803,7 @@ class _SoloPoolToggleState extends State<_SoloPoolToggle> {
     final solo = _isSolo ?? false;
     final color = solo ? KratosTheme.orange : KratosTheme.blue;
     final networkThs = BlockCalc.networkHashrateThs();
-    final hashrateThs = (s?.hashrateAvg ?? 0) / 1000.0;
+    final hashrateThs = (s?.hashrateDisplay ?? 0) / 1000.0;
     final btcPrice = BtcPriceService.instance.cachedPrice;
 
     return Container(
@@ -1850,14 +1850,14 @@ class _SoloPoolToggleState extends State<_SoloPoolToggle> {
         const SizedBox(height: 10),
         if (solo) ...[
           if (networkThs > 0 && hashrateThs > 0) ...[
-            _SoloStat('Expected time', BlockCalc.formatExpectedTime(
-                BlockCalc.expectedDays(hashrateThs, networkThs)), kc),
-            _SoloStat('Chance today',
+            _SoloStat('Expected time',
+                BlockCalc.formatExpectedTime(BlockCalc.expectedDays(hashrateThs, networkThs)), kc),
+            _SoloStat('Monthly chance',
+                BlockCalc.formatOneInX(hashrateThs, networkThs), kc),
+            _SoloStat('Daily chance',
                 BlockCalc.formatProbPct(BlockCalc.probInDays(hashrateThs, networkThs, 1)), kc),
-            _SoloStat('Chance this week',
+            _SoloStat('Weekly chance',
                 BlockCalc.formatProbPct(BlockCalc.probInDays(hashrateThs, networkThs, 7)), kc),
-            _SoloStat('Chance this month',
-                BlockCalc.formatProbPct(BlockCalc.probInDays(hashrateThs, networkThs, 30)), kc),
           ] else
             Text('Hashrate required for calculation',
                 style: TextStyle(fontSize: 12, color: kc.muted)),

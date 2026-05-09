@@ -249,7 +249,7 @@ class MinerStats {
   );
 
   // Computed
-  double get efficiency => powerDraw > 0 && hashrateAvg > 0 ? powerDraw / (hashrateAvg / 1000.0) : 0;
+  double get efficiency => powerDraw > 0 && hashrateDisplay > 0 ? powerDraw / (hashrateDisplay / 1000.0) : 0;
   double get rejectRate => accepted > 0 ? rejected / (accepted + rejected) * 100 : 0;
 
   /// Format bestShare as human-readable difficulty string (T / G / M / K)
@@ -269,10 +269,14 @@ class MinerStats {
     return '${uptime ~/ 86400}d ${(uptime % 86400) ~/ 3600}h';
   }
 
+  /// Live hashrate — prefer 5s instantaneous, fall back to rolling avg.
+  double get hashrateDisplay => hashrate5s > 0 ? hashrate5s : hashrateAvg;
+
   String get hashrateFormatted {
-    if (hashrateAvg >= 1000) return '${(hashrateAvg / 1000).toStringAsFixed(3)} TH/s';
-    if (hashrateAvg >= 1) return '${hashrateAvg.toStringAsFixed(1)} GH/s';
-    return '${(hashrateAvg * 1000).toStringAsFixed(0)} MH/s';
+    final v = hashrateDisplay;
+    if (v >= 1000) return '${(v / 1000).toStringAsFixed(2)} TH/s';
+    if (v >= 1) return '${v.toStringAsFixed(1)} GH/s';
+    return '${(v * 1000).toStringAsFixed(0)} MH/s';
   }
 
   // +1 = up, 0 = flat, -1 = down
