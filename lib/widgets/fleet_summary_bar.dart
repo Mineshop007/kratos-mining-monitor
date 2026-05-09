@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 import '../services/miner_store.dart';
 import '../utils/block_calc.dart';
-import '../services/btc_price.dart';
 import '../screens/solo_luck_sheet.dart';
 
 class FleetSummaryBar extends StatelessWidget {
@@ -93,7 +92,14 @@ class FleetSummaryBar extends StatelessWidget {
                 icon: Icons.speed,
               ),
               _Separator(),
-              GestureDetector(
+              _StatBlock(
+                label: 'DAILY COST',
+                value: store.totalDailyCostUsd > 0
+                    ? '\$${store.totalDailyCostUsd.toStringAsFixed(2)}'
+                    : '--',
+                color: const Color(0xFF8b949e),
+                icon: Icons.attach_money,
+                tappable: store.totalDailyCostUsd > 0,
                 onTap: store.totalDailyCostUsd > 0
                     ? () => showModalBottomSheet(
                           context: ctx,
@@ -107,15 +113,6 @@ class FleetSummaryBar extends StatelessWidget {
                           ),
                         )
                     : null,
-                child: _StatBlock(
-                  label: 'DAILY COST',
-                  value: store.totalDailyCostUsd > 0
-                      ? '\$${store.totalDailyCostUsd.toStringAsFixed(2)}'
-                      : '--',
-                  color: const Color(0xFF8b949e),
-                  icon: Icons.attach_money,
-                  tappable: store.totalDailyCostUsd > 0,
-                ),
               ),
               _Separator(),
               // Show SOLO LUCK (expected block time) for fleet
@@ -125,20 +122,18 @@ class FleetSummaryBar extends StatelessWidget {
                 final hasSoloPools = store.stats.values.any((s) =>
                   s.pools.any((p) => BlockCalc.isSoloPool(p.url)));
                 if (hasSoloPools && networkThs > 0 && fleetThs > 0) {
-                  return GestureDetector(
-                    onTap: () => showModalBottomSheet(
-                      context: ctx,
-                      backgroundColor: Colors.transparent,
-                      isScrollControlled: true,
-                      builder: (_) => SoloLuckSheet(fleetHashrateThs: fleetThs),
-                    ),
-                    child: _StatBlock(
+                  return _StatBlock(
                       label: 'SOLO/MO',
                       value: BlockCalc.formatOneInX(fleetThs, networkThs),
                       color: KratosTheme.orange,
                       icon: Icons.casino_outlined,
                       tappable: true,
-                    ),
+                      onTap: () => showModalBottomSheet(
+                        context: ctx,
+                        backgroundColor: Colors.transparent,
+                        isScrollControlled: true,
+                        builder: (_) => SoloLuckSheet(fleetHashrateThs: fleetThs),
+                      ),
                   );
                 }
                 final net = store.totalDailyEarningsUsd - store.totalDailyCostUsd;
@@ -171,6 +166,7 @@ class _StatBlock extends StatelessWidget {
   final Color color;
   final IconData icon;
   final bool tappable;
+  final VoidCallback? onTap;
 
   const _StatBlock({
     required this.label,
@@ -179,11 +175,14 @@ class _StatBlock extends StatelessWidget {
     required this.color,
     required this.icon,
     this.tappable = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) => Expanded(
-    child: Padding(
+    child: GestureDetector(
+      onTap: onTap,
+      child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -227,6 +226,7 @@ class _StatBlock extends StatelessWidget {
           ]),
         ],
       ),
+    ),
     ),
   );
 }

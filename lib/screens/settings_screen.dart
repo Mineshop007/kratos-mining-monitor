@@ -12,7 +12,6 @@ import 'faq_screen.dart';
 import 'circuit_monitor_screen.dart';
 import 'remote_access_screen.dart';
 import 'pool_presets_screen.dart';
-import '../widgets/klaw.dart';
 
 /// Settings tab — theme picker, kWh price input, support links. Real values only.
 class SettingsScreen extends StatefulWidget {

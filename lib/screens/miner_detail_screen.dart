@@ -16,7 +16,6 @@ import 'pool_editor_screen.dart';
 import 'oc_screen.dart';
 import 'schedule_screen.dart';
 import 'apply_preset_sheet.dart';
-import '../services/schedule_service.dart';
 import '../services/miner_mode_prefs.dart';
 import '../utils/block_calc.dart';
 import '../services/btc_price.dart';
