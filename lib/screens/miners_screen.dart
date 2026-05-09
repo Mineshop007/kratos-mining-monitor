@@ -32,6 +32,8 @@ class _MinersScreenState extends State<MinersScreen> {
   bool _grid = false;
   bool _showGroups = false;
   String? _longPressedId;
+  _SortBy _sortBy = _SortBy.none;
+  bool _sortAsc = false; // desc by default (highest hashrate first)
 
   @override
   void initState() {
@@ -47,6 +49,55 @@ class _MinersScreenState extends State<MinersScreen> {
   Future<void> _saveView(bool v) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('kratos_grid_view', v);
+  }
+
+  List<Miner> _sorted(MinerStore store) {
+    if (_sortBy == _SortBy.none) return store.miners;
+    final list = [...store.miners];
+    list.sort((a, b) {
+      final sa = store.stats[a.id];
+      final sb = store.stats[b.id];
+      double va = 0, vb = 0;
+      switch (_sortBy) {
+        case _SortBy.hashrate:
+          va = sa?.hashrateAvg ?? 0;
+          vb = sb?.hashrateAvg ?? 0;
+        case _SortBy.efficiency:
+          va = sa?.efficiency ?? 0;
+          vb = sb?.efficiency ?? 0;
+          // lower J/TH = better; invert so ascending = most efficient
+          if (va > 0 && vb > 0) {
+            final tmp = va; va = vb; vb = tmp;
+          }
+        case _SortBy.model:
+          final cmp = (a.type.displayName).compareTo(b.type.displayName);
+          return _sortAsc ? cmp : -cmp;
+        case _SortBy.status:
+          va = (sa?.status == MinerStatus.online) ? 2
+              : (sa?.status == MinerStatus.warning) ? 1 : 0;
+          vb = (sb?.status == MinerStatus.online) ? 2
+              : (sb?.status == MinerStatus.warning) ? 1 : 0;
+        case _SortBy.none:
+          return 0;
+      }
+      return _sortAsc ? va.compareTo(vb) : vb.compareTo(va);
+    });
+    return list;
+  }
+
+  void _showSortSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _SortSheet(
+        current: _sortBy,
+        asc: _sortAsc,
+        onSelect: (by, asc) {
+          setState(() { _sortBy = by; _sortAsc = asc; });
+          Navigator.pop(context);
+        },
+      ),
+    );
   }
 
   void _delete(MinerStore store, Miner miner) {
@@ -117,6 +168,15 @@ class _MinersScreenState extends State<MinersScreen> {
                 MaterialPageRoute(builder: (_) => const HallOfFameScreen())),
             ),
             IconButton(
+              tooltip: 'Sort miners',
+              icon: Icon(
+                Icons.sort_rounded,
+                color: _sortBy != _SortBy.none ? kc.accent : kc.muted,
+                size: 22,
+              ),
+              onPressed: _showSortSheet,
+            ),
+            IconButton(
               tooltip: 'Customize dashboard',
               icon: Icon(Icons.tune, color: kc.muted, size: 22),
               onPressed: () => Navigator.of(context).push(
@@ -177,7 +237,7 @@ class _MinersScreenState extends State<MinersScreen> {
         SizedBox(height: 12),
         if (DashboardPrefs.instance.showFleetTotals) const FleetSummaryBar(),
         SizedBox(height: 12),
-        ...store.miners.map((m) {
+        ..._sorted(store).map((m) {
           final s = store.stats[m.id];
           final earnings = store.minerDailyEarningsUsd(m.id);
           return Padding(
@@ -238,7 +298,8 @@ class _MinersScreenState extends State<MinersScreen> {
             ),
             delegate: SliverChildBuilderDelegate(
               (ctx, i) {
-                final m = store.miners[i];
+                final miners = _sorted(store);
+                final m = miners[i];
                 final s = store.stats[m.id];
                 final earnings = store.minerDailyEarningsUsd(m.id);
                 return MinerGridCard(
@@ -260,7 +321,7 @@ class _MinersScreenState extends State<MinersScreen> {
                   },
                 );
               },
-              childCount: store.miners.length,
+              childCount: _sorted(store).length,
             ),
           ),
         ),
@@ -601,6 +662,111 @@ class _Empty extends StatelessWidget {
                   TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
         ),
       ),
+    );
+  }
+}
+
+// ── Sort ─────────────────────────────────────────────────────────────────────
+
+enum _SortBy { none, hashrate, efficiency, model, status }
+
+class _SortSheet extends StatefulWidget {
+  final _SortBy current;
+  final bool asc;
+  final void Function(_SortBy, bool) onSelect;
+  const _SortSheet({required this.current, required this.asc, required this.onSelect});
+  @override
+  State<_SortSheet> createState() => _SortSheetState();
+}
+
+class _SortSheetState extends State<_SortSheet> {
+  late _SortBy _by;
+  late bool _asc;
+
+  @override
+  void initState() {
+    super.initState();
+    _by  = widget.current;
+    _asc = widget.asc;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+
+    final options = [
+      (_SortBy.none,       Icons.format_list_numbered, 'Default order',    'As added'),
+      (_SortBy.hashrate,   Icons.bolt,                 'Hashrate',         'Highest first'),
+      (_SortBy.efficiency, Icons.speed,                'Efficiency',       'Most efficient first (J/TH)'),
+      (_SortBy.model,      Icons.memory,               'Model / Type',     'Alphabetical'),
+      (_SortBy.status,     Icons.circle_outlined,      'Status',           'Online → Warning → Offline'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: kc.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(width: 36, height: 4,
+            decoration: BoxDecoration(color: kc.line, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: Text('Sort Miners',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kc.text))),
+          if (_by != _SortBy.none && _by != _SortBy.model && _by != _SortBy.status)
+            GestureDetector(
+              onTap: () => setState(() => _asc = !_asc),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: kc.accent.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: kc.accent.withOpacity(0.3)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(_asc ? Icons.arrow_upward : Icons.arrow_downward,
+                      size: 13, color: kc.accent),
+                  const SizedBox(width: 4),
+                  Text(_asc ? 'Ascending' : 'Descending',
+                      style: TextStyle(fontSize: 11, color: kc.accent, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ),
+        ]),
+        const SizedBox(height: 12),
+        ...options.map((opt) {
+          final sel = _by == opt.$1;
+          return GestureDetector(
+            onTap: () {
+              setState(() => _by = opt.$1);
+              widget.onSelect(opt.$1, _asc);
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: sel ? kc.accent.withOpacity(0.08) : kc.bg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: sel ? kc.accent.withOpacity(0.4) : kc.line),
+              ),
+              child: Row(children: [
+                Icon(opt.$2, color: sel ? kc.accent : kc.muted, size: 20),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(opt.$3, style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: sel ? kc.text : kc.muted)),
+                  Text(opt.$4, style: TextStyle(fontSize: 11, color: kc.muted)),
+                ])),
+                if (sel) Icon(Icons.check_circle, color: kc.accent, size: 18),
+              ]),
+            ),
+          );
+        }),
+      ]),
     );
   }
 }
