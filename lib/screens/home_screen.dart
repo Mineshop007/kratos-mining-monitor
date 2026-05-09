@@ -16,6 +16,7 @@ import 'settings_screen.dart';
 import 'add_miner_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/relay_service.dart';
+import '../widgets/update_banner.dart';
 import 'hall_of_fame_screen.dart';
 import 'giveaway_screen.dart';
 
@@ -29,6 +30,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
+  KratosPalette get kc => KratosColors.of(context);
+
   int _index = 0;
   Miner? _celebratedMiner; // currently shown FallingBlockOverlay (if any)
 
@@ -79,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final pages = [
       VoltOverviewTab(onSwitchTab: (i) => setState(() => _index = i)),
       MinersScreen(),
@@ -88,8 +92,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     ];
 
     return Scaffold(
-      backgroundColor: KratosColors.bg,
-      body: Stack(
+      backgroundColor: kc.bg,
+      body: UpdateBanner(
+        child: Stack(
         children: [
           IndexedStack(index: _index, children: pages),
           if (_celebratedMiner != null)
@@ -99,6 +104,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               onDone: () => setState(() => _celebratedMiner = null),
             ),
         ],
+      ),
       ),
       bottomNavigationBar: _BottomBar(
         index: _index,
@@ -110,14 +116,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       floatingActionButton: _index == 1
           ? FloatingActionButton(
-              backgroundColor: KratosColors.volt,
+              backgroundColor: kc.accent,
               foregroundColor: const Color(0xFF001A0E),
               elevation: 0,
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const AddMinerScreen()),
               ),
-              child: const Icon(Icons.add, size: 28),
+              child: Icon(Icons.add, size: 28),
             )
           : null,
     );
@@ -143,10 +149,11 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Container(
-      decoration: const BoxDecoration(
-        color: KratosColors.bg,
-        border: Border(top: BorderSide(color: KratosColors.line)),
+      decoration: BoxDecoration(
+        color: kc.bg,
+        border: Border(top: BorderSide(color: kc.line)),
       ),
       padding: EdgeInsets.fromLTRB(
         12,
@@ -185,7 +192,8 @@ class _TabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? KratosColors.voltBright : KratosColors.muted;
+    final kc = KratosColors.of(context);
+    final color = active ? kc.accentBright : kc.muted;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -202,12 +210,12 @@ class _TabButton extends StatelessWidget {
               shadows: active
                   ? [
                       Shadow(
-                          color: KratosColors.volt.withOpacity(0.8),
+                          color: kc.accent.withOpacity(0.8),
                           blurRadius: 8),
                     ]
                   : null,
             ),
-            const SizedBox(height: 3),
+            SizedBox(height: 3),
             Text(
               spec.label,
               style: TextStyle(
@@ -236,6 +244,7 @@ class VoltOverviewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Consumer<MinerStore>(
       builder: (ctx, store, _) {
         if (store.miners.isEmpty) {
@@ -253,6 +262,7 @@ class _OverviewEmpty extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     // Reuses Klaw empty-state pattern; CTA flips to the Miners tab.
     return SafeArea(
       child: Column(
@@ -261,13 +271,13 @@ class _OverviewEmpty extends StatelessWidget {
           const Spacer(),
           const _Logo(),
           const Spacer(flex: 2),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 24),
             child: Text(
               'No miners yet — Klaw is bored.\nTap the ⛏ tab to add your first one.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: KratosColors.muted,
+                color: kc.muted,
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -287,6 +297,7 @@ class _OverviewBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final hashTh = store.totalHashrate / 1000.0;
     final earnings = store.totalDailyEarningsUsd;
     final cost = store.totalDailyCostUsd;
@@ -294,14 +305,14 @@ class _OverviewBody extends StatelessWidget {
 
     return SafeArea(
       child: RefreshIndicator(
-        color: KratosColors.volt,
-        backgroundColor: KratosColors.surface,
+        color: kc.accent,
+        backgroundColor: kc.surface,
         onRefresh: store.refreshAll,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(18, 12, 18, 32),
           children: [
             const _Logo(),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             _HeroCard(
               hashTh: hashTh,
               online: store.onlineCount,
@@ -310,7 +321,7 @@ class _OverviewBody extends StatelessWidget {
               avgTempC: _avgTemp(store),
               minerIds: store.miners.map((m) => m.id).toList(),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             _TileGrid(store: store, onSwitchTab: onSwitchTab),
           ],
         ),
@@ -348,6 +359,7 @@ class _LogoState extends State<_Logo> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(children: [
@@ -357,7 +369,7 @@ class _LogoState extends State<_Logo> with SingleTickerProviderStateMixin {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(9),
             boxShadow: [BoxShadow(
-                color: KratosColors.volt.withOpacity(0.45),
+                color: kc.accent.withOpacity(0.45),
                 blurRadius: 12, spreadRadius: 1)],
           ),
           child: ClipRRect(
@@ -366,18 +378,18 @@ class _LogoState extends State<_Logo> with SingleTickerProviderStateMixin {
                 fit: BoxFit.cover),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         // KRATOS text
         Row(children: [
-          const Text('KRA', style: TextStyle(fontSize: 26,
-              fontWeight: FontWeight.w900, color: KratosColors.text,
+          Text('KRA', style: TextStyle(fontSize: 26,
+              fontWeight: FontWeight.w900, color: kc.text,
               letterSpacing: 1.5)),
           ShaderMask(
             blendMode: BlendMode.srcIn,
-            shaderCallback: (b) => const LinearGradient(
-                colors: [KratosColors.voltBright, KratosColors.volt])
+            shaderCallback: (b) => LinearGradient(
+                colors: [kc.accentBright, kc.accent])
                 .createShader(b),
-            child: const Text('TOS', style: TextStyle(fontSize: 26,
+            child: Text('TOS', style: TextStyle(fontSize: 26,
                 fontWeight: FontWeight.w900, letterSpacing: 1.5,
                 color: Colors.white)),
           ),
@@ -408,7 +420,7 @@ class _LogoState extends State<_Logo> with SingleTickerProviderStateMixin {
                       blurRadius: 10)],
                 ),
                 alignment: Alignment.center,
-                child: const Text('₿', style: TextStyle(
+                child: Text('₿', style: TextStyle(
                     fontSize: 20, fontWeight: FontWeight.w900,
                     color: Colors.white,
                     shadows: [Shadow(color: Colors.black26, blurRadius: 4)])),
@@ -440,6 +452,7 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -447,12 +460,12 @@ class _HeroCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            KratosColors.volt.withOpacity(0.18),
-            KratosColors.volt.withOpacity(0.02),
+            kc.accent.withOpacity(0.18),
+            kc.accent.withOpacity(0.02),
           ],
         ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: KratosColors.volt.withOpacity(0.30)),
+        border: Border.all(color: kc.accent.withOpacity(0.30)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,27 +473,27 @@ class _HeroCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'TOTAL HASHRATE',
                 style: TextStyle(
                   fontSize: 11,
                   letterSpacing: 1.2,
                   fontWeight: FontWeight.w700,
-                  color: KratosColors.muted,
+                  color: kc.muted,
                 ),
               ),
               _OnlinePill(online: online, total: total),
             ],
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               ShaderMask(
                 blendMode: BlendMode.srcIn,
-                shaderCallback: (r) => const LinearGradient(colors: [
-                  KratosColors.voltBright,
-                  KratosColors.volt,
+                shaderCallback: (r) => LinearGradient(colors: [
+                  kc.accentBright,
+                  kc.accent,
                 ]).createShader(r),
                 child: Text(
                   hashTh > 0 ? hashTh.toStringAsFixed(2) : '—',
@@ -492,25 +505,25 @@ class _HeroCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              const Padding(
+              SizedBox(width: 8),
+              Padding(
                 padding: EdgeInsets.only(bottom: 7),
                 child: Text(
                   'TH/s',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: KratosColors.muted,
+                    color: kc.muted,
                   ),
                 ),
               ),
             ],
           ),
           if (minerIds.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             _FleetSparkline(minerIds: minerIds),
           ],
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(
             children: [
               _StatCell(
@@ -519,7 +532,7 @@ class _HeroCard extends StatelessWidget {
                     ? '\$${dailyNetUsd.toStringAsFixed(2)}'
                     : '—',
                 color: dailyNetUsd >= 0
-                    ? KratosColors.voltBright
+                    ? kc.accentBright
                     : KratosColors.danger,
               ),
               _StatCell(
@@ -529,7 +542,7 @@ class _HeroCard extends StatelessWidget {
                     : '—',
                 color: avgTempC > 75
                     ? KratosColors.warning
-                    : KratosColors.text,
+                    : kc.text,
               ),
               _StatCell(
                 label: 'ONLINE',
@@ -550,8 +563,9 @@ class _OnlinePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final allUp = online == total && total > 0;
-    final color = allUp ? KratosColors.volt : KratosColors.warning;
+    final color = allUp ? kc.accent : KratosColors.warning;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -571,7 +585,7 @@ class _OnlinePill extends StatelessWidget {
               boxShadow: [BoxShadow(color: color, blurRadius: 6)],
             ),
           ),
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           Text(
             '$online / $total online',
             style: TextStyle(
@@ -598,34 +612,35 @@ class _StatCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Expanded(
       child: Container(
         margin: const EdgeInsets.only(right: 6),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: KratosColors.volt.withOpacity(0.04),
+          color: kc.accent.withOpacity(0.04),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: KratosColors.volt.withOpacity(0.08)),
+          border: Border.all(color: kc.accent.withOpacity(0.08)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 9,
                 fontWeight: FontWeight.w700,
-                color: KratosColors.muted,
+                color: kc.muted,
                 letterSpacing: 0.6,
               ),
             ),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Text(
               value,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
-                color: color ?? KratosColors.text,
+                color: color ?? kc.text,
               ),
             ),
           ],
@@ -642,6 +657,7 @@ class _TileGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final fleet = store.bestDiffTracker.fleetRecord;
     final bestDiff = fleet?.bestShare ?? 0;
     final activeMiners = store.onlineCount;
@@ -651,14 +667,14 @@ class _TileGrid extends StatelessWidget {
         icon: Icons.memory_rounded,
         title: 'Miners',
         subtitle: store.miners.isEmpty ? 'Add one' : '$activeMiners active',
-        color: KratosColors.volt,
+        color: kc.accent,
         onTap: () => onSwitchTab(1),
       ),
       _Tile(
         icon: Icons.emoji_events_rounded,
         title: 'Best Diff',
         subtitle: bestDiff > 0 ? _formatDiff(bestDiff) : 'Awaiting share',
-        color: KratosColors.cyan,
+        color: kc.secondary,
         onTap: () => Navigator.push(context,
             MaterialPageRoute(builder: (_) => const HallOfFameScreen())),
       ),
@@ -688,7 +704,7 @@ class _TileGrid extends StatelessWidget {
         icon: Icons.shield_rounded,
         title: 'Status',
         subtitle: store.offlineCount > 0 ? '${store.offlineCount} offline' : 'All up',
-        color: store.offlineCount > 0 ? KratosColors.danger : KratosColors.volt,
+        color: store.offlineCount > 0 ? KratosColors.danger : kc.accent,
         onTap: () => onSwitchTab(1),
       ),
       _Tile(
@@ -710,7 +726,7 @@ class _TileGrid extends StatelessWidget {
         icon: Icons.language_rounded,
         title: 'Community',
         subtitle: 'Discord',
-        color: KratosColors.cyan,
+        color: kc.secondary,
         onTap: () => launchUrl(Uri.parse('https://discord.gg/yWtYegkDJw'),
             mode: LaunchMode.externalApplication),
       ),
@@ -752,6 +768,7 @@ class _Tile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final tile = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -759,8 +776,8 @@ class _Tile extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            KratosColors.surface2.withOpacity(0.7),
-            KratosColors.surface.withOpacity(0.85),
+            kc.surface2.withOpacity(0.7),
+            kc.surface.withOpacity(0.85),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
@@ -784,20 +801,20 @@ class _Tile extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: KratosColors.text,
+                  color: kc.text,
                 ),
               ),
-              const SizedBox(height: 2),
+              SizedBox(height: 2),
               Text(
                 subtitle,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
-                  color: KratosColors.muted,
+                  color: kc.muted,
                 ),
               ),
             ],
@@ -861,8 +878,9 @@ class _FleetSparklineState extends State<_FleetSparkline> {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     if (_pts.length < 2) {
-      return const SizedBox(
+      return SizedBox(
         height: 36,
         child: Align(
           alignment: Alignment.centerLeft,
@@ -871,7 +889,7 @@ class _FleetSparklineState extends State<_FleetSparkline> {
                   fontSize: 9,
                   letterSpacing: 1.2,
                   fontWeight: FontWeight.w700,
-                  color: KratosColors.muted)),
+                  color: kc.muted)),
         ),
       );
     }
@@ -889,13 +907,13 @@ class _FleetSparklineState extends State<_FleetSparkline> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('FLEET · LAST 6H',
+        Text('FLEET · LAST 6H',
             style: TextStyle(
                 fontSize: 9,
                 letterSpacing: 1.2,
                 fontWeight: FontWeight.w700,
-                color: KratosColors.muted)),
-        const SizedBox(height: 4),
+                color: kc.muted)),
+        SizedBox(height: 4),
         SizedBox(
           height: 36,
           child: LineChart(
@@ -912,13 +930,13 @@ class _FleetSparklineState extends State<_FleetSparkline> {
                 LineChartBarData(
                   spots: spots,
                   isCurved: true,
-                  color: KratosColors.voltBright,
+                  color: kc.accentBright,
                   barWidth: 1.5,
                   isStrokeCapRound: true,
                   dotData: const FlDotData(show: false),
                   belowBarData: BarAreaData(
                     show: true,
-                    color: KratosColors.volt.withOpacity(0.15),
+                    color: kc.accent.withOpacity(0.15),
                   ),
                 ),
               ],

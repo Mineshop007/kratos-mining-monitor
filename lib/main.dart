@@ -15,6 +15,7 @@ import 'services/relay_service.dart';
 import 'services/schedule_service.dart';
 import 'services/pool_preset_service.dart';
 import 'services/miner_mode_prefs.dart';
+import 'services/update_check_service.dart';
 import 'screens/home_screen.dart';
 import 'services/group_service.dart';
 import 'theme/volt_theme.dart';
@@ -32,6 +33,7 @@ void main() async {
   await ScheduleService.instance.init();
   await PoolPresetService.instance.init();
   await MinerModePrefs.instance.init();
+  await UpdateCheckService.instance.init();
   // Auto-reconnect relay if a key was saved from a previous session
   RelayService.instance.reconnectSaved();
   runApp(const KratosApp());
@@ -53,6 +55,7 @@ class KratosApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CircuitService()),
         ChangeNotifierProvider(create: (_) => GroupService.instance),
         ChangeNotifierProvider(create: (_) => ChatService()),
+        ChangeNotifierProvider.value(value: UpdateCheckService.instance),
       ],
       child: Consumer<ThemeService>(
         builder: (ctx, theme, _) {
