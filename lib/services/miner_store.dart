@@ -25,7 +25,6 @@ class MinerStore extends ChangeNotifier {
   // BTC price (cached, refreshed periodically)
   double btcPrice = 0;
   double kwhPrice = 0.12;          // $/kWh — user-configurable
-  double hashrateMultiplier = 1.0;  // display multiplier (e.g. 1.08 = show 8% higher)
 
   // Block-found notification for UI (cleared after dialog shown)
   Miner? pendingBlockFoundMiner;
@@ -264,12 +263,6 @@ class MinerStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setHashrateMultiplier(double mult) async {
-    hashrateMultiplier = mult.clamp(0.5, 2.0);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('kratos_hr_mult', hashrateMultiplier);
-    notifyListeners();
-  }
 
   // ── Persistence ──────────────────────────────────────────────────────────
 
@@ -295,23 +288,16 @@ class MinerStore extends ChangeNotifier {
       }
     }
     kwhPrice = prefs.getDouble('kratos_kwh_price') ?? 0.12;
-    hashrateMultiplier = prefs.getDouble('kratos_hr_mult') ?? 1.0;
   }
 
   // ── Computed ─────────────────────────────────────────────────────────────
 
-  // Use live 5s hashrate when available — matches what HashWatcher shows as "Real Hashrate"
+  // Use live 5s hashrate when available
   double get totalHashrate => stats.values
       .where((s) =>
           s.status == MinerStatus.online || s.status == MinerStatus.warning)
-      .fold(0, (sum, s) => sum + s.hashrateDisplay * hashrateMultiplier);
+      .fold(0, (sum, s) => sum + s.hashrateDisplay);
 
-  /// Displayed hashrate for a single miner (with multiplier applied)
-  double minerHashrateDisplay(String minerId) {
-    final s = stats[minerId];
-    if (s == null) return 0;
-    return s.hashrateDisplay * hashrateMultiplier;
-  }
 
   double get totalPower => stats.values
       .where((s) => s.status != MinerStatus.offline)
@@ -332,7 +318,7 @@ class MinerStore extends ChangeNotifier {
   double minerDailyEarningsUsd(String minerId) {
     final s = stats[minerId];
     if (s == null) return 0;
-    return BtcPriceService.instance.dailyEarningsUsdSync(s.hashrateDisplay * hashrateMultiplier, btcPrice);
+    return BtcPriceService.instance.dailyEarningsUsdSync(s.hashrateDisplay, btcPrice);
   }
 
   double minerDailyCostUsd(String minerId) {

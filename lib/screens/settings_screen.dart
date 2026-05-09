@@ -69,8 +69,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SizedBox(height: 18),
           _ElectricitySection(),
           SizedBox(height: 18),
-          _HashrateMultiplierSection(),
-          SizedBox(height: 18),
           _ToolsSection(),
           SizedBox(height: 18),
           _PoolPresetsSection(),
@@ -439,98 +437,6 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _HashrateMultiplierSection extends StatefulWidget {
-  const _HashrateMultiplierSection();
-  @override
-  State<_HashrateMultiplierSection> createState() => _HashrateMultiplierState();
-}
-
-class _HashrateMultiplierState extends State<_HashrateMultiplierSection> {
-  late final TextEditingController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    final pct = (context.read<MinerStore>().hashrateMultiplier * 100).toStringAsFixed(0);
-    _ctrl = TextEditingController(text: pct);
-  }
-
-  @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    final kc = KratosColors.of(context);
-    return _SectionShell(
-      title: 'Hashrate Display',
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Display Multiplier',
-                  style: TextStyle(fontWeight: FontWeight.w700, color: kc.text)),
-              Text('Show hashrate as % of reported value (default 100%)',
-                  style: TextStyle(fontSize: 12, color: kc.muted)),
-            ])),
-            const SizedBox(width: 12),
-            SizedBox(width: 72,
-              child: TextField(
-                controller: _ctrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                textAlign: TextAlign.center,
-                style: TextStyle(color: kc.text, fontFamily: 'Courier', fontWeight: FontWeight.bold),
-                decoration: InputDecoration(
-                  suffixText: '%',
-                  suffixStyle: TextStyle(color: kc.muted),
-                  filled: true, fillColor: kc.surface,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: kc.line)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: kc.line)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: kc.accent, width: 1.5)),
-                ),
-                onSubmitted: (v) {
-                  final pct = double.tryParse(v);
-                  if (pct != null && pct > 0) {
-                    context.read<MinerStore>().setHashrateMultiplier(pct / 100.0);
-                  } else {
-                    _ctrl.text = (context.read<MinerStore>().hashrateMultiplier * 100).toStringAsFixed(0);
-                  }
-                },
-              ),
-            ),
-          ]),
-          const SizedBox(height: 8),
-          // Quick presets
-          Wrap(spacing: 8, children: [100, 105, 108, 110].map((pct) {
-            final active = (context.watch<MinerStore>().hashrateMultiplier * 100).round() == pct;
-            return GestureDetector(
-              onTap: () {
-                context.read<MinerStore>().setHashrateMultiplier(pct / 100.0);
-                _ctrl.text = pct.toString();
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: active ? kc.accent.withOpacity(0.15) : kc.bg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: active ? kc.accent.withOpacity(0.5) : kc.line),
-                ),
-                child: Text('$pct%', style: TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w700,
-                    color: active ? kc.accent : kc.muted)),
-              ),
-            );
-          }).toList()),
-        ]),
       ),
     );
   }
