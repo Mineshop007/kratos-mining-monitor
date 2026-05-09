@@ -249,21 +249,36 @@ class MinerDetailScreen extends StatelessWidget {
             // Actions
             _SectionLabel('ACTIONS'),
             const SizedBox(height: 8),
-            _ActionBtn(
-              'Configure Pools',
-              Icons.dns,
-              KratosTheme.orange,
-              () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => PoolEditorScreen(
-                    miner: miner,
-                    currentPools: s?.pools ?? [],
+            if (miner.type != MinerType.avalonQ &&
+                miner.type != MinerType.avalonMini3) ...[  
+              _ActionBtn(
+                'Configure Pools',
+                Icons.dns,
+                KratosTheme.orange,
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PoolEditorScreen(
+                      miner: miner,
+                      currentPools: s?.pools ?? [],
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 8),
+            ] else ...[  
+              // Avalon Q/Mini3: pool config via web UI (miner’s built-in page)
+              _ActionBtn(
+                'Pool Config — Open Web UI',
+                Icons.open_in_browser,
+                KratosTheme.orange,
+                () => launchUrl(
+                  Uri.parse('http://${miner.ip}'),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             _ActionBtn(
               'OC Settings',
               Icons.bolt,
