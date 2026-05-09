@@ -358,7 +358,12 @@ class _CardFooter extends StatelessWidget {
 
   List<Widget> _modeChip(BuildContext context) {
     final poolUrl = stats.pools.isNotEmpty ? stats.pools.first.url : '';
-    final solo = MinerModePrefs.instance.isSolo(minerId, poolUrl: poolUrl);
+    // Always auto-detect solo from URL - no prefs needed at card level
+    final isSoloUrl = poolUrl.isNotEmpty && BlockCalc.isSoloPool(poolUrl);
+    // Allow manual override from prefs
+    final override = MinerModePrefs.instance.getOverride(minerId);
+    final solo = override ?? isSoloUrl;
+
     final networkThs = BlockCalc.networkHashrateThs();
     final hashrateThs = stats.hashrateAvg / 1000.0;
 
@@ -370,7 +375,7 @@ class _CardFooter extends StatelessWidget {
         final days = BlockCalc.expectedDays(hashrateThs, networkThs);
         label = BlockCalc.formatExpectedTime(days);
       } else {
-        label = 'solo';
+        label = 'solo ⌛';
       }
     } else {
       color = const Color(0xFFf7931a);
@@ -620,27 +625,41 @@ class _MinerGridCardState extends State<MinerGridCard>
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  // Earnings pill
-                  if (widget.earningsPerDay > 0) ...[
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFf7931a).withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '\$${widget.earningsPerDay.toStringAsFixed(2)}/d',
-                        style: const TextStyle(
-                          fontSize: 9,
-                          color: Color(0xFFf7931a),
+                  // Earnings or solo block time pill
+                  Builder(builder: (ctx) {
+                    final poolUrl = s?.pools.isNotEmpty == true
+                        ? s!.pools.first.url : '';
+                    final isSolo = (MinerModePrefs.instance.getOverride(widget.miner.ip) ??
+                        (poolUrl.isNotEmpty && BlockCalc.isSoloPool(poolUrl)));
+                    final networkThs = BlockCalc.networkHashrateThs();
+                    final hashrateThs = (s?.hashrateAvg ?? 0) / 1000.0;
+                    String label = '';
+                    Color color = const Color(0xFFf7931a);
+                    if (isSolo && networkThs > 0 && hashrateThs > 0) {
+                      label = BlockCalc.formatExpectedTime(
+                          BlockCalc.expectedDays(hashrateThs, networkThs));
+                      color = KratosTheme.orange;
+                    } else if (!isSolo && widget.earningsPerDay > 0) {
+                      label = '\$${widget.earningsPerDay.toStringAsFixed(2)}/d';
+                    }
+                    if (label.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: color.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(label, style: TextStyle(
+                          fontSize: 9, color: color,
                           fontWeight: FontWeight.w700,
                           fontFamily: 'Courier',
-                        ),
+                        )),
                       ),
-                    ),
-                  ],
+                    );
+                  }),
                   // Efficiency bar - only if pref enabled
                   if (s != null && s.efficiency > 0 && DashboardPrefs.instance.showEfficiency) ...[
                     const SizedBox(height: 6),

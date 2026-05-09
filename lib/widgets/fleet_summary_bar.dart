@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import '../theme/volt_theme.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../services/miner_store.dart';
+import '../utils/block_calc.dart';
+import '../services/btc_price.dart';
 
 class FleetSummaryBar extends StatelessWidget {
   const FleetSummaryBar({super.key});
@@ -11,7 +14,7 @@ class FleetSummaryBar extends StatelessWidget {
     return Consumer<MinerStore>(builder: (ctx, store, _) {
       final total = store.totalHashrate;
       final totalStr = total >= 1000
-          ? '${(total / 1000).toStringAsFixed(2)} TH/s'
+          ? '${(total / 1000).toStringAsFixed(1)} TH'
           : '${total.toStringAsFixed(1)} GH/s';
 
       return Container(
@@ -35,39 +38,106 @@ class FleetSummaryBar extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(children: [
-          _StatBlock(
-            label: 'TOTAL HASHRATE',
-            value: totalStr,
-            color: KratosTheme.neon,
-            icon: Icons.flash_on,
-          ),
-          _Separator(),
-          _StatBlock(
-            label: 'ONLINE',
-            value: '${store.onlineCount}',
-            subValue: '/ ${store.miners.length}',
-            color: const Color(0xFF39d353),
-            icon: Icons.check_circle_outline,
-          ),
-          _Separator(),
-          _StatBlock(
-            label: 'WARNING',
-            value: '${store.warningCount}',
-            color: const Color(0xFFffd700),
-            icon: Icons.warning_amber_outlined,
-          ),
-          _Separator(),
-          _StatBlock(
-            label: 'OFFLINE',
-            value: '${store.offlineCount}',
-            color: const Color(0xFFff4d4d),
-            icon: Icons.power_off_outlined,
-          ),
+        child: Column(children: [
+          // Row 1: hashrate | online | warning | offline
+          Row(children: [
+            _StatBlock(
+              label: 'TOTAL HASHRATE',
+              value: totalStr,
+              color: KratosColors.of(context).accent,
+              icon: Icons.flash_on,
+            ),
+            _Separator(),
+            _StatBlock(
+              label: 'ONLINE',
+              value: '${store.onlineCount}',
+              subValue: '/ ${store.miners.length}',
+              color: const Color(0xFF39d353),
+              icon: Icons.check_circle_outline,
+            ),
+            _Separator(),
+            _StatBlock(
+              label: 'WARNING',
+              value: '${store.warningCount}',
+              color: const Color(0xFFffd700),
+              icon: Icons.warning_amber_outlined,
+            ),
+            _Separator(),
+            _StatBlock(
+              label: 'OFFLINE',
+              value: '${store.offlineCount}',
+              color: const Color(0xFFff4d4d),
+              icon: Icons.power_off_outlined,
+            ),
+          ]),
+          // Row 2: total power | fleet efficiency
+          if (store.totalPower > 0) ...[  
+            Container(height: 1, color: const Color(0xFF21262d)),
+            Row(children: [
+              _StatBlock(
+                label: 'TOTAL POWER',
+                value: store.totalPower >= 1000
+                    ? '${(store.totalPower / 1000).toStringAsFixed(2)} kW'
+                    : '${store.totalPower.toStringAsFixed(0)} W',
+                color: const Color(0xFFffa657),
+                icon: Icons.power,
+              ),
+              _Separator(),
+              _StatBlock(
+                label: 'FLEET J/TH',
+                value: store.fleetEfficiency > 0
+                    ? '${store.fleetEfficiency.toStringAsFixed(1)}'
+                    : '--',
+                color: _effColor(store.fleetEfficiency),
+                icon: Icons.speed,
+              ),
+              _Separator(),
+              _StatBlock(
+                label: 'DAILY COST',
+                value: store.totalDailyCostUsd > 0
+                    ? '\$${store.totalDailyCostUsd.toStringAsFixed(2)}'
+                    : '--',
+                color: const Color(0xFF8b949e),
+                icon: Icons.attach_money,
+              ),
+              _Separator(),
+              // Show SOLO LUCK (expected block time) for fleet
+              Builder(builder: (ctx) {
+                final networkThs = BlockCalc.networkHashrateThs();
+                final fleetThs = total / 1000.0;
+                final hasSoloPools = store.stats.values.any((s) =>
+                  s.pools.any((p) => BlockCalc.isSoloPool(p.url)));
+                if (hasSoloPools && networkThs > 0 && fleetThs > 0) {
+                  final days = BlockCalc.expectedDays(fleetThs, networkThs);
+                  return _StatBlock(
+                    label: 'SOLO LUCK',
+                    value: BlockCalc.formatExpectedTime(days),
+                    color: KratosTheme.orange,
+                    icon: Icons.casino_outlined,
+                  );
+                }
+                final net = store.totalDailyEarningsUsd - store.totalDailyCostUsd;
+                return _StatBlock(
+                  label: 'NET/DAY',
+                  value: net >= 0 ? '\$${net.toStringAsFixed(2)}' : '-\$${net.abs().toStringAsFixed(2)}',
+                  color: net >= 0 ? const Color(0xFF39d353) : const Color(0xFFff4d4d),
+                  icon: Icons.trending_up,
+                );
+              }),
+            ]),
+          ],
         ]),
       );
     });
   }
+}
+
+Color _effColor(double jth) {
+  if (jth <= 0)  return const Color(0xFF6e7681);
+  if (jth < 15)  return const Color(0xFF39d353); // excellent
+  if (jth < 22)  return const Color(0xFFffd700); // good
+  if (jth < 30)  return const Color(0xFFffa657); // average
+  return const Color(0xFFff4d4d);                // hot
 }
 
 class _StatBlock extends StatelessWidget {
@@ -98,15 +168,17 @@ class _StatBlock extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(value, style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: color,
-                fontFamily: 'Courier',
-              )),
+              Flexible(child: Text(value,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: color,
+                  fontFamily: 'Courier',
+                ))),
               if (subValue != null)
                 Text(subValue!, style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: Color(0xFF6e7681),
                   fontFamily: 'Courier',
                 )),
