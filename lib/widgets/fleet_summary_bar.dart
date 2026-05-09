@@ -93,13 +93,29 @@ class FleetSummaryBar extends StatelessWidget {
                 icon: Icons.speed,
               ),
               _Separator(),
-              _StatBlock(
-                label: 'DAILY COST',
-                value: store.totalDailyCostUsd > 0
-                    ? '\$${store.totalDailyCostUsd.toStringAsFixed(2)}'
-                    : '--',
-                color: const Color(0xFF8b949e),
-                icon: Icons.attach_money,
+              GestureDetector(
+                onTap: store.totalDailyCostUsd > 0
+                    ? () => showModalBottomSheet(
+                          context: ctx,
+                          backgroundColor: Colors.transparent,
+                          isScrollControlled: true,
+                          builder: (_) => _CostBreakdownSheet(
+                            dailyCostUsd: store.totalDailyCostUsd,
+                            dailyEarningsUsd: store.totalDailyEarningsUsd,
+                            totalPowerW: store.totalPower,
+                            kwhPrice: store.kwhPrice,
+                          ),
+                        )
+                    : null,
+                child: _StatBlock(
+                  label: 'DAILY COST',
+                  value: store.totalDailyCostUsd > 0
+                      ? '\$${store.totalDailyCostUsd.toStringAsFixed(2)}'
+                      : '--',
+                  color: const Color(0xFF8b949e),
+                  icon: Icons.attach_money,
+                  tappable: store.totalDailyCostUsd > 0,
+                ),
               ),
               _Separator(),
               // Show SOLO LUCK (expected block time) for fleet
@@ -219,4 +235,155 @@ class _Separator extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
     Container(width: 1, height: 40, color: const Color(0xFF21262d));
+}
+
+// ── Cost Breakdown Sheet ─────────────────────────────────────────────────────
+
+class _CostBreakdownSheet extends StatelessWidget {
+  final double dailyCostUsd;
+  final double dailyEarningsUsd;
+  final double totalPowerW;
+  final double kwhPrice;
+
+  const _CostBreakdownSheet({
+    required this.dailyCostUsd,
+    required this.dailyEarningsUsd,
+    required this.totalPowerW,
+    required this.kwhPrice,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+    final monthlyCost  = dailyCostUsd * 30;
+    final yearlyCost   = dailyCostUsd * 365;
+    final monthlyEarn  = dailyEarningsUsd * 30;
+    final yearlyEarn   = dailyEarningsUsd * 365;
+    final netDay       = dailyEarningsUsd - dailyCostUsd;
+    final netMonth     = monthlyEarn - monthlyCost;
+    final netYear      = yearlyEarn  - yearlyCost;
+    final dailyKwh     = totalPowerW * 24 / 1000;
+
+    String fmt(double v) => v >= 0
+        ? '\$${v.toStringAsFixed(2)}'
+        : '-\$${v.abs().toStringAsFixed(2)}';
+    Color netColor(double v) =>
+        v >= 0 ? kc.accent : const Color(0xFFff4d4d);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: kc.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        // Handle
+        Center(child: Container(width: 36, height: 4,
+            decoration: BoxDecoration(color: kc.line,
+                borderRadius: BorderRadius.circular(2)))),
+        const SizedBox(height: 16),
+
+        // Header
+        Row(children: [
+          const Text('💰', style: TextStyle(fontSize: 22)),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Cost & Earnings Breakdown',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800,
+                    color: kc.text)),
+            Text('${totalPowerW.toStringAsFixed(0)} W  ·  '
+                '${dailyKwh.toStringAsFixed(1)} kWh/day  ·  '
+                '\$$kwhPrice/kWh',
+                style: TextStyle(fontSize: 11, color: kc.muted)),
+          ])),
+        ]),
+        const SizedBox(height: 20),
+
+        // Table header
+        _TableRow('Period', 'Cost', 'Earnings', 'Net', kc, isHeader: true),
+        Divider(height: 8, color: kc.line),
+
+        // Rows
+        _TableRow('Daily',
+            '\$${dailyCostUsd.toStringAsFixed(2)}',
+            '\$${dailyEarningsUsd.toStringAsFixed(2)}',
+            fmt(netDay), kc, netColor: netColor(netDay)),
+        const SizedBox(height: 4),
+        _TableRow('Monthly (30d)',
+            '\$${monthlyCost.toStringAsFixed(2)}',
+            '\$${monthlyEarn.toStringAsFixed(2)}',
+            fmt(netMonth), kc, netColor: netColor(netMonth)),
+        const SizedBox(height: 4),
+        _TableRow('Yearly',
+            '\$${yearlyCost.toStringAsFixed(0)}',
+            '\$${yearlyEarn.toStringAsFixed(0)}',
+            fmt(netYear), kc, netColor: netColor(netYear),
+            bold: true),
+
+        const SizedBox(height: 16),
+        Divider(height: 1, color: kc.line),
+        const SizedBox(height: 12),
+
+        // kWh detail
+        _DetailRow('Electricity rate', '\$$kwhPrice / kWh', kc),
+        _DetailRow('Daily consumption',
+            '${dailyKwh.toStringAsFixed(1)} kWh', kc),
+        _DetailRow('Monthly consumption',
+            '${(dailyKwh * 30).toStringAsFixed(0)} kWh', kc),
+        _DetailRow('Yearly consumption',
+            '${(dailyKwh * 365).toStringAsFixed(0)} kWh', kc),
+      ]),
+    );
+  }
+}
+
+class _TableRow extends StatelessWidget {
+  final String period, cost, earnings, net;
+  final KratosPalette kc;
+  final Color? netColor;
+  final bool isHeader;
+  final bool bold;
+
+  const _TableRow(this.period, this.cost, this.earnings, this.net, this.kc,
+      {this.netColor, this.isHeader = false, this.bold = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontSize: isHeader ? 10 : 13,
+      fontWeight: (isHeader || bold) ? FontWeight.w800 : FontWeight.w600,
+      color: isHeader ? kc.muted : kc.text,
+      fontFamily: isHeader ? null : 'Courier',
+      letterSpacing: isHeader ? 1 : 0,
+    );
+    return Row(children: [
+      Expanded(flex: 4, child: Text(period, style: style)),
+      Expanded(flex: 3, child: Text(cost, style: style.copyWith(
+          color: isHeader ? kc.muted : const Color(0xFFff4d4d)),
+          textAlign: TextAlign.right)),
+      Expanded(flex: 3, child: Text(earnings, style: style.copyWith(
+          color: isHeader ? kc.muted : kc.accent),
+          textAlign: TextAlign.right)),
+      Expanded(flex: 3, child: Text(net, style: style.copyWith(
+          color: isHeader ? kc.muted : (netColor ?? kc.text)),
+          textAlign: TextAlign.right)),
+    ]);
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label, value;
+  final KratosPalette kc;
+  const _DetailRow(this.label, this.value, this.kc);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 5),
+    child: Row(children: [
+      Text(label, style: TextStyle(fontSize: 12, color: kc.muted)),
+      const Spacer(),
+      Text(value, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+          color: kc.text, fontFamily: 'Courier')),
+    ]),
+  );
 }
