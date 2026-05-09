@@ -1,7 +1,7 @@
 name: kratos
 description: Kratos — Multi-Coin Mining Monitor & Control. Forge your fleet.
 publish_to: 'none'
-version: 1.9.11+60
+version: 1.9.12+61
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

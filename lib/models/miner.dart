@@ -152,6 +152,7 @@ class MinerStats {
   final double vrTemp;    // °C — voltage regulator / MOSFET temperature
   final int workMode;     // Avalon Q: 0=Eco, 1=Standard, 2=Super (-1=unknown)
   final int minerState;   // Avalon Q: 0=init, 1=working, 2=standby (-1=unknown)
+  final double inletTemp; // Avalon Q ITemp — chassis/inlet temperature (°C)
   bool get isStandby => minerState == 2;
 
   MinerStats({
@@ -181,6 +182,7 @@ class MinerStats {
     this.vrTemp = 0,
     this.workMode = -1,
     this.minerState = -1,
+    this.inletTemp = 0,
   }) : lastUpdated = lastUpdated ?? DateTime.now();
 
   static MinerStats get offline => MinerStats(status: MinerStatus.offline);
@@ -213,6 +215,7 @@ class MinerStats {
     coreVoltage:  coreVoltage > 0 ? coreVoltage : other.coreVoltage,
     workMode:     workMode >= 0 ? workMode : other.workMode,
     minerState:   minerState >= 0 ? minerState : other.minerState,
+    inletTemp:    inletTemp > 0 ? inletTemp : other.inletTemp,
   );
 
   MinerStats withHistory(List<double> history) => MinerStats(
@@ -242,6 +245,7 @@ class MinerStats {
     vrTemp: vrTemp,
     workMode: workMode,
     minerState: minerState,
+    inletTemp: inletTemp,
   );
 
   // Computed

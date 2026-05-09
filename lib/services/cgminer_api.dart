@@ -196,40 +196,83 @@ class CGMinerAPI {
     int boardCount = 0;
     int workMode = -1;   // Avalon Q: 0=Eco, 1=Standard, 2=Super
     int minerState = -1; // Avalon Q: 0=init, 1=working, 2=standby
+    final inletTemps  = <double>[];  // Avalon Q ITemp (chassis/inlet)
 
     for (final stat in statsList) {
       final sm = stat as Map;
-      // Avalon Q: MM ID0..MM ID3 are per-board blocks inside a single STATS entry
-      // Nano 3S / Mini 3: single MM ID0
+
+      // ── Collect all MM ID payloads from this STATS entry ─────────────
+      // Avalon Q firmware uses key "MM ID0:Summary" (with :Summary suffix).
+      // Older Avalon / Nano 3S use "MM ID0". We support both:
+      // 1. Try numbered keys with and without :Summary suffix.
+      // 2. Fallback: scan all string values for ones containing Avalon markers.
+      final mmids = <String>[];
+
+      // Pass 1: numbered keys (both formats)
       for (int boardIdx = 0; boardIdx < 6; boardIdx++) {
-        final mmid = sm['MM ID$boardIdx'] as String? ?? '';
-        if (mmid.isEmpty) continue;
+        for (final key in ['MM ID$boardIdx', 'MM ID$boardIdx:Summary']) {
+          final v = sm[key];
+          if (v is String && v.isNotEmpty) { mmids.add(v); break; }
+        }
+      }
+
+      // Pass 2: scan all string values if nothing found yet
+      if (mmids.isEmpty) {
+        for (final v in sm.values) {
+          if (v is String && (
+              v.contains('ITemp[') || v.contains('WORKMODE[') ||
+              v.contains('GHSspd[') || v.contains('TMax['))) {
+            mmids.add(v);
+          }
+        }
+      }
+
+      for (int i = 0; i < mmids.length; i++) {
+        final mmid = mmids[i];
         boardCount++;
 
-        final t = _parseField(mmid, 'OTemp');
-        final t2 = t > 0 ? t : _parseField(mmid, 'Temp');
-        if (t2 > 0) boardTemps.add(t2);
+        // ── Temperature ────────────────────────────────────────────────
+        // Avalon Q: TMax = max chip temp (primary), ITemp = chassis/inlet
+        // Older Avalon / generic: OTemp, Temp
+        double chipTemp = _parseField(mmid, 'TMax');      // Avalon Q max chip
+        if (chipTemp == 0) chipTemp = _parseField(mmid, 'TAvg');  // avg fallback
+        if (chipTemp == 0) chipTemp = _parseField(mmid, 'OTemp'); // older Avalon
+        if (chipTemp == 0) chipTemp = _parseField(mmid, 'Temp');  // generic
+        if (chipTemp > 0) boardTemps.add(chipTemp);
 
-        final bPower = _parsePower(mmid);
+        // Inlet / chassis temperature (second temp shown in HashWatcher)
+        double iTemp = _parseField(mmid, 'ITemp');
+        if (iTemp == 0) iTemp = _parseField(mmid, 'HBOTemp'); // outlet fallback
+        if (iTemp > 0 && inletTemps.isEmpty) inletTemps.add(iTemp); // board 0 only
+
+        // ── Power ─────────────────────────────────────────────────────
+        // Avalon Q: Cur_Load[N] = current watts (simplest)
+        double bPower = _parseField(mmid, 'Cur_Load');
+        if (bPower == 0) bPower = _parsePower(mmid); // PS[...] fallback
         if (bPower > 0) boardPowers.add(bPower);
 
-        // Use board 0 for fan / freq / firmware / workmode (same across all boards)
-        if (boardIdx == 0) {
-          fanRPM     = _parseField(mmid, 'Fan1').toInt();
+        // ── Board 0: fan, freq, firmware, workmode, state ─────────────
+        if (i == 0) {
+          // Fan RPM — Avalon Q has Fan1..Fan4; use Fan1 or average
+          fanRPM = _parseField(mmid, 'Fan1').toInt();
           if (fanRPM == 0) fanRPM = _parseField(mmid, 'Fan').toInt();
+          // Fan percent
           fanPercent = _parseField(mmid, 'FanR').toInt();
+          // Frequency
           frequency  = _parseField(mmid, 'Freq');
           if (frequency == 0) frequency = _parseField(mmid, 'T1F');
+          // Firmware / model
           firmware   = _parseStringField(mmid, 'Ver');
           if (firmware.isEmpty) firmware = _parseStringField(mmid, 'VERS');
           model      = _parseModel(firmware);
-          // Avalon Q reports workmode + state in MM ID0
+          // Workmode + state (Avalon Q)
           final wm = _parseField(mmid, 'WORKMODE').toInt();
           if (wm >= 0 && wm <= 2) workMode = wm;
           final st = _parseField(mmid, 'STATE').toInt();
           if (st >= 0 && st <= 3) minerState = st;
         }
       }
+
       // Standard temp fallback (non-Avalon CGMiner devices)
       if (boardTemps.isEmpty) {
         final t = ((sm['Temperature'] as num?) ?? 0).toDouble();
@@ -245,6 +288,7 @@ class CGMinerAPI {
     if (boardPowers.isNotEmpty) {
       powerDraw = boardPowers.reduce((a, b) => a + b); // sum all boards
     }
+    final inletTemp = inletTemps.isNotEmpty ? inletTemps.first : 0.0;
 
     // Parse version
     final verList = (versionResp?['VERSION'] as List?) ?? [];
@@ -286,19 +330,32 @@ class CGMinerAPI {
       bestShareFinal = bestShareFinalFromPools;
     }
 
-    // GHSmm fallback: board-level GH/s when SUMMARY reports 0
-    // Sum GHSmm across all boards for multi-board miners (Avalon Q)
+    // Board-level hashrate fallback when SUMMARY reports 0
+    // Avalon Q uses GHSspd[N] (GH/s). Older Avalon: GHSmm.
     double hashrate5sFinal = hashrate5s;
     double hashrateAvgFinal = hashrateAvg;
     if (hashrate5sFinal == 0 && hashrateAvgFinal == 0) {
       double ghsTotal = 0;
       for (final stat in statsList) {
         final sm = stat as Map;
+        // Collect mmids same way as above
+        final mmids = <String>[];
         for (int boardIdx = 0; boardIdx < 6; boardIdx++) {
-          final mmid = sm['MM ID$boardIdx'] as String? ?? '';
-          if (mmid.isEmpty) continue;
-          final ghsmm = _parseField(mmid, 'GHSmm');
-          ghsTotal += ghsmm;
+          for (final key in ['MM ID$boardIdx', 'MM ID$boardIdx:Summary']) {
+            final v = sm[key];
+            if (v is String && v.isNotEmpty) { mmids.add(v); break; }
+          }
+        }
+        if (mmids.isEmpty) {
+          for (final v in sm.values) {
+            if (v is String && (v.contains('GHSspd[') || v.contains('GHSmm['))) mmids.add(v);
+          }
+        }
+        for (final mmid in mmids) {
+          // GHSspd = Avalon Q (GH/s). GHSmm = older Avalon (GH/s).
+          double ghs = _parseField(mmid, 'GHSspd');
+          if (ghs == 0) ghs = _parseField(mmid, 'GHSmm');
+          ghsTotal += ghs;
         }
       }
       if (ghsTotal > 0) {
@@ -333,6 +390,7 @@ class CGMinerAPI {
       bestShare: bestShareFinal,
       workMode: workMode,
       minerState: minerState,
+      inletTemp: inletTemp,
     );
   }
 

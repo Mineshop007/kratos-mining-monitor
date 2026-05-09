@@ -96,12 +96,21 @@ class MinerDetailScreen extends StatelessWidget {
               childAspectRatio: 1.6,
               children: [
                 _StatCard(
-                  'OUTLET TEMP',
+                  // Avalon Q: show chip temp (TMax), label it CHIP TEMP
+                  (s?.inletTemp ?? 0) > 0 ? 'CHIP TEMP' : 'OUTLET TEMP',
                   s?.outTemp != null && s!.outTemp > 0 ? '${s.outTemp.toInt()}°C' : '--',
                   Icons.thermostat,
                   _tempColor(s?.outTemp ?? 0),
                   onTap: s != null ? () => _showTempInfo(context, s.outTemp) : null,
                 ),
+                // Avalon Q second temp: ITemp (chassis/inlet)
+                if ((s?.inletTemp ?? 0) > 0)
+                  _StatCard(
+                    'INLET TEMP',
+                    '${s!.inletTemp.toInt()}°C',
+                    Icons.device_thermostat,
+                    _tempColor(s.inletTemp),
+                  ),
                 _StatCard(
                   'FAN',
                   s?.fanRPM != null && s!.fanRPM > 0

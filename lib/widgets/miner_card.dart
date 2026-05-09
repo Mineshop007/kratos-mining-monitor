@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import '../theme/volt_theme.dart';
 import 'package:provider/provider.dart';
 import '../models/miner.dart';
 import '../services/miner_store.dart';
 import '../services/cgminer_api.dart';
 import '../services/esp_miner_api.dart';
 import '../services/autotune_service.dart';
+import '../services/dashboard_prefs.dart';
 import 'sparkline.dart';
 import 'miner_icon.dart';
 
@@ -238,50 +240,108 @@ class _CardStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = stats;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(children: [
-        _StatCell(
-          label: 'HASHRATE',
-          value: s?.hashrateFormatted ?? '--',
-          color: const Color(0xFF39d353),
-          icon: Icons.flash_on,
-          trend: s?.trendDirection,
+    final p = DashboardPrefs.instance;
+    final fanVal = s == null ? '--'
+        : s.fanRPM > 0 ? '${s.fanRPM}r'
+        : s.fanPercent > 0 ? '${s.fanPercent}%' : '--';
+
+    // Build visible cells for each row, then intersperse dividers
+    final row1 = <_StatCell>[
+      if (p.showHashrate) _StatCell(
+        label: 'HASHRATE', value: s?.hashrateFormatted ?? '--',
+        color: const Color(0xFF39d353), icon: Icons.flash_on,
+        trend: s?.trendDirection,
+      ),
+      if (p.showTemp) _StatCell(
+        label: 'CHIP°',
+        value: s != null && s.outTemp > 0 ? '${s.outTemp.toInt()}°' : '--',
+        color: _tempColor(s?.outTemp ?? 0), icon: Icons.thermostat_outlined,
+      ),
+      // Avalon Q: show inlet/chassis temp instead of VR temp
+      if (p.showTemp && (s?.inletTemp ?? 0) > 0) _StatCell(
+        label: 'INLET°',
+        value: '${s!.inletTemp.toInt()}°',
+        color: _tempColor(s.inletTemp), icon: Icons.device_thermostat_outlined,
+      ) else if (p.showTemp) _StatCell(
+        label: 'VR°',
+        value: s != null && s.vrTemp > 0 ? '${s.vrTemp.toInt()}°' : '--',
+        color: _vrTempColor(s?.vrTemp ?? 0), icon: Icons.electric_bolt,
+      ),
+      if (p.showFanSpeed) _StatCell(
+        label: 'FAN', value: fanVal,
+        color: const Color(0xFF58a6ff), icon: Icons.air,
+      ),
+    ];
+
+    final row2 = <_StatCell>[
+      if (p.showBestDiff) _StatCell(
+        label: 'BEST DIFF', value: s?.bestShareFormatted ?? '--',
+        color: const Color(0xFFd2a8ff), icon: Icons.star_outline,
+      ),
+      if (p.showPowerDraw) _StatCell(
+        label: 'POWER',
+        value: s != null && s.powerDraw > 0 ? '${s.powerDraw.toStringAsFixed(1)}W' : '--',
+        color: const Color(0xFFffa657), icon: Icons.power,
+      ),
+      if (p.showEfficiency) _StatCell(
+        label: 'J/TH',
+        value: s != null && s.efficiency > 0 ? '${s.efficiency.toStringAsFixed(0)}' : '--',
+        color: _effColor(s?.efficiency ?? 0), icon: Icons.speed,
+      ),
+      if (p.showUptime) _StatCell(
+        label: 'UPTIME',
+        value: s != null && s.uptime > 0 ? s.uptimeFormatted : '--',
+        color: const Color(0xFF8b949e), icon: Icons.access_time,
+      ),
+    ];
+
+    if (row1.isEmpty && row2.isEmpty) return const SizedBox.shrink();
+
+    return Column(children: [
+      if (row1.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
+          child: Row(children: _withDividers(row1)),
         ),
-        _VertDivider(),
-        _StatCell(
-          label: 'TEMP',
-          value: s != null && s.outTemp > 0 ? '${s.outTemp.toInt()}°' : '--',
-          color: _tempColor(s?.outTemp ?? 0),
-          icon: Icons.thermostat_outlined,
+      if (row1.isNotEmpty && row2.isNotEmpty)
+        Container(height: 1, color: const Color(0xFF21262d),
+            margin: const EdgeInsets.only(top: 8)),
+      if (row2.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
+          child: Row(children: _withDividers(row2)),
         ),
-        _VertDivider(),
-        _StatCell(
-          label: 'FAN',
-          // If fanPercent > 100 it's actually RPM (some firmware stores RPM in percent field)
-          value: s != null && s.fanRPM > 0
-              ? '${s.fanRPM}r'
-              : (s != null && s.fanPercent > 100
-                  ? '${s.fanPercent}r'
-                  : (s != null && s.fanPercent > 0 ? '${s.fanPercent}%' : '--')),
-          color: const Color(0xFF58a6ff),
-          icon: Icons.air,
-        ),
-        _VertDivider(),
-        _StatCell(
-          label: 'ACCEPT',
-          value: '${s?.accepted ?? 0}',
-          color: const Color(0xFFf7931a),
-          icon: Icons.check_circle_outline,
-        ),
-      ]),
-    );
+    ]);
+  }
+
+  /// Intersperse _VertDivider() between cells.
+  List<Widget> _withDividers(List<_StatCell> cells) {
+    final result = <Widget>[];
+    for (int i = 0; i < cells.length; i++) {
+      result.add(cells[i]);
+      if (i < cells.length - 1) result.add(_VertDivider());
+    }
+    return result;
   }
 
   Color _tempColor(double t) {
     if (t > 85) return const Color(0xFFff4d4d);
     if (t > 75) return const Color(0xFFffd700);
     return const Color(0xFF6e7681);
+  }
+
+  Color _vrTempColor(double t) {
+    if (t > 75) return const Color(0xFFff4d4d);
+    if (t > 65) return const Color(0xFFffd700);
+    if (t <= 0) return const Color(0xFF6e7681);
+    return const Color(0xFFffa657); // orange — VR always runs hot
+  }
+
+  Color _effColor(double jth) {
+    if (jth <= 0)  return const Color(0xFF6e7681);
+    if (jth < 15)  return const Color(0xFF39d353); // great
+    if (jth < 25)  return const Color(0xFFffd700); // ok
+    return const Color(0xFFff4d4d);                // hot/inefficient
   }
 }
 
@@ -406,6 +466,21 @@ class _MinerGridCardState extends State<MinerGridCard>
     return const Color(0xFF6e7681);
   }
 
+  Color _vrTempColor(double t) {
+    if (t > 75) return const Color(0xFFff4d4d);
+    if (t > 65) return const Color(0xFFffd700);
+    if (t <= 0) return const Color(0xFF6e7681);
+    return const Color(0xFFffa657);
+  }
+
+  Color _effColor(double jth) {
+    if (jth <= 0)  return const Color(0xFF6e7681);
+    if (jth < 15)  return const Color(0xFF39d353);
+    if (jth < 22)  return const Color(0xFFffd700);
+    if (jth < 30)  return const Color(0xFFffa657);
+    return const Color(0xFFff4d4d);
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = widget.stats;
@@ -507,34 +582,8 @@ class _MinerGridCardState extends State<MinerGridCard>
                     ),
                   ],
                   const SizedBox(height: 6),
-                  // 4 mini stats
-                  Row(children: [
-                    _MiniStat(
-                        icon: Icons.thermostat_outlined,
-                        value: s != null && s.outTemp > 0
-                            ? '${s.outTemp.toInt()}°'
-                            : '--',
-                        color: _tempColor(s?.outTemp ?? 0)),
-                    const SizedBox(width: 6),
-                    _MiniStat(
-                        icon: Icons.air,
-                        value: s != null && s.fanPercent > 0
-                            ? '${s.fanPercent}%'
-                            : '--',
-                        color: const Color(0xFF58a6ff)),
-                    const SizedBox(width: 6),
-                    _MiniStat(
-                        icon: Icons.check_circle_outline,
-                        value: '${s?.accepted ?? 0}',
-                        color: const Color(0xFF3fb950)),
-                    const SizedBox(width: 6),
-                    _MiniStat(
-                        icon: Icons.access_time,
-                        value: s != null && s.uptime > 0
-                            ? s.uptimeFormatted
-                            : '--',
-                        color: const Color(0xFF8b949e)),
-                  ]),
+                  // Mini stats — only show enabled prefs
+                  _GridMiniStats(stats: s),
                   // Pool footer
                   if (s != null && s.pools.isNotEmpty) ...[
                     const SizedBox(height: 4),
@@ -570,6 +619,11 @@ class _MinerGridCardState extends State<MinerGridCard>
                         ),
                       ),
                     ),
+                  ],
+                  // Efficiency bar — only if pref enabled
+                  if (s != null && s.efficiency > 0 && DashboardPrefs.instance.showEfficiency) ...[
+                    const SizedBox(height: 6),
+                    _EfficiencyBar(jth: s.efficiency),
                   ],
                 ],
               ),
@@ -959,6 +1013,124 @@ class _StatCell extends StatelessWidget {
           ],
         ),
       );
+}
+
+/// Thin gradient efficiency bar — green (efficient) → red (hot/wasteful)
+class _EfficiencyBar extends StatelessWidget {
+  final double jth; // J/TH
+  const _EfficiencyBar({required this.jth});
+
+  @override
+  Widget build(BuildContext context) {
+    // Clamp: 0 J/TH = best possible, 40 J/TH = worst shown
+    final pct = ((jth - 5) / 35).clamp(0.0, 1.0); // 0=green, 1=red
+    final color = Color.lerp(
+      const Color(0xFF39d353), // green
+      const Color(0xFFff4d4d), // red
+      pct,
+    )!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: SizedBox(
+            height: 3,
+            child: LinearProgressIndicator(
+              value: pct,
+              backgroundColor: const Color(0xFF21262d),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '${jth.toStringAsFixed(1)} J/TH',
+          style: TextStyle(
+            fontSize: 8,
+            color: color,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Courier',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Grid card mini stats — respects DashboardPrefs toggles.
+class _GridMiniStats extends StatelessWidget {
+  final MinerStats? s;
+  const _GridMiniStats({required MinerStats? stats}) : s = stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = DashboardPrefs.instance;
+    Color tc(double t) {
+      if (t > 85) return const Color(0xFFff4d4d);
+      if (t > 75) return const Color(0xFFffd700);
+      return const Color(0xFF6e7681);
+    }
+    Color vc(double t) {
+      if (t > 75) return const Color(0xFFff4d4d);
+      if (t > 65) return const Color(0xFFffd700);
+      if (t <= 0) return const Color(0xFF6e7681);
+      return const Color(0xFFffa657);
+    }
+    Color ec(double j) {
+      if (j <= 0) return const Color(0xFF6e7681);
+      if (j < 15) return const Color(0xFF39d353);
+      if (j < 22) return const Color(0xFFffd700);
+      if (j < 30) return const Color(0xFFffa657);
+      return const Color(0xFFff4d4d);
+    }
+
+    final fanVal = s == null ? '--'
+        : s!.fanRPM > 0 ? '${s!.fanRPM}r'
+        : s!.fanPercent > 0 ? '${s!.fanPercent}%' : '--';
+
+    final row1 = <Widget>[
+      if (p.showTemp) _MiniStat(
+          icon: Icons.thermostat_outlined,
+          value: s != null && s!.outTemp > 0 ? '${s!.outTemp.toInt()}°' : '--',
+          color: tc(s?.outTemp ?? 0)),
+      if (p.showTemp) _MiniStat(
+          icon: Icons.electric_bolt,
+          value: s != null && s!.vrTemp > 0 ? '${s!.vrTemp.toInt()}°' : '--',
+          color: vc(s?.vrTemp ?? 0)),
+      if (p.showFanSpeed) _MiniStat(
+          icon: Icons.air, value: fanVal,
+          color: const Color(0xFF58a6ff)),
+    ];
+
+    final row2 = <Widget>[
+      if (p.showBestDiff) _MiniStat(
+          icon: Icons.star_outline,
+          value: s?.bestShareFormatted ?? '--',
+          color: const Color(0xFFd2a8ff)),
+      if (p.showPowerDraw) _MiniStat(
+          icon: Icons.power,
+          value: s != null && s!.powerDraw > 0 ? '${s!.powerDraw.toStringAsFixed(0)}W' : '--',
+          color: const Color(0xFFffa657)),
+      if (p.showEfficiency) _MiniStat(
+          icon: Icons.speed,
+          value: s != null && s!.efficiency > 0 ? '${s!.efficiency.toStringAsFixed(0)}J' : '--',
+          color: ec(s?.efficiency ?? 0)),
+    ];
+
+    if (row1.isEmpty && row2.isEmpty) return const SizedBox.shrink();
+
+    Widget spaced(List<Widget> items) => Row(
+      children: items.expand((w) => [w, const SizedBox(width: 5)]).toList()
+          ..removeLast(),
+    );
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (row1.isNotEmpty) spaced(row1),
+      if (row1.isNotEmpty && row2.isNotEmpty) const SizedBox(height: 4),
+      if (row2.isNotEmpty) spaced(row2),
+    ]);
+  }
 }
 
 class _MiniStat extends StatelessWidget {
