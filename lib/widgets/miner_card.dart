@@ -10,6 +10,7 @@ import '../services/autotune_service.dart';
 import '../services/dashboard_prefs.dart';
 import 'sparkline.dart';
 import 'miner_icon.dart';
+import 'uptime_ticker.dart';
 import '../services/miner_mode_prefs.dart';
 import '../utils/block_calc.dart';
 
@@ -134,7 +135,7 @@ class _MinerCardState extends State<MinerCard>
                     Container(height: 1, color: const Color(0xFF21262d)),
                     _CardStats(stats: s),
                     // Sparkline + earnings footer
-                    if (s != null && s.hashrateHistory.length >= 2)
+                    if (s != null && s.hashrateHistory.isNotEmpty)
                       _CardFooter(
                         stats: s,
                         earningsPerDay: widget.earningsPerDay,
@@ -250,7 +251,7 @@ class _CardStats extends StatelessWidget {
         : s.fanPercent > 0 ? '${s.fanPercent}%' : '--';
 
     // Build visible cells for each row, then intersperse dividers
-    final row1 = <_StatCell>[
+    final row1 = <Widget>[
       if (p.showHashrate) _StatCell(
         label: 'HASHRATE', value: s?.hashrateFormatted ?? '--',
         color: const Color(0xFF39d353), icon: Icons.flash_on,
@@ -277,7 +278,7 @@ class _CardStats extends StatelessWidget {
       ),
     ];
 
-    final row2 = <_StatCell>[
+    final row2 = <Widget>[
       if (p.showBestDiff) _StatCell(
         label: 'BEST DIFF', value: s?.bestShareFormatted ?? '--',
         color: const Color(0xFFd2a8ff), icon: Icons.star_outline,
@@ -292,11 +293,7 @@ class _CardStats extends StatelessWidget {
         value: s != null && s.efficiency > 0 ? '${s.efficiency.toStringAsFixed(0)}' : '--',
         color: _effColor(s?.efficiency ?? 0), icon: Icons.speed,
       ),
-      if (p.showUptime) _StatCell(
-        label: 'UPTIME',
-        value: s != null && s.uptime > 0 ? s.uptimeFormatted : '--',
-        color: const Color(0xFF8b949e), icon: Icons.access_time,
-      ),
+      if (p.showUptime) _UptimeCell(stats: s),
     ];
 
     if (row1.isEmpty && row2.isEmpty) return const SizedBox.shrink();
@@ -319,7 +316,7 @@ class _CardStats extends StatelessWidget {
   }
 
   /// Intersperse _VertDivider() between cells.
-  List<Widget> _withDividers(List<_StatCell> cells) {
+  List<Widget> _withDividers(List<Widget> cells) {
     final result = <Widget>[];
     for (int i = 0; i < cells.length; i++) {
       result.add(cells[i]);
@@ -597,7 +594,7 @@ class _MinerGridCardState extends State<MinerGridCard>
                     ],
                   ),
                   // Sparkline
-                  if (s != null && s.hashrateHistory.length >= 2) ...[
+                  if (s != null && s.hashrateHistory.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Sparkline(
                       data: s.hashrateHistory,
@@ -1290,6 +1287,44 @@ class _AutotuneChipState extends State<_AutotuneChip>
           ),
         );
       },
+    );
+  }
+}
+
+// ── Live uptime cell ──────────────────────────────────────────────────────────
+
+class _UptimeCell extends StatelessWidget {
+  final MinerStats? stats;
+  const _UptimeCell({this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.access_time, size: 12, color: const Color(0xFF8b949e)),
+          const SizedBox(height: 2),
+          UptimeTicker(
+            stats: stats,
+            compact: true,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF8b949e),
+              fontFamily: 'Courier',
+            ),
+          ),
+          const SizedBox(height: 1),
+          const Text('UPTIME', style: TextStyle(
+            fontSize: 7,
+            color: Color(0xFF6e7681),
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w500,
+          )),
+        ]),
+      ),
     );
   }
 }

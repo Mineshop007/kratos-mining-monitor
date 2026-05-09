@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/volt_theme.dart';
 
 /// Smooth sparkline chart widget for hashrate history
 class Sparkline extends StatelessWidget {
@@ -17,9 +18,7 @@ class Sparkline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (data.length < 2) {
-      return SizedBox(height: height);
-    }
+    if (data.isEmpty) return SizedBox(height: height);
     return SizedBox(
       height: height,
       child: CustomPaint(
@@ -47,16 +46,34 @@ class _SparklinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (data.length < 2) return;
+    if (data.isEmpty) return;
+
+    // Single data point — draw a dot
+    if (data.length == 1) {
+      canvas.drawCircle(
+        Offset(size.width / 2, size.height / 2),
+        2.5,
+        Paint()..color = color,
+      );
+      return;
+    }
 
     final minVal = data.reduce((a, b) => a < b ? a : b);
     final maxVal = data.reduce((a, b) => a > b ? a : b);
-    final range = maxVal - minVal;
+    var range = maxVal - minVal;
+
+    // Ensure minimum visible spread (5% of mean) so stable hashrate
+    // doesn’t render as a perfectly flat line — add artificial padding.
+    final mean = data.reduce((a, b) => a + b) / data.length;
+    final minRange = mean * 0.05;
+    if (range < minRange) range = minRange;
+
+    final midVal = (minVal + maxVal) / 2;
+    final lo = midVal - range / 2;
 
     double toY(double v) {
-      if (range < 0.001) return size.height / 2;
-      final t = (v - minVal) / range;
-      return size.height - t * (size.height * 0.8) - size.height * 0.1;
+      final t = (v - lo) / range;
+      return size.height - t.clamp(0.0, 1.0) * (size.height * 0.8) - size.height * 0.1;
     }
 
     final xStep = size.width / (data.length - 1);
@@ -105,5 +122,7 @@ class _SparklinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SparklinePainter old) =>
-      old.data != data || old.color != color;
+      old.data.length != data.length ||
+      old.color != color ||
+      (data.isNotEmpty && old.data.isNotEmpty && old.data.last != data.last);
 }

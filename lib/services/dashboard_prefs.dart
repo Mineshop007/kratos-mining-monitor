@@ -13,7 +13,7 @@ class DashboardPrefs extends ChangeNotifier {
   bool showFanSpeed    = true;
   bool showBestDiff    = true;
   bool showFrequency   = true;
-  bool showUptime      = false;
+  bool showUptime      = true;
   bool showTemp        = true;
   bool showHashrate    = true;
 
@@ -32,7 +32,7 @@ class DashboardPrefs extends ChangeNotifier {
     showFanSpeed    = p.getBool('dp_fan')          ?? true;
     showBestDiff    = p.getBool('dp_bestdiff')     ?? true;
     showFrequency   = p.getBool('dp_freq')         ?? true;
-    showUptime      = p.getBool('dp_uptime')       ?? false;
+    showUptime      = p.getBool('dp_uptime')       ?? true;
     showTemp        = p.getBool('dp_temp')         ?? true;
     showHashrate    = p.getBool('dp_hashrate')     ?? true;
     wideCards       = p.getBool('dp_wide')         ?? false;
