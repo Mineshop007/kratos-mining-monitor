@@ -253,7 +253,11 @@ class _CardStats extends StatelessWidget {
     // Build visible cells for each row, then intersperse dividers
     final row1 = <Widget>[
       if (p.showHashrate) _StatCell(
-        label: 'HASHRATE', value: s?.hashrateFormatted ?? '--',
+        label: 'HASHRATE',
+        value: s != null
+            ? _fmtHashrate(s.hashrateDisplay *
+                context.read<MinerStore>().hashrateMultiplier)
+            : '--',
         color: const Color(0xFF39d353), icon: Icons.flash_on,
         trend: s?.trendDirection,
       ),
@@ -323,6 +327,12 @@ class _CardStats extends StatelessWidget {
       if (i < cells.length - 1) result.add(_VertDivider());
     }
     return result;
+  }
+
+  String _fmtHashrate(double ghs) {
+    if (ghs >= 1000) return '${(ghs / 1000).toStringAsFixed(2)} TH/s';
+    if (ghs >= 1)    return '${ghs.toStringAsFixed(1)} GH/s';
+    return '${(ghs * 1000).toStringAsFixed(0)} MH/s';
   }
 
   Color _tempColor(double t) {
@@ -570,15 +580,19 @@ class _MinerGridCardState extends State<MinerGridCard>
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Expanded(
-                        child: Text(
-                          s?.hashrateFormatted ?? '--',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF39d353),
-                            fontFamily: 'Courier',
-                          ),
-                        ),
+                        child: Builder(builder: (ctx) {
+                          final mult = ctx.read<MinerStore>().hashrateMultiplier;
+                          final ghs = (s?.hashrateDisplay ?? 0) * mult;
+                          final txt = ghs > 0
+                              ? (ghs >= 1000
+                                  ? '${(ghs/1000).toStringAsFixed(2)} TH/s'
+                                  : '${ghs.toStringAsFixed(1)} GH/s')
+                              : '--';
+                          return Text(txt, style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w900,
+                            color: Color(0xFF39d353), fontFamily: 'Courier',
+                          ));
+                        }),
                       ),
                       if (trend != 0)
                         Icon(
