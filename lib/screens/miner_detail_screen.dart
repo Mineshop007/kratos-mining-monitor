@@ -249,8 +249,22 @@ class MinerDetailScreen extends StatelessWidget {
             // Actions
             _SectionLabel('ACTIONS'),
             const SizedBox(height: 8),
-            if (miner.type != MinerType.avalonQ &&
-                miner.type != MinerType.avalonMini3) ...[  
+            if (miner.type == MinerType.avalonQ ||
+                miner.type == MinerType.avalonMini3 ||
+                miner.type == MinerType.avalonNano3s ||
+                miner.type == MinerType.avalonNano3) ...[  
+              // All Avalon home devices: pool config via the miner’s own web UI
+              _ActionBtn(
+                'Pool Config — Open Web UI',
+                Icons.open_in_browser,
+                KratosTheme.orange,
+                () => launchUrl(
+                  Uri.parse('http://${miner.ip}'),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ] else ...[  
               _ActionBtn(
                 'Configure Pools',
                 Icons.dns,
@@ -263,18 +277,6 @@ class MinerDetailScreen extends StatelessWidget {
                       currentPools: s?.pools ?? [],
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ] else ...[  
-              // Avalon Q/Mini3: pool config via web UI (miner’s built-in page)
-              _ActionBtn(
-                'Pool Config — Open Web UI',
-                Icons.open_in_browser,
-                KratosTheme.orange,
-                () => launchUrl(
-                  Uri.parse('http://${miner.ip}'),
-                  mode: LaunchMode.externalApplication,
                 ),
               ),
               const SizedBox(height: 8),
