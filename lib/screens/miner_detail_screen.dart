@@ -29,7 +29,8 @@ class MinerDetailScreen extends StatelessWidget {
       return EspMinerAPI.instance.restart(miner.ip, miner.port,
           remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
     }
-    return CGMinerAPI.instance.restart(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
+    return CGMinerAPI.instance
+        .restart(miner.ip, miner.port, remoteUrl: miner.remoteUrl);
   }
 
   Future<bool> _pause() async {
@@ -67,7 +68,8 @@ class MinerDetailScreen extends StatelessWidget {
           ]),
           actions: [
             IconButton(
-              icon: Icon(Icons.edit_outlined, color: KratosColors.of(context).muted),
+              icon: Icon(Icons.edit_outlined,
+                  color: KratosColors.of(context).muted),
               tooltip: 'Edit miner',
               onPressed: () => _showEditSheet(context, miner, store),
             ),
@@ -102,10 +104,14 @@ class MinerDetailScreen extends StatelessWidget {
                 _StatCard(
                   // Avalon Q: show chip temp (TMax), label it CHIP TEMP
                   (s?.inletTemp ?? 0) > 0 ? 'CHIP TEMP' : 'OUTLET TEMP',
-                  s?.outTemp != null && s!.outTemp > 0 ? '${s.outTemp.toInt()}°C' : '--',
+                  s?.outTemp != null && s!.outTemp > 0
+                      ? '${s.outTemp.toInt()}°C'
+                      : '--',
                   Icons.thermostat,
                   _tempColor(s?.outTemp ?? 0),
-                  onTap: s != null ? () => _showTempInfo(context, s.outTemp) : null,
+                  onTap: s != null
+                      ? () => _showTempInfo(context, s.outTemp)
+                      : null,
                 ),
                 // Avalon Q second temp: ITemp (chassis/inlet)
                 if ((s?.inletTemp ?? 0) > 0)
@@ -119,7 +125,9 @@ class MinerDetailScreen extends StatelessWidget {
                   'FAN',
                   s?.fanRPM != null && s!.fanRPM > 0
                       ? '${s.fanRPM} RPM'
-                      : (s?.fanPercent != null && s!.fanPercent > 0 ? '${s.fanPercent}%' : '--'),
+                      : (s?.fanPercent != null && s!.fanPercent > 0
+                          ? '${s.fanPercent}%'
+                          : '--'),
                   Icons.air,
                   KratosTheme.blue,
                   onTap: miner.type.apiType == ApiType.espMinerHttp && s != null
@@ -131,28 +139,39 @@ class MinerDetailScreen extends StatelessWidget {
                   '${s?.accepted ?? 0}',
                   Icons.check_circle,
                   const Color(0xFF3FB950),
-                  onTap: s != null ? () => _showShareStats(context, s.accepted, s.rejected) : null,
+                  onTap: s != null
+                      ? () => _showShareStats(context, s.accepted, s.rejected)
+                      : null,
                 ),
                 _StatCard(
                   'REJECTED',
                   '${s?.rejected ?? 0}',
                   Icons.cancel,
-                  (s?.rejected ?? 0) > 0 ? KratosTheme.red : KratosColors.of(context).muted,
-                  onTap: s != null ? () => _showShareStats(context, s.accepted, s.rejected) : null,
+                  (s?.rejected ?? 0) > 0
+                      ? KratosTheme.red
+                      : KratosColors.of(context).muted,
+                  onTap: s != null
+                      ? () => _showShareStats(context, s.accepted, s.rejected)
+                      : null,
                 ),
                 _StatCard(
                   'HW ERRORS',
                   '${s?.hardwareErrors ?? 0}',
                   Icons.warning_amber,
-                  (s?.hardwareErrors ?? 0) > 0 ? KratosTheme.red : KratosColors.of(context).muted,
-                  onTap: () => _showHwErrorInfo(context, s?.hardwareErrors ?? 0),
+                  (s?.hardwareErrors ?? 0) > 0
+                      ? KratosTheme.red
+                      : KratosColors.of(context).muted,
+                  onTap: () =>
+                      _showHwErrorInfo(context, s?.hardwareErrors ?? 0),
                 ),
                 _StatCard(
                   'UPTIME',
                   s?.uptimeFormatted ?? '--',
                   Icons.access_time,
                   KratosTheme.purple,
-                  onTap: s != null ? () => _showUptimeInfo(context, s.uptime) : null,
+                  onTap: s != null
+                      ? () => _showUptimeInfo(context, s.uptime)
+                      : null,
                 ),
               ],
             ),
@@ -243,20 +262,20 @@ class MinerDetailScreen extends StatelessWidget {
             // Device info
             _SectionLabel('DEVICE INFO'),
             const SizedBox(height: 8),
-            _InfoRow('Model',
-                s?.model.isNotEmpty == true ? s!.model : 'Unknown'),
+            _InfoRow(
+                'Model', s?.model.isNotEmpty == true ? s!.model : 'Unknown'),
             _InfoRow('Firmware',
                 s?.firmware.isNotEmpty == true ? s!.firmware : 'Unknown'),
             _InfoRow('Type', miner.type.displayName),
-            _InfoRow('API',
+            _InfoRow(
+                'API',
                 miner.type.apiType == ApiType.espMinerHttp
                     ? 'ESP-Miner HTTP'
                     : 'CGMiner TCP'),
             _InfoRow('IP Address', miner.ip, copyable: true),
             _InfoRow('Port', '${miner.port}', copyable: true),
             if ((s?.frequency ?? 0) > 0)
-              _InfoRow(
-                  'Frequency', '${s!.frequency.toInt()} MHz'),
+              _InfoRow('Frequency', '${s!.frequency.toInt()} MHz'),
             const SizedBox(height: 20),
 
             // Actions
@@ -270,7 +289,7 @@ class MinerDetailScreen extends StatelessWidget {
             if (miner.type != MinerType.avalonQ &&
                 miner.type != MinerType.avalonMini3 &&
                 miner.type != MinerType.avalonNano3s &&
-                miner.type != MinerType.avalonNano3) ...[  
+                miner.type != MinerType.avalonNano3) ...[
               _ActionBtn(
                 'Apply Pool Preset',
                 Icons.dns_rounded,
@@ -289,7 +308,7 @@ class MinerDetailScreen extends StatelessWidget {
             if (miner.type == MinerType.avalonQ ||
                 miner.type == MinerType.avalonMini3 ||
                 miner.type == MinerType.avalonNano3s ||
-                miner.type == MinerType.avalonNano3) ...[  
+                miner.type == MinerType.avalonNano3) ...[
               // All Avalon home devices: pool config via the miner’s own web UI
               _ActionBtn(
                 'Pool Config — Open Web UI',
@@ -301,7 +320,7 @@ class MinerDetailScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-            ] else ...[  
+            ] else ...[
               _ActionBtn(
                 'Configure Pools',
                 Icons.dns,
@@ -321,7 +340,7 @@ class MinerDetailScreen extends StatelessWidget {
             if (miner.type == MinerType.avalonQ ||
                 miner.type == MinerType.avalonMini3 ||
                 miner.type == MinerType.avalonNano3s ||
-                miner.type == MinerType.avalonNano3) ...[  
+                miner.type == MinerType.avalonNano3) ...[
               // Avalon home devices: OC via miner’s own web UI
               _ActionBtn(
                 'OC Settings — Open Web UI',
@@ -332,7 +351,7 @@ class MinerDetailScreen extends StatelessWidget {
                   mode: LaunchMode.externalApplication,
                 ),
               ),
-            ] else ...[  
+            ] else ...[
               _ActionBtn(
                 'OC Settings',
                 Icons.bolt,
@@ -351,25 +370,38 @@ class MinerDetailScreen extends StatelessWidget {
                 miner.type == MinerType.avalonMini3) ...[
               const SizedBox(height: 8),
               Row(children: [
-                Expanded(child: _ActionBtn(
+                Expanded(
+                    child: _ActionBtn(
                   s?.isStandby == true ? 'Wake Up' : 'Standby',
-                  s?.isStandby == true ? Icons.wb_sunny_outlined : Icons.bedtime_outlined,
+                  s?.isStandby == true
+                      ? Icons.wb_sunny_outlined
+                      : Icons.bedtime_outlined,
                   s?.isStandby == true ? Colors.amber : Colors.orange,
                   () => s?.isStandby == true
-                      ? _confirmAction(context, 'Wake Up',
+                      ? _confirmAction(
+                          context,
+                          'Wake Up',
                           () => CGMinerAPI.instance.softOn(miner.ip, miner.port,
-                              remoteUrl: miner.remoteUrl, isRemote: miner.isRemote))
-                      : _confirmAction(context, 'Standby',
-                          () => CGMinerAPI.instance.softOff(miner.ip, miner.port,
-                              remoteUrl: miner.remoteUrl, isRemote: miner.isRemote)),
+                              remoteUrl: miner.remoteUrl,
+                              isRemote: miner.isRemote))
+                      : _confirmAction(
+                          context,
+                          'Standby',
+                          () => CGMinerAPI.instance.softOff(
+                              miner.ip, miner.port,
+                              remoteUrl: miner.remoteUrl,
+                              isRemote: miner.isRemote)),
                 )),
                 const SizedBox(width: 8),
-                Expanded(child: _ActionBtn(
+                Expanded(
+                    child: _ActionBtn(
                   'Schedule',
                   Icons.schedule,
                   const Color(0xFF9C27B0),
-                  () => Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => ScheduleScreen(miner: miner))),
+                  () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => ScheduleScreen(miner: miner))),
                 )),
               ]),
             ],
@@ -413,8 +445,8 @@ class MinerDetailScreen extends StatelessWidget {
                 icon: const Icon(Icons.chat_bubble_outline, size: 18),
                 label: const Text(
                     'Join Discord — Report Bugs & Suggest Features',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13)),
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               ),
             ),
             const SizedBox(height: 32),
@@ -442,8 +474,7 @@ class MinerDetailScreen extends StatelessWidget {
                 style: TextStyle(color: KratosColors.of(ctx).muted)),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: KratosTheme.red),
+            style: FilledButton.styleFrom(backgroundColor: KratosTheme.red),
             onPressed: () async {
               Navigator.pop(ctx);
               final ok = await _restart();
@@ -530,8 +561,8 @@ class _HashrateChartState extends State<_HashrateChart> {
 
   Future<void> _load() async {
     final since = DateTime.now().subtract(_tf.duration);
-    final pts = await HistoryService.instance
-        .getHistory(widget.minerId, since: since);
+    final pts =
+        await HistoryService.instance.getHistory(widget.minerId, since: since);
     if (!mounted) return;
     setState(() {
       _points = pts;
@@ -597,8 +628,7 @@ class _HashrateChartState extends State<_HashrateChart> {
                             color: KratosColors.of(context).accent)))
                 : _points.length < 2
                     ? Center(
-                        child: Text(
-                            'No data yet — collecting samples…',
+                        child: Text('No data yet — collecting samples…',
                             style: TextStyle(
                                 fontSize: 12,
                                 color: KratosColors.of(context).muted)),
@@ -611,18 +641,19 @@ class _HashrateChartState extends State<_HashrateChart> {
   }
 
   Widget _buildChart() {
-    final firstMs = _points.first.ts.millisecondsSinceEpoch.toDouble();
-    final lastMs = _points.last.ts.millisecondsSinceEpoch.toDouble();
-    final spots = _points
-        .map((p) => FlSpot(
-            p.ts.millisecondsSinceEpoch.toDouble(), p.hashrate))
-        .toList();
-    final values = _points.map((p) => p.hashrate);
+    final spots = _smoothChartSpots(_points);
+    final firstMs = spots.first.x;
+    final lastMs = spots.last.x;
+    final values = spots.map((p) => p.y);
     final minV = values.reduce((a, b) => a < b ? a : b);
     final maxV = values.reduce((a, b) => a > b ? a : b);
-    final pad = (maxV - minV).abs() < 1e-6 ? maxV * 0.05 + 1 : (maxV - minV) * 0.1;
-    final minY = (minV - pad).clamp(0, double.infinity).toDouble();
-    final maxY = maxV + pad;
+    final avgV = values.fold<double>(0, (a, b) => a + b) / values.length;
+    final visibleRange = (maxV - minV).abs();
+    final stableRange = avgV > 0 ? avgV * 0.06 : 1.0;
+    final range = visibleRange < stableRange ? stableRange : visibleRange * 1.2;
+    final center = (minV + maxV) / 2;
+    final minY = (center - range / 2).clamp(0, double.infinity).toDouble();
+    final maxY = center + range / 2;
 
     return LineChart(
       LineChartData(
@@ -640,15 +671,14 @@ class _HashrateChartState extends State<_HashrateChart> {
               reservedSize: 48,
               getTitlesWidget: (val, _) => Text(
                 _formatHashrate(val),
-                style: const TextStyle(
-                    fontSize: 9, color: Color(0xFF6e7681)),
+                style: const TextStyle(fontSize: 9, color: Color(0xFF6e7681)),
               ),
             ),
           ),
-          rightTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(
-              sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -675,8 +705,9 @@ class _HashrateChartState extends State<_HashrateChart> {
           LineChartBarData(
             spots: spots,
             isCurved: true,
+            curveSmoothness: 0.18,
             color: KratosColors.volt,
-            barWidth: 2,
+            barWidth: 2.4,
             isStrokeCapRound: true,
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
@@ -687,6 +718,55 @@ class _HashrateChartState extends State<_HashrateChart> {
         ],
       ),
     );
+  }
+
+  List<FlSpot> _smoothChartSpots(List<HistoryPoint> points) {
+    if (points.length <= 3) {
+      return points
+          .map(
+              (p) => FlSpot(p.ts.millisecondsSinceEpoch.toDouble(), p.hashrate))
+          .toList();
+    }
+
+    final bucketMs = switch (_tf) {
+      _Tf.h1 => const Duration(minutes: 1).inMilliseconds,
+      _Tf.h6 => const Duration(minutes: 6).inMilliseconds,
+      _Tf.h24 => const Duration(minutes: 20).inMilliseconds,
+      _Tf.d7 => const Duration(hours: 3).inMilliseconds,
+    };
+
+    final buckets = <int, List<HistoryPoint>>{};
+    for (final point in points) {
+      final bucket = point.ts.millisecondsSinceEpoch ~/ bucketMs;
+      buckets.putIfAbsent(bucket, () => []).add(point);
+    }
+
+    final bucketed = buckets.entries.map((entry) {
+      final samples = entry.value;
+      final avgTime = samples.fold<double>(
+              0, (sum, p) => sum + p.ts.millisecondsSinceEpoch) /
+          samples.length;
+      final avgHashrate =
+          samples.fold<double>(0, (sum, p) => sum + p.hashrate) /
+              samples.length;
+      return FlSpot(avgTime, avgHashrate);
+    }).toList()
+      ..sort((a, b) => a.x.compareTo(b.x));
+
+    if (bucketed.length <= 3) return bucketed;
+
+    return List.generate(bucketed.length, (i) {
+      final from = (i - 1).clamp(0, bucketed.length - 1);
+      final to = (i + 1).clamp(0, bucketed.length - 1);
+      var weightSum = 0.0;
+      var hashSum = 0.0;
+      for (var j = from; j <= to; j++) {
+        final weight = j == i ? 2.0 : 1.0;
+        weightSum += weight;
+        hashSum += bucketed[j].y * weight;
+      }
+      return FlSpot(bucketed[i].x, hashSum / weightSum);
+    });
   }
 
   String _formatTime(DateTime dt) {
@@ -737,7 +817,9 @@ class _TfPill extends StatelessWidget {
             fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
-            color: selected ? KratosColors.of(context).accent : KratosColors.of(context).muted,
+            color: selected
+                ? KratosColors.of(context).accent
+                : KratosColors.of(context).muted,
           ),
         ),
       ),
@@ -780,8 +862,7 @@ class _NetProfitRow extends StatelessWidget {
         const SizedBox(width: 8),
         Text(
           'Net ${positive ? "profit" : "loss"}/day:',
-          style: const TextStyle(
-              fontSize: 12, color: Color(0xFF8b949e)),
+          style: const TextStyle(fontSize: 12, color: Color(0xFF8b949e)),
         ),
         const Spacer(),
         Text(
@@ -789,9 +870,7 @@ class _NetProfitRow extends StatelessWidget {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
-            color: positive
-                ? const Color(0xFF39d353)
-                : KratosTheme.red,
+            color: positive ? const Color(0xFF39d353) : KratosTheme.red,
             fontFamily: 'Courier',
           ),
         ),
@@ -844,7 +923,8 @@ class _HashrateHero extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.orange.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(20),
@@ -853,9 +933,12 @@ class _HashrateHero extends StatelessWidget {
                 child: const Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.bedtime_outlined, size: 14, color: Colors.orange),
                   SizedBox(width: 6),
-                  Text('STANDBY', style: TextStyle(
-                      fontSize: 11, fontWeight: FontWeight.w800,
-                      color: Colors.orange, letterSpacing: 1.5)),
+                  Text('STANDBY',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.orange,
+                          letterSpacing: 1.5)),
                 ]),
               ),
             ),
@@ -913,9 +996,11 @@ class _StatCard extends StatelessWidget {
               Icon(icon, color: color, size: 22),
               if (onTap != null)
                 Positioned(
-                  right: -2, top: -2,
+                  right: -2,
+                  top: -2,
                   child: Container(
-                    width: 7, height: 7,
+                    width: 7,
+                    height: 7,
                     decoration: BoxDecoration(
                       color: color.withOpacity(0.7),
                       shape: BoxShape.circle,
@@ -926,16 +1011,22 @@ class _StatCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(value,
                 style: TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold,
-                    color: KratosColors.of(context).text, fontFamily: 'Courier')),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: KratosColors.of(context).text,
+                    fontFamily: 'Courier')),
             const SizedBox(height: 2),
             Text(label,
                 style: TextStyle(
-                    fontSize: 9, color: KratosColors.of(context).muted, letterSpacing: 1)),
-            if (onTap != null) ...[  
+                    fontSize: 9,
+                    color: KratosColors.of(context).muted,
+                    letterSpacing: 1)),
+            if (onTap != null) ...[
               const SizedBox(height: 4),
               Text('tap for details',
-                  style: TextStyle(fontSize: 7, color: KratosColors.of(context).muted,
+                  style: TextStyle(
+                      fontSize: 7,
+                      color: KratosColors.of(context).muted,
                       letterSpacing: 0.5)),
             ],
           ]),
@@ -964,9 +1055,8 @@ class _InfoCard extends StatelessWidget {
           Icon(icon, color: color, size: 16),
           const SizedBox(width: 8),
           Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(label,
                   style: TextStyle(
                       fontSize: 9,
@@ -1001,7 +1091,9 @@ class _PoolRow extends StatelessWidget {
             width: 7,
             height: 7,
             decoration: BoxDecoration(
-              color: pool.active ? KratosColors.of(context).accent : KratosColors.of(context).muted,
+              color: pool.active
+                  ? KratosColors.of(context).accent
+                  : KratosColors.of(context).muted,
               shape: BoxShape.circle,
             ),
           ),
@@ -1010,16 +1102,16 @@ class _PoolRow extends StatelessWidget {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-            Text(pool.cleanUrl,
-                style: TextStyle(
-                    fontSize: 13,
-                    color: KratosColors.of(context).text,
-                    fontFamily: 'Courier'),
-                overflow: TextOverflow.ellipsis),
-            Text(pool.user,
-                style: TextStyle(
-                    fontSize: 11, color: KratosColors.of(context).muted)),
-          ])),
+                Text(pool.cleanUrl,
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: KratosColors.of(context).text,
+                        fontFamily: 'Courier'),
+                    overflow: TextOverflow.ellipsis),
+                Text(pool.user,
+                    style: TextStyle(
+                        fontSize: 11, color: KratosColors.of(context).muted)),
+              ])),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(pool.status,
                 style: TextStyle(
@@ -1054,151 +1146,294 @@ class _SectionLabel extends StatelessWidget {
 // ── Stat card tap actions ────────────────────────────────────────────────────
 
 void _showTempInfo(BuildContext ctx, double temp) {
-  final label = temp < 60 ? '🟢 Cool' : temp < 72 ? '🟡 Warm' : '🔴 Hot!';
-  final msg = temp < 60 ? 'Running great. No action needed.'
-      : temp < 72 ? 'Normal range. Keep an eye on airflow.'
-      : 'High temp! Check fan speed and airflow. Risk of throttling.';
-  final color = temp < 60 ? KratosColors.of(ctx).accent : temp < 72 ? KratosTheme.orange : KratosTheme.red;
-  showDialog(context: ctx, builder: (_) => AlertDialog(
-    backgroundColor: KratosColors.of(ctx).surface,
-    title: Text('🌡️  ${temp.toInt()}°C', style: TextStyle(color: KratosColors.of(ctx).text)),
-    content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-      const SizedBox(height: 8),
-      Text(msg, style: TextStyle(color: KratosColors.of(ctx).muted, height: 1.5)),
-      const SizedBox(height: 12),
-      Divider(color: KratosColors.of(ctx).line),
-      for (final r in [('🟢 Cool', '< 60°C'), ('🟡 Warm', '60–72°C'), ('🔴 Hot', '> 72°C')])
-        Padding(padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(children: [
-              Text(r.$1, style: TextStyle(fontSize: 13, color: KratosColors.of(ctx).text)),
-              const Spacer(),
-              Text(r.$2, style: TextStyle(fontSize: 12, color: KratosColors.of(ctx).muted, fontFamily: 'Courier')),
-            ])),
-    ]),
-    actions: [TextButton(onPressed: () => Navigator.pop(ctx),
-        child: const Text('OK', style: TextStyle(color: KratosTheme.orange)))],
-  ));
+  final label = temp < 60
+      ? '🟢 Cool'
+      : temp < 72
+          ? '🟡 Warm'
+          : '🔴 Hot!';
+  final msg = temp < 60
+      ? 'Running great. No action needed.'
+      : temp < 72
+          ? 'Normal range. Keep an eye on airflow.'
+          : 'High temp! Check fan speed and airflow. Risk of throttling.';
+  final color = temp < 60
+      ? KratosColors.of(ctx).accent
+      : temp < 72
+          ? KratosTheme.orange
+          : KratosTheme.red;
+  showDialog(
+      context: ctx,
+      builder: (_) => AlertDialog(
+            backgroundColor: KratosColors.of(ctx).surface,
+            title: Text('🌡️  ${temp.toInt()}°C',
+                style: TextStyle(color: KratosColors.of(ctx).text)),
+            content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: color)),
+                  const SizedBox(height: 8),
+                  Text(msg,
+                      style: TextStyle(
+                          color: KratosColors.of(ctx).muted, height: 1.5)),
+                  const SizedBox(height: 12),
+                  Divider(color: KratosColors.of(ctx).line),
+                  for (final r in [
+                    ('🟢 Cool', '< 60°C'),
+                    ('🟡 Warm', '60–72°C'),
+                    ('🔴 Hot', '> 72°C')
+                  ])
+                    Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(children: [
+                          Text(r.$1,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  color: KratosColors.of(ctx).text)),
+                          const Spacer(),
+                          Text(r.$2,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: KratosColors.of(ctx).muted,
+                                  fontFamily: 'Courier')),
+                        ])),
+                ]),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK',
+                      style: TextStyle(color: KratosTheme.orange)))
+            ],
+          ));
 }
 
 void _showFanSheet(BuildContext ctx, Miner miner, int fanPct) {
-  showModalBottomSheet(context: ctx, isScrollControlled: true,
-    backgroundColor: KratosColors.of(ctx).surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    builder: (_) => _FanControlSheet(miner: miner, initialPercent: fanPct));
+  showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: KratosColors.of(ctx).surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _FanControlSheet(miner: miner, initialPercent: fanPct));
 }
 
 void _showShareStats(BuildContext ctx, int accepted, int rejected) {
   final total = accepted + rejected;
   final rate = total > 0 ? accepted / total * 100.0 : 100.0;
-  final color = rate >= 99 ? KratosColors.of(ctx).accent : rate >= 95 ? KratosTheme.orange : KratosTheme.red;
-  showDialog(context: ctx, builder: (_) => AlertDialog(
-    backgroundColor: KratosColors.of(ctx).surface,
-    title: Text('⚡ Share Stats', style: TextStyle(color: KratosColors.of(ctx).text)),
-    content: Column(mainAxisSize: MainAxisSize.min, children: [
-      for (final r in [('Accepted', '$accepted', Color(0xFF3FB950)), ('Rejected', '$rejected', KratosTheme.red), ('Total', '$total', KratosColors.of(ctx).muted)])
-        Padding(padding: const EdgeInsets.symmetric(vertical: 3),
-            child: Row(children: [
-              Text(r.$1, style: TextStyle(color: KratosColors.of(ctx).muted, fontSize: 13)),
-              const Spacer(),
-              Text(r.$2, style: TextStyle(color: r.$3, fontFamily: 'Courier', fontSize: 14, fontWeight: FontWeight.bold)),
-            ])),
-      Divider(color: KratosColors.of(ctx).line, height: 20),
-      Text('${rate.toStringAsFixed(2)}%', style: TextStyle(fontSize: 28,
-          fontWeight: FontWeight.bold, color: color, fontFamily: 'Courier')),
-      Text('acceptance rate', style: TextStyle(fontSize: 12, color: KratosColors.of(ctx).muted)),
-    ]),
-    actions: [TextButton(onPressed: () => Navigator.pop(ctx),
-        child: const Text('Close', style: TextStyle(color: KratosTheme.orange)))],
-  ));
+  final color = rate >= 99
+      ? KratosColors.of(ctx).accent
+      : rate >= 95
+          ? KratosTheme.orange
+          : KratosTheme.red;
+  showDialog(
+      context: ctx,
+      builder: (_) => AlertDialog(
+            backgroundColor: KratosColors.of(ctx).surface,
+            title: Text('⚡ Share Stats',
+                style: TextStyle(color: KratosColors.of(ctx).text)),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              for (final r in [
+                ('Accepted', '$accepted', Color(0xFF3FB950)),
+                ('Rejected', '$rejected', KratosTheme.red),
+                ('Total', '$total', KratosColors.of(ctx).muted)
+              ])
+                Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(children: [
+                      Text(r.$1,
+                          style: TextStyle(
+                              color: KratosColors.of(ctx).muted, fontSize: 13)),
+                      const Spacer(),
+                      Text(r.$2,
+                          style: TextStyle(
+                              color: r.$3,
+                              fontFamily: 'Courier',
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold)),
+                    ])),
+              Divider(color: KratosColors.of(ctx).line, height: 20),
+              Text('${rate.toStringAsFixed(2)}%',
+                  style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                      fontFamily: 'Courier')),
+              Text('acceptance rate',
+                  style: TextStyle(
+                      fontSize: 12, color: KratosColors.of(ctx).muted)),
+            ]),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Close',
+                      style: TextStyle(color: KratosTheme.orange)))
+            ],
+          ));
 }
 
 void _showHwErrorInfo(BuildContext ctx, int errors) {
-  showDialog(context: ctx, builder: (_) => AlertDialog(
-    backgroundColor: KratosColors.of(ctx).surface,
-    title: Text(errors > 0 ? '⚠️ HW Errors: $errors' : '✅ No HW Errors',
-        style: TextStyle(color: KratosColors.of(ctx).text)),
-    content: Text(errors == 0
-        ? 'ASIC is working cleanly. HW errors = failed nonce calculations at chip level.'
-        : 'HW errors = failed nonce calculations.\nA few/hour is normal. High counts suggest:\n\n• OC too high → reduce frequency\n• Core voltage too low\n• ASIC degradation or overheating',
-        style: TextStyle(color: KratosColors.of(ctx).muted, height: 1.5)),
-    actions: [TextButton(onPressed: () => Navigator.pop(ctx),
-        child: const Text('OK', style: TextStyle(color: KratosTheme.orange)))],
-  ));
+  showDialog(
+      context: ctx,
+      builder: (_) => AlertDialog(
+            backgroundColor: KratosColors.of(ctx).surface,
+            title: Text(errors > 0 ? '⚠️ HW Errors: $errors' : '✅ No HW Errors',
+                style: TextStyle(color: KratosColors.of(ctx).text)),
+            content: Text(
+                errors == 0
+                    ? 'ASIC is working cleanly. HW errors = failed nonce calculations at chip level.'
+                    : 'HW errors = failed nonce calculations.\nA few/hour is normal. High counts suggest:\n\n• OC too high → reduce frequency\n• Core voltage too low\n• ASIC degradation or overheating',
+                style:
+                    TextStyle(color: KratosColors.of(ctx).muted, height: 1.5)),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK',
+                      style: TextStyle(color: KratosTheme.orange)))
+            ],
+          ));
 }
 
 void _showUptimeInfo(BuildContext ctx, int secs) {
   final started = DateTime.now().subtract(Duration(seconds: secs));
-  final d = secs ~/ 86400; final h = (secs % 86400) ~/ 3600; final m = (secs % 3600) ~/ 60;
-  showDialog(context: ctx, builder: (_) => AlertDialog(
-    backgroundColor: KratosColors.of(ctx).surface,
-    title: Text('⏱ Uptime', style: TextStyle(color: KratosColors.of(ctx).text)),
-    content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('${d}d ${h}h ${m}m', style: TextStyle(fontSize: 24,
-          fontWeight: FontWeight.bold, color: KratosColors.of(ctx).text, fontFamily: 'Courier')),
-      const SizedBox(height: 8),
-      Text('Since: ${started.day.toString().padLeft(2,'0')}/${started.month.toString().padLeft(2,'0')}/${started.year}  '
-          '${started.hour.toString().padLeft(2,'0')}:${started.minute.toString().padLeft(2,'0')}',
-          style: TextStyle(color: KratosColors.of(ctx).muted, fontFamily: 'Courier')),
-    ]),
-    actions: [TextButton(onPressed: () => Navigator.pop(ctx),
-        child: const Text('OK', style: TextStyle(color: KratosTheme.orange)))],
-  ));
+  final d = secs ~/ 86400;
+  final h = (secs % 86400) ~/ 3600;
+  final m = (secs % 3600) ~/ 60;
+  showDialog(
+      context: ctx,
+      builder: (_) => AlertDialog(
+            backgroundColor: KratosColors.of(ctx).surface,
+            title: Text('⏱ Uptime',
+                style: TextStyle(color: KratosColors.of(ctx).text)),
+            content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${d}d ${h}h ${m}m',
+                      style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: KratosColors.of(ctx).text,
+                          fontFamily: 'Courier')),
+                  const SizedBox(height: 8),
+                  Text(
+                      'Since: ${started.day.toString().padLeft(2, '0')}/${started.month.toString().padLeft(2, '0')}/${started.year}  '
+                      '${started.hour.toString().padLeft(2, '0')}:${started.minute.toString().padLeft(2, '0')}',
+                      style: TextStyle(
+                          color: KratosColors.of(ctx).muted,
+                          fontFamily: 'Courier')),
+                ]),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK',
+                      style: TextStyle(color: KratosTheme.orange)))
+            ],
+          ));
 }
 
 class _FanControlSheet extends StatefulWidget {
-  final Miner miner; final int initialPercent;
+  final Miner miner;
+  final int initialPercent;
   const _FanControlSheet({required this.miner, required this.initialPercent});
-  @override State<_FanControlSheet> createState() => _FanControlSheetState();
+  @override
+  State<_FanControlSheet> createState() => _FanControlSheetState();
 }
+
 class _FanControlSheetState extends State<_FanControlSheet> {
-  late int _fan; bool _applying = false;
-  @override void initState() { super.initState(); _fan = widget.initialPercent; }
+  late int _fan;
+  bool _applying = false;
+  @override
+  void initState() {
+    super.initState();
+    _fan = widget.initialPercent;
+  }
+
   Future<void> _apply() async {
     setState(() => _applying = true);
-    await EspMinerAPI.instance.setFanSpeed(widget.miner.ip, widget.miner.port, _fan,
+    await EspMinerAPI.instance.setFanSpeed(
+        widget.miner.ip, widget.miner.port, _fan,
         remoteUrl: widget.miner.remoteUrl, isRemote: widget.miner.isRemote);
-    if (mounted) { setState(() => _applying = false); Navigator.pop(context); }
+    if (mounted) {
+      setState(() => _applying = false);
+      Navigator.pop(context);
+    }
   }
+
   @override
   Widget build(BuildContext ctx) {
     final bot = MediaQuery.of(ctx).viewInsets.bottom;
-    return Padding(padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bot),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 36, height: 4, decoration: BoxDecoration(
-            color: KratosColors.of(ctx).line, borderRadius: BorderRadius.circular(2))),
-        const SizedBox(height: 16),
-        Row(children: [
-          const Icon(Icons.air, color: KratosTheme.blue),
-          const SizedBox(width: 10),
-          Text('Fan Speed', style: TextStyle(fontSize: 16,
-              fontWeight: FontWeight.w800, color: KratosColors.of(ctx).text)),
-          const Spacer(),
-          Text('$_fan%', style: const TextStyle(fontSize: 20,
-              fontWeight: FontWeight.bold, color: KratosTheme.blue, fontFamily: 'Courier')),
-        ]),
-        const SizedBox(height: 12),
-        SliderTheme(data: SliderTheme.of(ctx).copyWith(
-            activeTrackColor: KratosTheme.blue, thumbColor: KratosTheme.blue,
-            inactiveTrackColor: KratosColors.of(ctx).line,
-            overlayColor: KratosTheme.blue.withOpacity(0.15)),
-          child: Slider(value: _fan.toDouble(), min: 0, max: 100, divisions: 20,
-              onChanged: (v) => setState(() => _fan = v.round()))),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('0% (auto)', style: TextStyle(fontSize: 10, color: KratosColors.of(ctx).muted)),
-          Text('100% (max)', style: TextStyle(fontSize: 10, color: KratosColors.of(ctx).muted)),
-        ]),
-        const SizedBox(height: 16),
-        SizedBox(width: double.infinity, child: FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: KratosTheme.blue,
-              foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 13),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-          onPressed: _applying ? null : _apply,
-          child: _applying
-              ? const SizedBox(width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black54))
-              : const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)))),
-      ]));
+    return Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bot),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: KratosColors.of(ctx).line,
+                  borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          Row(children: [
+            const Icon(Icons.air, color: KratosTheme.blue),
+            const SizedBox(width: 10),
+            Text('Fan Speed',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: KratosColors.of(ctx).text)),
+            const Spacer(),
+            Text('$_fan%',
+                style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: KratosTheme.blue,
+                    fontFamily: 'Courier')),
+          ]),
+          const SizedBox(height: 12),
+          SliderTheme(
+              data: SliderTheme.of(ctx).copyWith(
+                  activeTrackColor: KratosTheme.blue,
+                  thumbColor: KratosTheme.blue,
+                  inactiveTrackColor: KratosColors.of(ctx).line,
+                  overlayColor: KratosTheme.blue.withOpacity(0.15)),
+              child: Slider(
+                  value: _fan.toDouble(),
+                  min: 0,
+                  max: 100,
+                  divisions: 20,
+                  onChanged: (v) => setState(() => _fan = v.round()))),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('0% (auto)',
+                style:
+                    TextStyle(fontSize: 10, color: KratosColors.of(ctx).muted)),
+            Text('100% (max)',
+                style:
+                    TextStyle(fontSize: 10, color: KratosColors.of(ctx).muted)),
+          ]),
+          const SizedBox(height: 16),
+          SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                  style: FilledButton.styleFrom(
+                      backgroundColor: KratosTheme.blue,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12))),
+                  onPressed: _applying ? null : _apply,
+                  child: _applying
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.black54))
+                      : const Text('Apply',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 15)))),
+        ]));
   }
 }
 
@@ -1219,7 +1454,8 @@ class _EditMinerSheet extends StatefulWidget {
   final Miner miner;
   final MinerStore store;
   const _EditMinerSheet({required this.miner, required this.store});
-  @override State<_EditMinerSheet> createState() => _EditMinerSheetState();
+  @override
+  State<_EditMinerSheet> createState() => _EditMinerSheetState();
 }
 
 class _EditMinerSheetState extends State<_EditMinerSheet> {
@@ -1235,7 +1471,7 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.miner.name);
-    _ipCtrl   = TextEditingController(text: widget.miner.ip);
+    _ipCtrl = TextEditingController(text: widget.miner.ip);
     _portCtrl = TextEditingController(text: '${widget.miner.port}');
     _type = widget.miner.type;
   }
@@ -1243,26 +1479,32 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
   @override
   void dispose() {
     _debounce?.cancel();
-    _nameCtrl.dispose(); _ipCtrl.dispose(); _portCtrl.dispose();
+    _nameCtrl.dispose();
+    _ipCtrl.dispose();
+    _portCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _autoDetect() async {
     final ip = _ipCtrl.text.trim();
     final port = int.tryParse(_portCtrl.text) ?? 80;
-    setState(() { _detecting = true; _detected = false; });
-    final s = await EspMinerAPI.instance
-        .fetchAll(ip, port)
-        .timeout(const Duration(seconds: 5), onTimeout: () => MinerStats.offline);
+    setState(() {
+      _detecting = true;
+      _detected = false;
+    });
+    final s = await EspMinerAPI.instance.fetchAll(ip, port).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => MinerStats.offline);
     MinerType detected = _type;
     if (s.status != MinerStatus.offline) {
-      detected = s.type != MinerType.generic ? s.type : MinerType.detect(s.model);
+      detected =
+          s.type != MinerType.generic ? s.type : MinerType.detect(s.model);
       if (detected == MinerType.generic) detected = MinerType.bitaxeGamma;
     } else {
       // Try CGMiner
-      final cs = await CGMinerAPI.instance
-          .fetchAll(ip, 4028)
-          .timeout(const Duration(seconds: 3), onTimeout: () => MinerStats.offline);
+      final cs = await CGMinerAPI.instance.fetchAll(ip, 4028).timeout(
+          const Duration(seconds: 3),
+          onTimeout: () => MinerStats.offline);
       if (cs.status != MinerStatus.offline) {
         detected = MinerType.detect(cs.model);
         _portCtrl.text = '4028';
@@ -1278,8 +1520,9 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
 
   Future<void> _save() async {
     widget.miner.name = _nameCtrl.text.trim().isEmpty
-        ? 'Miner at ${_ipCtrl.text.trim()}' : _nameCtrl.text.trim();
-    widget.miner.ip   = _ipCtrl.text.trim();
+        ? 'Miner at ${_ipCtrl.text.trim()}'
+        : _nameCtrl.text.trim();
+    widget.miner.ip = _ipCtrl.text.trim();
     widget.miner.port = int.tryParse(_portCtrl.text) ?? _type.defaultPort;
     widget.miner.type = _type;
     await widget.store.save();
@@ -1293,170 +1536,226 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
       child: SingleChildScrollView(
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Handle
-          Center(child: Container(width: 36, height: 4,
-              decoration: BoxDecoration(color: KratosColors.of(context).line,
-                  borderRadius: BorderRadius.circular(2)))),
-          const SizedBox(height: 16),
-          Text('Edit Miner',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800,
-                  color: KratosColors.of(context).text)),
-          const SizedBox(height: 16),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle
+              Center(
+                  child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                          color: KratosColors.of(context).line,
+                          borderRadius: BorderRadius.circular(2)))),
+              const SizedBox(height: 16),
+              Text('Edit Miner',
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: KratosColors.of(context).text)),
+              const SizedBox(height: 16),
 
-          // Name
-          _editLabel('NAME'),
-          const SizedBox(height: 6),
-          _editField(_nameCtrl, 'Miner name'),
-          const SizedBox(height: 12),
+              // Name
+              _editLabel('NAME'),
+              const SizedBox(height: 6),
+              _editField(_nameCtrl, 'Miner name'),
+              const SizedBox(height: 12),
 
-          // IP + Port row
-          Row(children: [
-            Expanded(flex: 3, child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _editLabel('IP ADDRESS'),
-                const SizedBox(height: 6),
-                _editField(_ipCtrl, '192.168.1.x', type: TextInputType.url),
-              ],
-            )),
-            const SizedBox(width: 10),
-            Expanded(flex: 1, child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _editLabel('PORT'),
-                const SizedBox(height: 6),
-                _editField(_portCtrl, '80', type: TextInputType.number),
-              ],
-            )),
-          ]),
-          const SizedBox(height: 16),
-
-          // Auto-detect button
-          SizedBox(width: double.infinity,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: KratosTheme.orange,
-                side: BorderSide(color: KratosTheme.orange.withOpacity(0.4)),
-                backgroundColor: KratosTheme.orange.withOpacity(0.07),
-                padding: const EdgeInsets.symmetric(vertical: 11),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onPressed: _detecting ? null : _autoDetect,
-              icon: _detecting
-                  ? const SizedBox(width: 16, height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: KratosTheme.orange))
-                  : const Icon(Icons.radar_rounded, size: 18),
-              label: Text(_detecting ? 'Detecting…' : 'Auto-detect type from IP',
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
-            ),
-          ),
-          if (_detected) ...[  
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: KratosColors.of(context).accent.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: KratosColors.of(context).accent.withOpacity(0.3)),
-              ),
-              child: Row(children: [
-                Icon(Icons.check_circle_outline, color: KratosColors.of(context).accent, size: 15),
-                const SizedBox(width: 8),
-                Text('Detected: ${_type.displayName}',
-                    style: TextStyle(fontSize: 13, color: KratosColors.of(context).accent,
-                        fontWeight: FontWeight.w600)),
+              // IP + Port row
+              Row(children: [
+                Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _editLabel('IP ADDRESS'),
+                        const SizedBox(height: 6),
+                        _editField(_ipCtrl, '192.168.1.x',
+                            type: TextInputType.url),
+                      ],
+                    )),
+                const SizedBox(width: 10),
+                Expanded(
+                    flex: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _editLabel('PORT'),
+                        const SizedBox(height: 6),
+                        _editField(_portCtrl, '80', type: TextInputType.number),
+                      ],
+                    )),
               ]),
-            ),
-          ],
-          const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-          // Type chips
-          _editLabel('MINER TYPE'),
-          const SizedBox(height: 8),
-          Wrap(spacing: 8, runSpacing: 8,
-            children: MinerType.values.map((t) {
-              final sel = t == _type;
-              return GestureDetector(
-                onTap: () => setState(() => _type = t),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 130),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: sel ? KratosTheme.orange.withOpacity(0.15) : KratosColors.of(context).bg,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: sel ? KratosTheme.orange : KratosColors.of(context).line),
+              // Auto-detect button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: KratosTheme.orange,
+                    side:
+                        BorderSide(color: KratosTheme.orange.withOpacity(0.4)),
+                    backgroundColor: KratosTheme.orange.withOpacity(0.07),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
-                  child: Text(t.displayName,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
-                          color: sel ? KratosTheme.orange : KratosColors.of(context).text)),
+                  onPressed: _detecting ? null : _autoDetect,
+                  icon: _detecting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: KratosTheme.orange))
+                      : const Icon(Icons.radar_rounded, size: 18),
+                  label: Text(
+                      _detecting ? 'Detecting…' : 'Auto-detect type from IP',
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
                 ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: _type.apiType == ApiType.espMinerHttp
-                  ? KratosColors.of(context).accent.withOpacity(0.07)
-                  : KratosTheme.blue.withOpacity(0.07),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _type.apiType == ApiType.espMinerHttp
-                  ? KratosColors.of(context).accent.withOpacity(0.25) : KratosTheme.blue.withOpacity(0.25)),
-            ),
-            child: Text(
-              _type.apiType == ApiType.espMinerHttp
-                  ? 'ESP-Miner HTTP API · port ${_type.defaultPort}'
-                  : 'CGMiner TCP API · port ${_type.defaultPort}',
-              style: TextStyle(fontSize: 11,
-                  color: _type.apiType == ApiType.espMinerHttp
-                      ? KratosColors.of(context).accent : KratosTheme.blue,
-                  fontWeight: FontWeight.w600),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Save button
-          SizedBox(width: double.infinity,
-            child: FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: KratosTheme.orange,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: _save,
-              child: const Text('Save Changes',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            ),
-          ),
-        ]),
+              if (_detected) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: KratosColors.of(context).accent.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                        color:
+                            KratosColors.of(context).accent.withOpacity(0.3)),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.check_circle_outline,
+                        color: KratosColors.of(context).accent, size: 15),
+                    const SizedBox(width: 8),
+                    Text('Detected: ${_type.displayName}',
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: KratosColors.of(context).accent,
+                            fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              ],
+              const SizedBox(height: 16),
+
+              // Type chips
+              _editLabel('MINER TYPE'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: MinerType.values.map((t) {
+                  final sel = t == _type;
+                  return GestureDetector(
+                    onTap: () => setState(() => _type = t),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 130),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? KratosTheme.orange.withOpacity(0.15)
+                            : KratosColors.of(context).bg,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: sel
+                                ? KratosTheme.orange
+                                : KratosColors.of(context).line),
+                      ),
+                      child: Text(t.displayName,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: sel
+                                  ? KratosTheme.orange
+                                  : KratosColors.of(context).text)),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _type.apiType == ApiType.espMinerHttp
+                      ? KratosColors.of(context).accent.withOpacity(0.07)
+                      : KratosTheme.blue.withOpacity(0.07),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                      color: _type.apiType == ApiType.espMinerHttp
+                          ? KratosColors.of(context).accent.withOpacity(0.25)
+                          : KratosTheme.blue.withOpacity(0.25)),
+                ),
+                child: Text(
+                  _type.apiType == ApiType.espMinerHttp
+                      ? 'ESP-Miner HTTP API · port ${_type.defaultPort}'
+                      : 'CGMiner TCP API · port ${_type.defaultPort}',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: _type.apiType == ApiType.espMinerHttp
+                          ? KratosColors.of(context).accent
+                          : KratosTheme.blue,
+                      fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Save button
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: KratosTheme.orange,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: _save,
+                  child: const Text('Save Changes',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+              ),
+            ]),
       ),
     );
   }
 
   Widget _editLabel(String t) => Text(t,
-      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
-          color: KratosColors.of(context).muted, letterSpacing: 1.5));
+      style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: KratosColors.of(context).muted,
+          letterSpacing: 1.5));
 
   Widget _editField(TextEditingController ctrl, String hint,
-      {TextInputType type = TextInputType.text}) =>
+          {TextInputType type = TextInputType.text}) =>
       TextField(
         controller: ctrl,
         keyboardType: type,
-        style: TextStyle(color: KratosColors.of(context).text, fontFamily: 'Courier'),
+        style: TextStyle(
+            color: KratosColors.of(context).text, fontFamily: 'Courier'),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(color: KratosColors.of(context).muted),
-          filled: true, fillColor: KratosColors.of(context).bg,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+          filled: true,
+          fillColor: KratosColors.of(context).bg,
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: KratosColors.of(context).line)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(color: KratosColors.of(context).line)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: KratosTheme.orange)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       );
 }
@@ -1474,13 +1773,19 @@ class _InfoRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-          color: KratosColors.of(context).surface, borderRadius: BorderRadius.circular(8)),
+          color: KratosColors.of(context).surface,
+          borderRadius: BorderRadius.circular(8)),
       child: Row(children: [
-        Text(label, style: TextStyle(fontSize: 13, color: KratosColors.of(context).muted)),
+        Text(label,
+            style:
+                TextStyle(fontSize: 13, color: KratosColors.of(context).muted)),
         const Spacer(),
-        Text(value, style: TextStyle(
-            fontSize: 13, color: KratosColors.of(context).text, fontFamily: 'Courier')),
-        if (copyable) ...[  
+        Text(value,
+            style: TextStyle(
+                fontSize: 13,
+                color: KratosColors.of(context).text,
+                fontFamily: 'Courier')),
+        if (copyable) ...[
           const SizedBox(width: 8),
           Icon(Icons.copy, size: 13, color: KratosColors.of(context).muted),
         ],
@@ -1515,14 +1820,14 @@ class _ActionBtn extends StatelessWidget {
             side: BorderSide(color: color.withOpacity(0.3)),
             backgroundColor: color.withOpacity(0.07),
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           onPressed: onPressed,
           icon: Icon(icon, size: 18),
           label: Text(label,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600, fontSize: 15)),
+              style:
+                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
         ),
       );
 }
@@ -1575,15 +1880,20 @@ class _FanSpeedControlState extends State<_FanSpeedControl> {
   }
 
   Future<void> _setFan() async {
-    setState(() { _setting = true; _fanResult = null; });
+    setState(() {
+      _setting = true;
+      _fanResult = null;
+    });
     final ok = await EspMinerAPI.instance.setFanSpeed(
         widget.miner.ip, widget.miner.port, _value.round(),
-        remoteUrl: widget.miner.remoteUrl,
-        isRemote: widget.miner.isRemote);
-    if (mounted) setState(() {
-      _setting = false;
-      _fanResult = ok ? '✅ Fan set to ${_value.round()}%' : '❌ Failed — check miner connection';
-    });
+        remoteUrl: widget.miner.remoteUrl, isRemote: widget.miner.isRemote);
+    if (mounted)
+      setState(() {
+        _setting = false;
+        _fanResult = ok
+            ? '✅ Fan set to ${_value.round()}%'
+            : '❌ Failed — check miner connection';
+      });
   }
 
   @override
@@ -1632,8 +1942,9 @@ class _FanSpeedControlState extends State<_FanSpeedControl> {
               height: 34,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor:
-                      _setting ? KratosColors.of(context).line : KratosTheme.blue,
+                  backgroundColor: _setting
+                      ? KratosColors.of(context).line
+                      : KratosTheme.blue,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   shape: RoundedRectangleBorder(
@@ -1645,7 +1956,8 @@ class _FanSpeedControlState extends State<_FanSpeedControl> {
               ),
             ),
           ),
-          if (_fanResult != null) ...[            const SizedBox(height: 6),
+          if (_fanResult != null) ...[
+            const SizedBox(height: 6),
             Text(_fanResult!,
                 style: TextStyle(
                     fontSize: 12,
@@ -1663,7 +1975,8 @@ class _FanSpeedControlState extends State<_FanSpeedControl> {
 class _BlockEtaRow extends StatefulWidget {
   final double hashrateGhs;
   const _BlockEtaRow({required this.hashrateGhs});
-  @override State<_BlockEtaRow> createState() => _BlockEtaRowState();
+  @override
+  State<_BlockEtaRow> createState() => _BlockEtaRowState();
 }
 
 class _BlockEtaRowState extends State<_BlockEtaRow>
@@ -1677,13 +1990,17 @@ class _BlockEtaRowState extends State<_BlockEtaRow>
   @override
   void initState() {
     super.initState();
-    _spinCtrl = AnimationController(vsync: this,
-        duration: const Duration(seconds: 2))..repeat();
+    _spinCtrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..repeat();
     _loadEta();
   }
 
   @override
-  void dispose() { _spinCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _spinCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _loadEta() async {
     double diff;
@@ -1714,12 +2031,18 @@ class _BlockEtaRowState extends State<_BlockEtaRow>
     }
     if (!mounted) return;
     if (diff <= 0 || widget.hashrateGhs <= 0) {
-      setState(() { _blockEta = '--'; _loading = false; });
+      setState(() {
+        _blockEta = '--';
+        _loading = false;
+      });
       return;
     }
     final hashrateHs = widget.hashrateGhs * 1e9;
     final days = diff * 4294967296.0 / hashrateHs / 86400.0;
-    setState(() { _blockEta = _formatDays(days); _loading = false; });
+    setState(() {
+      _blockEta = _formatDays(days);
+      _loading = false;
+    });
     if (!_loading) _spinCtrl.stop();
   }
 
@@ -1733,11 +2056,14 @@ class _BlockEtaRowState extends State<_BlockEtaRow>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _blockEta != '--' ? () {
-        Clipboard.setData(ClipboardData(text: _blockEta));
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Block ETA copied'), duration: Duration(seconds: 1)));
-      } : null,
+      onTap: _blockEta != '--'
+          ? () {
+              Clipboard.setData(ClipboardData(text: _blockEta));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Block ETA copied'),
+                  duration: Duration(seconds: 1)));
+            }
+          : null,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
@@ -1748,19 +2074,24 @@ class _BlockEtaRowState extends State<_BlockEtaRow>
         child: Row(children: [
           RotationTransition(
             turns: _spinCtrl,
-            child: Icon(
-              _loading ? Icons.sync : Icons.access_time_outlined,
-              color: KratosTheme.orange, size: 16),
+            child: Icon(_loading ? Icons.sync : Icons.access_time_outlined,
+                color: KratosTheme.orange, size: 16),
           ),
           const SizedBox(width: 10),
           Text('BLOCK ETA',
-              style: TextStyle(fontSize: 11, color: KratosColors.of(context).muted,
-                  letterSpacing: 1, fontWeight: FontWeight.w600)),
+              style: TextStyle(
+                  fontSize: 11,
+                  color: KratosColors.of(context).muted,
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.w600)),
           const Spacer(),
           Text(_loading ? 'calculating…' : _blockEta,
               style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.bold,
-                  color: _loading ? KratosColors.of(context).muted : KratosTheme.orange,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: _loading
+                      ? KratosColors.of(context).muted
+                      : KratosTheme.orange,
                   fontFamily: 'Courier')),
         ]),
       ),
@@ -1785,7 +2116,8 @@ class _SoloPoolToggleState extends State<_SoloPoolToggle> {
   void initState() {
     super.initState();
     final poolUrl = widget.stats?.pools.isNotEmpty == true
-        ? widget.stats!.pools.first.url : '';
+        ? widget.stats!.pools.first.url
+        : '';
     _isSolo = MinerModePrefs.instance.isSolo(widget.miner.ip, poolUrl: poolUrl);
   }
 
@@ -1817,13 +2149,14 @@ class _SoloPoolToggleState extends State<_SoloPoolToggle> {
           Icon(solo ? Icons.person : Icons.groups, color: color, size: 18),
           const SizedBox(width: 8),
           Text(solo ? 'Solo Mining' : 'Pool Mining',
-              style: TextStyle(fontWeight: FontWeight.w800,
-                  color: color, fontSize: 14)),
+              style: TextStyle(
+                  fontWeight: FontWeight.w800, color: color, fontSize: 14)),
           const Spacer(),
           GestureDetector(
             onTap: _toggle,
             child: Container(
-              width: 52, height: 28,
+              width: 52,
+              height: 28,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(14),
@@ -1831,14 +2164,16 @@ class _SoloPoolToggleState extends State<_SoloPoolToggle> {
               ),
               child: Stack(children: [
                 AnimatedAlign(
-                  alignment: solo ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment:
+                      solo ? Alignment.centerRight : Alignment.centerLeft,
                   duration: const Duration(milliseconds: 200),
                   child: Padding(
                     padding: const EdgeInsets.all(3),
                     child: Container(
-                      width: 22, height: 22,
-                      decoration: BoxDecoration(
-                          color: color, shape: BoxShape.circle),
+                      width: 22,
+                      height: 22,
+                      decoration:
+                          BoxDecoration(color: color, shape: BoxShape.circle),
                     ),
                   ),
                 ),
@@ -1849,23 +2184,36 @@ class _SoloPoolToggleState extends State<_SoloPoolToggle> {
         const SizedBox(height: 10),
         if (solo) ...[
           if (networkThs > 0 && hashrateThs > 0) ...[
-            _SoloStat('Expected time',
-                BlockCalc.formatExpectedTime(BlockCalc.expectedDays(hashrateThs, networkThs)), kc),
+            _SoloStat(
+                'Expected time',
+                BlockCalc.formatExpectedTime(
+                    BlockCalc.expectedDays(hashrateThs, networkThs)),
+                kc),
             _SoloStat('Monthly chance',
                 BlockCalc.formatOneInX(hashrateThs, networkThs), kc),
-            _SoloStat('Daily chance',
-                BlockCalc.formatProbPct(BlockCalc.probInDays(hashrateThs, networkThs, 1)), kc),
-            _SoloStat('Weekly chance',
-                BlockCalc.formatProbPct(BlockCalc.probInDays(hashrateThs, networkThs, 7)), kc),
+            _SoloStat(
+                'Daily chance',
+                BlockCalc.formatProbPct(
+                    BlockCalc.probInDays(hashrateThs, networkThs, 1)),
+                kc),
+            _SoloStat(
+                'Weekly chance',
+                BlockCalc.formatProbPct(
+                    BlockCalc.probInDays(hashrateThs, networkThs, 7)),
+                kc),
           ] else
             Text('Hashrate required for calculation',
                 style: TextStyle(fontSize: 12, color: kc.muted)),
         ] else ...[
           if (hashrateThs > 0 && btcPrice > 0) ...[
-            _SoloStat('Daily earnings',
-                '\$${BtcPriceService.instance.dailyEarningsUsdSync(hashrateThs * 1000, btcPrice).toStringAsFixed(3)}', kc),
-            _SoloStat('Monthly',
-                '\$${(BtcPriceService.instance.dailyEarningsUsdSync(hashrateThs * 1000, btcPrice) * 30).toStringAsFixed(2)}', kc),
+            _SoloStat(
+                'Daily earnings',
+                '\$${BtcPriceService.instance.dailyEarningsUsdSync(hashrateThs * 1000, btcPrice).toStringAsFixed(3)}',
+                kc),
+            _SoloStat(
+                'Monthly',
+                '\$${(BtcPriceService.instance.dailyEarningsUsdSync(hashrateThs * 1000, btcPrice) * 30).toStringAsFixed(2)}',
+                kc),
             _SoloStat('BTC price', '\$${btcPrice.toStringAsFixed(0)}', kc),
           ] else
             Text('Waiting for hashrate data',
@@ -1883,13 +2231,16 @@ class _SoloStat extends StatelessWidget {
   const _SoloStat(this.label, this.value, this.kc);
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 4),
-    child: Row(children: [
-      Text(label, style: TextStyle(fontSize: 12, color: kc.muted)),
-      const Spacer(),
-      Text(value, style: TextStyle(fontSize: 12,
-          fontWeight: FontWeight.w700, color: kc.text,
-          fontFamily: 'Courier')),
-    ]),
-  );
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Row(children: [
+          Text(label, style: TextStyle(fontSize: 12, color: kc.muted)),
+          const Spacer(),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: kc.text,
+                  fontFamily: 'Courier')),
+        ]),
+      );
 }

@@ -20,6 +20,9 @@ class MinerStore extends ChangeNotifier {
   final Map<String, MinerStats> stats = {};
   final Map<String, Timer> _timers = {};
   final Map<String, MinerStats> _prevStats = {};
+  final Map<String, int> _offlineStreaks = {};
+  final Set<String> _offlineAlertSent = {};
+  final Set<String> _seenOnline = {};
   Timer? _priceTimer;
   bool _disposed = false;
 
@@ -52,6 +55,9 @@ class MinerStore extends ChangeNotifier {
     _timers.remove(id);
     stats.remove(id);
     _prevStats.remove(id);
+    _offlineStreaks.remove(id);
+    _offlineAlertSent.remove(id);
+    _seenOnline.remove(id);
     miners.removeWhere((m) => m.id == id);
     _save();
     notifyListeners();
@@ -142,9 +148,14 @@ class MinerStore extends ChangeNotifier {
 
     // Notification + block-found checks
     final prevStat = _prevStats[miner.id];
+    final offlineStreak = _updateOfflineTracking(miner.id, s);
     if (prevStat != null) {
-      if (prevStat.status != MinerStatus.offline &&
-          s.status == MinerStatus.offline) {
+      if (s.status == MinerStatus.offline &&
+          _seenOnline.contains(miner.id) &&
+          !_offlineAlertSent.contains(miner.id) &&
+          offlineStreak >= 3 &&
+          _relayReadyForOfflineAlerts()) {
+        _offlineAlertSent.add(miner.id);
         NotificationService.instance.notifyMinerOffline(miner.name);
       }
       if (prevStat.outTemp <= 85 && s.outTemp > 85) {
@@ -212,6 +223,33 @@ class MinerStore extends ChangeNotifier {
       _save();
     }
     notifyListeners();
+  }
+
+  int _updateOfflineTracking(String minerId, MinerStats current) {
+    if (current.status == MinerStatus.offline) {
+      final streak = (_offlineStreaks[minerId] ?? 0) + 1;
+      _offlineStreaks[minerId] = streak;
+      return streak;
+    }
+
+    _offlineStreaks[minerId] = 0;
+    _offlineAlertSent.remove(minerId);
+    _seenOnline.add(minerId);
+    return 0;
+  }
+
+  bool _relayReadyForOfflineAlerts() {
+    final relay = RelayService.instance;
+    final hasRelayKey = relay.accessKey != null && relay.accessKey!.isNotEmpty;
+
+    // When the phone is away from the LAN, saved local miners can briefly fail
+    // direct polling while the relay reconnects. Do not notify until the bridge
+    // is confirmed online, otherwise app startup creates false offline bursts.
+    if (hasRelayKey && relay.state != RelayState.bridgeOnline) {
+      return false;
+    }
+
+    return true;
   }
 
   void _startPolling(Miner miner, {bool warmUp = false}) {
