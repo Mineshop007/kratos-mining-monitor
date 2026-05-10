@@ -167,6 +167,10 @@ class LanDiscoveryService {
         esp ??= await _probeEspMinerHttp(ip, 8080);
         if (esp != null) { _safeAdd(sink, esp); return; }
 
+        // Avalon HTTP probe (port 80, different endpoints)
+        final av = await _probeAvalonHttp(ip, 80);
+        if (av != null) { _safeAdd(sink, av); return; }
+
         final cg = await _probeCgminerTcp(ip, 4028);
         if (cg != null) { _safeAdd(sink, cg); return; }
 
@@ -242,6 +246,47 @@ class LanDiscoveryService {
     }
   }
 
+  Future<DiscoveredMiner?> _probeAvalonHttp(String ip, int port,
+      {Duration? timeout}) async {
+    // Canaan Avalon devices: try known LuCI/REST endpoints
+    const endpoints = [
+      '/cgi-bin/luci/admin/miner/api/status',
+      '/api/miner/status',
+      '/api/v1/status',
+    ];
+    for (final ep in endpoints) {
+      try {
+        final resp = await http
+            .get(Uri.parse('http://$ip:$port$ep'),
+                headers: {'Accept': 'application/json'})
+            .timeout(timeout ?? _httpProbeTimeout);
+        if (resp.statusCode != 200) continue;
+        final body = jsonDecode(resp.body);
+        if (body is! Map<String, dynamic>) continue;
+        // Detect Avalon by presence of Canaan-specific fields
+        final isAvalon = body.containsKey('GHs') || body.containsKey('GHs5s') ||
+            body.containsKey('hashrate') || body.containsKey('miner') ||
+            (body['model'] as String? ?? '').toLowerCase().contains('nano') ||
+            (body['model'] as String? ?? '').toLowerCase().contains('avalon');
+        if (!isAvalon) continue;
+        final modelStr = (body['model'] as String? ??
+            (body['miner'] as Map?)?['model'] as String? ?? '').toLowerCase();
+        var type = MinerType.detect(modelStr);
+        if (type == MinerType.generic) type = MinerType.avalonNano3s;
+        final name = body['hostname'] as String? ??
+            body['model'] as String? ?? 'Avalon Miner';
+        return DiscoveredMiner(
+          ip: ip, port: port, type: type,
+          hostname: name, firmware: body['version'] as String? ?? '',
+          source: DiscoverySource.avalonHttp,
+        );
+      } catch (_) {
+        continue;
+      }
+    }
+    return null;
+  }
+
   Future<DiscoveredMiner?> _probeCgminerTcp(String ip, int port,
       {Duration? timeout}) async {
     Socket? sock;
@@ -311,4 +356,4 @@ class DiscoveredMiner {
   );
 }
 
-enum DiscoverySource { mdns, espMinerHttp, cgminerTcp }
+enum DiscoverySource { mdns, espMinerHttp, avalonHttp, cgminerTcp }

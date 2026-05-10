@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/volt_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -94,7 +95,7 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('$ip is already in your fleet'),
-          backgroundColor: KratosTheme.surface,
+          backgroundColor: KratosColors.of(context).surface,
         ),
       );
       return;
@@ -104,7 +105,7 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('✅ ${miner.name} added to fleet'),
-        backgroundColor: KratosTheme.surface,
+        backgroundColor: KratosColors.of(context).surface,
       ),
     );
   }
@@ -112,11 +113,11 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: KratosTheme.bg,
+      backgroundColor: KratosColors.of(context).bg,
       appBar: AppBar(
-        backgroundColor: KratosTheme.bg,
-        title: const Text('Remote Access',
-            style: TextStyle(color: KratosTheme.textPrim)),
+        backgroundColor: KratosColors.of(context).bg,
+        title: Text('Remote Access',
+            style: TextStyle(color: KratosColors.of(context).text)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -137,22 +138,22 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
               child: TextField(
                 controller: _keyCtrl,
                 enabled: !_isConnected,
-                style: const TextStyle(
-                    color: KratosTheme.textPrim, fontFamily: 'Courier'),
+                style: TextStyle(
+                    color: KratosColors.of(context).text, fontFamily: 'Courier'),
                 decoration: InputDecoration(
                   hintText: 'Paste your access key here',
-                  hintStyle: const TextStyle(color: KratosTheme.muted),
+                  hintStyle: TextStyle(color: KratosColors.of(context).muted),
                   filled: true,
-                  fillColor: KratosTheme.bg,
+                  fillColor: KratosColors.of(context).bg,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide:
-                        const BorderSide(color: KratosTheme.border),
+                        BorderSide(color: KratosColors.of(context).line),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide:
-                        const BorderSide(color: KratosTheme.border),
+                        BorderSide(color: KratosColors.of(context).line),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
@@ -222,10 +223,10 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
             Expanded(
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: KratosTheme.muted,
+                  foregroundColor: KratosColors.of(context).muted,
                   side: BorderSide(
-                      color: KratosTheme.border.withOpacity(0.6)),
-                  backgroundColor: KratosTheme.surface.withOpacity(0.5),
+                      color: KratosColors.of(context).line.withOpacity(0.6)),
+                  backgroundColor: KratosColors.of(context).surface.withOpacity(0.5),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
@@ -267,13 +268,13 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: KratosTheme.surface,
+                  color: KratosColors.of(context).surface,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: KratosTheme.border),
+                  border: Border.all(color: KratosColors.of(context).line),
                 ),
-                child: const Text(
+                child: Text(
                   'Bridge online but no miners reported yet. Tap Rescan.',
-                  style: TextStyle(color: KratosTheme.muted, fontSize: 13),
+                  style: TextStyle(color: KratosColors.of(context).muted, fontSize: 13),
                 ),
               )
             else
@@ -329,16 +330,16 @@ class _StatusCard extends StatelessWidget {
         stateColor = KratosTheme.blue;
         stateLabel = 'Connecting...';
       case RelayState.disconnected:
-        stateColor = KratosTheme.muted;
+        stateColor = KratosColors.of(context).muted;
         stateLabel = 'Disconnected';
     }
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: KratosTheme.surface,
+        color: KratosColors.of(context).surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KratosTheme.border),
+        border: Border.all(color: KratosColors.of(context).line),
       ),
       child: Column(children: [
         _StatusRow(
@@ -347,16 +348,16 @@ class _StatusCard extends StatelessWidget {
           value: stateLabel,
           color: stateColor,
         ),
-        const Divider(height: 16, color: KratosTheme.border),
+        Divider(height: 16, color: KratosColors.of(context).line),
         _StatusRow(
           label: 'Bridge (Kratos Link)',
           ok: relay.bridgeOnline,
           value: relay.bridgeOnline ? 'Online' : 'Offline',
           color: relay.bridgeOnline
               ? const Color(0xFF3FB950)
-              : KratosTheme.muted,
+              : KratosColors.of(context).muted,
         ),
-        const Divider(height: 16, color: KratosTheme.border),
+        Divider(height: 16, color: KratosColors.of(context).line),
         _StatusRow(
           label: 'Remote miners',
           ok: relay.remoteMinersList.isNotEmpty,
@@ -365,7 +366,7 @@ class _StatusCard extends StatelessWidget {
               : '${relay.remoteMinersList.length} found',
           color: relay.remoteMinersList.isNotEmpty
               ? const Color(0xFF3FB950)
-              : KratosTheme.muted,
+              : KratosColors.of(context).muted,
         ),
       ]),
     );
@@ -387,8 +388,8 @@ class _StatusRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
         Text(label,
-            style: const TextStyle(
-                fontSize: 13, color: KratosTheme.muted)),
+            style: TextStyle(
+                fontSize: 13, color: KratosColors.of(context).muted)),
         const Spacer(),
         Text(ok ? '✅' : '⬜', style: const TextStyle(fontSize: 14)),
         const SizedBox(width: 6),
@@ -422,9 +423,9 @@ class _RemoteMinerRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: KratosTheme.surface,
+        color: KratosColors.of(context).surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: KratosTheme.border),
+        border: Border.all(color: KratosColors.of(context).line),
       ),
       child: Row(children: [
         Container(
@@ -441,14 +442,14 @@ class _RemoteMinerRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
             Text(model,
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: KratosTheme.textPrim)),
+                    color: KratosColors.of(context).text)),
             Text('$ip : $port',
-                style: const TextStyle(
+                style: TextStyle(
                     fontSize: 11,
-                    color: KratosTheme.muted,
+                    color: KratosColors.of(context).muted,
                     fontFamily: 'Courier')),
           ]),
         ),
@@ -494,14 +495,14 @@ class _InfoBanner extends StatelessWidget {
             Icon(Icons.lan_outlined,
                 color: KratosTheme.blue, size: 20),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Text(
                 'Remote Access lets you monitor and control miners outside your '
                 'home network via a secure relay. Run Kratos Link on the same '
                 'network as your miners, then paste the key here.',
                 style: TextStyle(
                     fontSize: 12,
-                    color: KratosTheme.muted,
+                    color: KratosColors.of(context).muted,
                     height: 1.4),
               ),
             ),
@@ -517,9 +518,9 @@ class _HowItWorksSection extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: KratosTheme.surface,
+          color: KratosColors.of(context).surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: KratosTheme.border),
+          border: Border.all(color: KratosColors.of(context).line),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -563,9 +564,9 @@ class _Step extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(text,
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontSize: 12,
-                      color: KratosTheme.muted,
+                      color: KratosColors.of(context).muted,
                       height: 1.4)),
             ),
           ],
@@ -581,9 +582,9 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(text,
-      style: const TextStyle(
+      style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: KratosTheme.muted,
+          color: KratosColors.of(context).muted,
           letterSpacing: 1.5));
 }

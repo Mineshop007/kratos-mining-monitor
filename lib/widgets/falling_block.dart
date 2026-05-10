@@ -27,6 +27,8 @@ class FallingBlockOverlay extends StatefulWidget {
 
 class _FallingBlockOverlayState extends State<FallingBlockOverlay>
     with TickerProviderStateMixin {
+  KratosPalette get kc => KratosColors.of(context);
+
   late final AnimationController _ctrl;
 
   @override
@@ -46,6 +48,7 @@ class _FallingBlockOverlayState extends State<FallingBlockOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return GestureDetector(
       onTap: widget.onDone,
       child: Material(
@@ -66,7 +69,7 @@ class _FallingBlockOverlayState extends State<FallingBlockOverlay>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _Block(controller: _ctrl),
-                      const SizedBox(height: 32),
+                      SizedBox(height: 32),
                       _Text(
                           minerName: widget.minerName,
                           coinTicker: widget.coinTicker,
@@ -104,6 +107,7 @@ class _Block extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Animate(
       effects: const [
         SlideEffect(
@@ -129,7 +133,7 @@ class _Block extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: KratosColors.volt.withOpacity(0.5),
+              color: kc.accent.withOpacity(0.5),
               blurRadius: 60,
               spreadRadius: 4,
             ),
@@ -140,7 +144,7 @@ class _Block extends StatelessWidget {
             ),
           ],
         ),
-        child: const Center(
+        child: Center(
           child: Text(
             '₿',
             style: TextStyle(
@@ -171,9 +175,10 @@ class _Text extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Column(
       children: [
-        const Text(
+        Text(
           'BLOCK FOUND',
           style: TextStyle(
             fontSize: 28,
@@ -185,7 +190,7 @@ class _Text extends StatelessWidget {
             .animate(delay: 700.ms)
             .fadeIn(duration: 400.ms)
             .slideY(begin: 0.5, end: 0),
-        const SizedBox(height: 6),
+        SizedBox(height: 6),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
           child: Text(
@@ -198,12 +203,12 @@ class _Text extends StatelessWidget {
             ),
           ),
         ).animate(delay: 850.ms).fadeIn(duration: 400.ms),
-        const SizedBox(height: 14),
+        SizedBox(height: 14),
         Text(
           'Klaw approves.',
           style: TextStyle(
             fontSize: 13,
-            color: KratosColors.voltBright,
+            color: kc.accentBright,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8,
           ),
@@ -221,6 +226,7 @@ class _VoltArcs extends StatefulWidget {
 
 class _VoltArcsState extends State<_VoltArcs>
     with SingleTickerProviderStateMixin {
+  KratosPalette get kc => KratosColors.of(context);
   late final AnimationController _ctrl;
 
   @override
@@ -240,10 +246,11 @@ class _VoltArcsState extends State<_VoltArcs>
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (ctx, _) => CustomPaint(
-        painter: _ArcsPainter(progress: _ctrl.value),
+        painter: _ArcsPainter(progress: _ctrl.value, accent: kc.accent),
         size: Size.infinite,
       ),
     );
@@ -252,13 +259,14 @@ class _VoltArcsState extends State<_VoltArcs>
 
 class _ArcsPainter extends CustomPainter {
   final double progress;
-  _ArcsPainter({required this.progress});
+  final Color accent;
+  _ArcsPainter({required this.progress, required this.accent});
 
   @override
   void paint(Canvas canvas, Size size) {
     final rng = math.Random(42);
     final paint = Paint()
-      ..color = KratosColors.volt.withOpacity(0.24)
+      ..color = accent.withOpacity(0.24)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.8);
@@ -267,7 +275,7 @@ class _ArcsPainter extends CustomPainter {
       final phase = (progress + i / 8) % 1;
       final fade = (math.sin(phase * math.pi * 2) + 1) / 2;
       paint.color =
-          KratosColors.volt.withOpacity(0.10 + fade * 0.18);
+          accent.withOpacity(0.10 + fade * 0.18);
       final startX =
           rng.nextDouble() * size.width;
       final endX = rng.nextDouble() * size.width;

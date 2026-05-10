@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../models/coin.dart';
 
 /// Bitcoin price service with 5-minute caching and per-miner earnings calculation
 class BtcPriceService {
@@ -18,7 +19,7 @@ class BtcPriceService {
 
   // BCH network data
   double _cachedBchNetworkHashrateThs = 3e6; // ~3 EH/s fallback
-  double _cachedBchPriceUsd = 400;           // fallback
+  double _cachedBchPriceUsd = 400; // fallback
   DateTime? _lastBchFetch;
   static const _bchCacheDuration = Duration(minutes: 15);
 
@@ -36,6 +37,12 @@ class BtcPriceService {
   /// Live btcPerThPerDay from mempool.space network hashrate
   double get btcPerThPerDay => _cachedBtcPerTh;
 
+  /// Expected BCH per TH/day from BCH network hashrate.
+  double get bchPerThPerDay {
+    if (_cachedBchNetworkHashrateThs <= 0) return 0;
+    return (144 * 3.125) / _cachedBchNetworkHashrateThs;
+  }
+
   Future<double> getBtcPrice() async {
     final now = DateTime.now();
     if (_cachedPrice > 0 &&
@@ -44,10 +51,12 @@ class BtcPriceService {
       return _cachedPrice;
     }
     try {
-      final r = await http.get(
-        Uri.parse(
-            'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd'),
-      ).timeout(const Duration(seconds: 8));
+      final r = await http
+          .get(
+            Uri.parse(
+                'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd'),
+          )
+          .timeout(const Duration(seconds: 8));
       if (r.statusCode == 200) {
         final j = jsonDecode(r.body) as Map<String, dynamic>;
         final price = ((j['bitcoin']?['usd']) as num?)?.toDouble() ?? 0;
@@ -72,12 +81,15 @@ class BtcPriceService {
       return;
     }
     try {
-      final r = await http.get(
-        Uri.parse('https://mempool.space/api/v1/mining/hashrate/3d'),
-      ).timeout(const Duration(seconds: 10));
+      final r = await http
+          .get(
+            Uri.parse('https://mempool.space/api/v1/mining/hashrate/3d'),
+          )
+          .timeout(const Duration(seconds: 10));
       if (r.statusCode == 200) {
         final j = jsonDecode(r.body) as Map<String, dynamic>;
-        final currentHashrate = ((j['currentHashrate'] as num?) ?? 0).toDouble();
+        final currentHashrate =
+            ((j['currentHashrate'] as num?) ?? 0).toDouble();
         if (currentHashrate > 0) {
           // (144 blocks/day × 3.125 BTC/block) / (network_hashrate_in_TH/s)
           final networkTh = currentHashrate / 1e12;
@@ -97,9 +109,10 @@ class BtcPriceService {
         now.difference(_lastBchFetch!) < _bchCacheDuration) return;
     try {
       // BCH price via CoinGecko
-      final r = await http.get(Uri.parse(
-          'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin-cash&vs_currencies=usd'
-      )).timeout(const Duration(seconds: 8));
+      final r = await http
+          .get(Uri.parse(
+              'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin-cash&vs_currencies=usd'))
+          .timeout(const Duration(seconds: 8));
       if (r.statusCode == 200) {
         final j = jsonDecode(r.body) as Map<String, dynamic>;
         final p = ((j['bitcoin-cash']?['usd']) as num?)?.toDouble() ?? 0;
@@ -107,9 +120,9 @@ class BtcPriceService {
       }
 
       // BCH network hashrate via Blockchair
-      final r2 = await http.get(Uri.parse(
-          'https://api.blockchair.com/bitcoin-cash/stats'
-      )).timeout(const Duration(seconds: 10));
+      final r2 = await http
+          .get(Uri.parse('https://api.blockchair.com/bitcoin-cash/stats'))
+          .timeout(const Duration(seconds: 10));
       if (r2.statusCode == 200) {
         final j2 = jsonDecode(r2.body) as Map<String, dynamic>;
         final hashes = (j2['data']?['hashrate_mean'] as num?)?.toDouble() ?? 0;
@@ -135,6 +148,15 @@ class BtcPriceService {
     return hashrateTh * _cachedBtcPerTh * btcPrice;
   }
 
+  double dailyEarningsUsdForCoin(double hashrateGhs, Coin coin) {
+    if (hashrateGhs <= 0) return 0;
+    final hashrateTh = hashrateGhs / 1000.0;
+    return switch (coin) {
+      Coin.bch => hashrateTh * bchPerThPerDay * _cachedBchPriceUsd,
+      _ => hashrateTh * _cachedBtcPerTh * cachedPrice,
+    };
+  }
+
   // Daily power cost in USD
   double dailyCostUsd(double powerWatts, double kwhPriceUsd) {
     if (powerWatts <= 0 || kwhPriceUsd <= 0) return 0;
@@ -143,7 +165,9 @@ class BtcPriceService {
   }
 
   // Net profit per day
-  double netProfitUsd(double hashrateGhs, double powerWatts, double kwhPriceUsd, double btcPrice) {
-    return dailyEarningsUsdSync(hashrateGhs, btcPrice) - dailyCostUsd(powerWatts, kwhPriceUsd);
+  double netProfitUsd(double hashrateGhs, double powerWatts, double kwhPriceUsd,
+      double btcPrice) {
+    return dailyEarningsUsdSync(hashrateGhs, btcPrice) -
+        dailyCostUsd(powerWatts, kwhPriceUsd);
   }
 }

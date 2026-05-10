@@ -1,50 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../theme/volt_theme.dart';
 import '../main.dart';
+import '../models/coin.dart';
 import '../models/miner.dart';
 import '../services/cgminer_api.dart';
 import '../services/esp_miner_api.dart';
 import '../services/avalon_api.dart';
+import '../services/miner_store.dart';
+import '../services/pool_catalog_service.dart';
 import '../services/relay_service.dart';
-
-// ── Pool preset model ─────────────────────────────────────────────────────────
-
-class _Preset {
-  final String name, host, description;
-  final int port;
-  final String? workerHint; // null = show generic hint
-  final bool isSolo;
-  const _Preset(this.name, this.host, this.port, this.description,
-      {this.workerHint, this.isSolo = false});
-}
-
-const _presets = [
-  _Preset('Mineshop Solo', 'solo.mineshop.eu', 3333,
-      '0% fee solo pool — win the full block reward',
-      workerHint: 'Your BTC address (e.g. bc1q...)',
-      isSolo: true),
-  _Preset('CKPool Solo', 'solo.ckpool.org', 3333,
-      'The original solo pool by Con Kolivas',
-      workerHint: 'Your BTC address',
-      isSolo: true),
-  _Preset('Public Pool', 'public-pool.io', 21496,
-      'Open-source community solo pool',
-      workerHint: 'Your BTC address',
-      isSolo: true),
-  _Preset('Ocean', 'mine.ocean.xyz', 3334,
-      'Decentralised mining pool',
-      workerHint: 'username.worker'),
-  _Preset('Braiins', 'stratum.braiins.com', 3333,
-      'Braiins mining pool',
-      workerHint: 'username.worker'),
-  _Preset('ViaBTC', 'btc.viabtc.io', 3333,
-      'Pool mining — regular payouts',
-      workerHint: 'username.worker'),
-  _Preset('NiceHash', 'sha256.eu.nicehash.com', 3334,
-      'Sell your hashrate for BTC',
-      workerHint: 'Your NiceHash wallet address'),
-];
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -81,6 +47,10 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
   String? _workerHint1;
   String? _workerHint2;
   String? _workerHint3;
+  String _pass1 = 'x';
+  String _pass2 = 'x';
+  String _pass3 = 'x';
+  late Coin _selectedCoin;
 
   bool get _isEsp => widget.miner.type.apiType == ApiType.espMinerHttp;
   bool get _isAvalon => widget.miner.type.apiType == ApiType.avalonHttp;
@@ -88,13 +58,23 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedCoin = widget.miner.coin.isSha256 ? widget.miner.coin : Coin.btc;
     _prefill();
   }
 
   @override
   void dispose() {
-    for (final c in [_host1, _port1, _user1, _host2, _port2, _user2,
-                     _host3, _port3, _user3]) {
+    for (final c in [
+      _host1,
+      _port1,
+      _user1,
+      _host2,
+      _port2,
+      _user2,
+      _host3,
+      _port3,
+      _user3
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -137,7 +117,8 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
     s = s.replaceAll(RegExp(r'^ssl://'), '');
     final parts = s.split(':');
     final host = parts[0].trim();
-    final port = parts.length > 1 ? (int.tryParse(parts[1].trim()) ?? 3333) : 3333;
+    final port =
+        parts.length > 1 ? (int.tryParse(parts[1].trim()) ?? 3333) : 3333;
     return (host, port);
   }
 
@@ -149,25 +130,29 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
 
   // ── Preset tap ───────────────────────────────────────────────────────────────
 
-  void _applyPreset(_Preset p, int poolIndex) {
+  void _applyPreset(PoolCatalogEntry p, int poolIndex) {
     setState(() {
+      _selectedCoin = p.coin;
       switch (poolIndex) {
         case 1:
           _host1.text = p.host;
           _port1.text = p.port.toString();
           if (_user1.text.isEmpty) _user1.text = '';
           _workerHint1 = p.workerHint;
+          _pass1 = p.password;
         case 2:
           _host2.text = p.host;
           _port2.text = p.port.toString();
           if (_user2.text.isEmpty) _user2.text = '';
           _workerHint2 = p.workerHint;
+          _pass2 = p.password;
           _showFallback = true;
         case 3:
           _host3.text = p.host;
           _port3.text = p.port.toString();
           if (_user3.text.isEmpty) _user3.text = '';
           _workerHint3 = p.workerHint;
+          _pass3 = p.password;
           _showPool3 = true;
       }
     });
@@ -181,7 +166,7 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
 
     final isRemoteOp = !widget.miner.isRemote &&
         (RelayService.instance.state == RelayState.bridgeOnline ||
-         RelayService.instance.state == RelayState.connected);
+            RelayService.instance.state == RelayState.connected);
     setState(() {
       _saving = true;
       _result = isRemoteOp
@@ -194,7 +179,8 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
       final port1 = int.tryParse(_port1.text.trim()) ?? 3333;
       final user1 = _user1.text.trim().isEmpty ? 'worker' : _user1.text.trim();
       final host2 = _showFallback ? _host2.text.trim() : null;
-      final port2 = _showFallback ? (int.tryParse(_port2.text.trim()) ?? 3333) : null;
+      final port2 =
+          _showFallback ? (int.tryParse(_port2.text.trim()) ?? 3333) : null;
       final user2 = _showFallback
           ? (_user2.text.trim().isEmpty ? user1 : _user2.text.trim())
           : null;
@@ -205,6 +191,7 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
         stratumUrl: host1,
         stratumPort: port1,
         stratumUser: user1,
+        stratumPass: _pass1,
         fallbackStratumUrl: host2,
         fallbackStratumPort: port2,
         fallbackStratumUser: user2,
@@ -212,14 +199,17 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
         isRemote: widget.miner.isRemote,
       );
       // Relay fallback: miner added via LAN but user is now remote
-      if (!ok && !widget.miner.isRemote &&
-          (RelayService.instance.state == RelayState.bridgeOnline || RelayService.instance.state == RelayState.connected)) {
+      if (!ok &&
+          !widget.miner.isRemote &&
+          (RelayService.instance.state == RelayState.bridgeOnline ||
+              RelayService.instance.state == RelayState.connected)) {
         ok = await EspMinerAPI.instance.setPool(
           widget.miner.ip,
           widget.miner.port,
           stratumUrl: host1,
           stratumPort: port1,
           stratumUser: user1,
+          stratumPass: _pass1,
           fallbackStratumUrl: host2,
           fallbackStratumPort: port2,
           fallbackStratumUser: user2,
@@ -231,22 +221,38 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
       final port1 = int.tryParse(_port1.text.trim()) ?? 3333;
       final user1 = _user1.text.trim().isEmpty ? 'worker' : _user1.text.trim();
       final host2 = _showFallback ? _host2.text.trim() : null;
-      final port2 = _showFallback ? (int.tryParse(_port2.text.trim()) ?? 3333) : null;
-      final user2 = _showFallback ? (_user2.text.trim().isEmpty ? user1 : _user2.text.trim()) : null;
+      final port2 =
+          _showFallback ? (int.tryParse(_port2.text.trim()) ?? 3333) : null;
+      final user2 = _showFallback
+          ? (_user2.text.trim().isEmpty ? user1 : _user2.text.trim())
+          : null;
 
       ok = await AvalonAPI.instance.setPool(
-        widget.miner.ip, widget.miner.port,
-        host: host1, poolPort: port1, user: user1,
-        fallbackHost: host2, fallbackPort: port2, fallbackUser: user2,
-        remoteUrl: widget.miner.remoteUrl, isRemote: widget.miner.isRemote,
+        widget.miner.ip,
+        widget.miner.port,
+        host: host1,
+        poolPort: port1,
+        user: user1,
+        fallbackHost: host2,
+        fallbackPort: port2,
+        fallbackUser: user2,
+        remoteUrl: widget.miner.remoteUrl,
+        isRemote: widget.miner.isRemote,
       );
       // Relay fallback
-      if (!ok && !widget.miner.isRemote &&
-          (RelayService.instance.state == RelayState.bridgeOnline || RelayService.instance.state == RelayState.connected)) {
+      if (!ok &&
+          !widget.miner.isRemote &&
+          (RelayService.instance.state == RelayState.bridgeOnline ||
+              RelayService.instance.state == RelayState.connected)) {
         ok = await AvalonAPI.instance.setPool(
-          widget.miner.ip, widget.miner.port,
-          host: host1, poolPort: port1, user: user1,
-          fallbackHost: host2, fallbackPort: port2, fallbackUser: user2,
+          widget.miner.ip,
+          widget.miner.port,
+          host: host1,
+          poolPort: port1,
+          user: user1,
+          fallbackHost: host2,
+          fallbackPort: port2,
+          fallbackUser: user2,
           isRemote: true,
         );
       }
@@ -258,10 +264,11 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
         // ── Avalon Q / Mini 3: use ascset|0,setpool native command + reboot ──
         // addpool/removepool are NOT supported; only setpool via ascset works.
         // Pool changes take effect after reboot — we send the reboot automatically.
-        setState(() => _result = '⏳ Saving pool — miner will reboot to apply (~30s)...');
+        setState(() =>
+            _result = '⏳ Saving pool — miner will reboot to apply (~30s)...');
 
-        final port1 = int.tryParse(_port1.text.trim()) ?? 3333;
-        final user1 = _user1.text.trim().isEmpty ? 'worker' : _user1.text.trim();
+        final user1 =
+            _user1.text.trim().isEmpty ? 'worker' : _user1.text.trim();
         final primaryUrl = _buildUrl(host1, _port1.text);
         final fallbackUrl = _showFallback && _host2.text.trim().isNotEmpty
             ? _buildUrl(_host2.text.trim(), _port2.text)
@@ -269,7 +276,8 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
         final fallbackUser = _showFallback ? _user2.text.trim() : null;
 
         ok = await CGMinerAPI.instance.setPoolAscset(
-          widget.miner.ip, widget.miner.port,
+          widget.miner.ip,
+          widget.miner.port,
           primaryUrl: primaryUrl,
           primaryUser: user1,
           fallbackUrl: fallbackUrl,
@@ -279,11 +287,13 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
           isRemote: widget.miner.isRemote,
         );
         // Relay fallback
-        if (!ok && !widget.miner.isRemote &&
+        if (!ok &&
+            !widget.miner.isRemote &&
             (RelayService.instance.state == RelayState.bridgeOnline ||
-             RelayService.instance.state == RelayState.connected)) {
+                RelayService.instance.state == RelayState.connected)) {
           ok = await CGMinerAPI.instance.setPoolAscset(
-            widget.miner.ip, widget.miner.port,
+            widget.miner.ip,
+            widget.miner.port,
             primaryUrl: primaryUrl,
             primaryUser: user1,
             fallbackUrl: fallbackUrl,
@@ -295,34 +305,44 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
       } else {
         // ── Other CGMiner devices (Antminer, etc.) — standard addpool flow ──
         final pools = <Map<String, String>>[];
-        void addPool(String host, String portStr, String user) {
+        void addPool(String host, String portStr, String user, String pass) {
           if (host.isEmpty) return;
           pools.add({
             'url': _buildUrl(host, portStr),
             'user': user.isEmpty ? 'worker' : user,
-            'pass': 'x',
+            'pass': pass.isEmpty ? 'x' : pass,
           });
         }
-        addPool(host1, _port1.text, _user1.text.trim());
-        if (_showFallback) addPool(_host2.text.trim(), _port2.text, _user2.text.trim());
-        if (_showPool3) addPool(_host3.text.trim(), _port3.text, _user3.text.trim());
+
+        addPool(host1, _port1.text, _user1.text.trim(), _pass1);
+        if (_showFallback)
+          addPool(_host2.text.trim(), _port2.text, _user2.text.trim(), _pass2);
+        if (_showPool3)
+          addPool(_host3.text.trim(), _port3.text, _user3.text.trim(), _pass3);
 
         ok = await CGMinerAPI.instance.setPools(
-          widget.miner.ip, widget.miner.port, pools,
+          widget.miner.ip,
+          widget.miner.port,
+          pools,
           remoteUrl: widget.miner.remoteUrl,
           isRemote: widget.miner.isRemote,
         );
-        if (!ok && !widget.miner.isRemote &&
+        if (!ok &&
+            !widget.miner.isRemote &&
             (RelayService.instance.state == RelayState.bridgeOnline ||
-             RelayService.instance.state == RelayState.connected)) {
+                RelayService.instance.state == RelayState.connected)) {
           ok = await CGMinerAPI.instance.setPools(
-            widget.miner.ip, widget.miner.port, pools, isRemote: true,
+            widget.miner.ip,
+            widget.miner.port,
+            pools,
+            isRemote: true,
           );
         }
       }
     }
 
-    final isAvalonReboot = !_isEsp && !_isAvalon &&
+    final isAvalonReboot = !_isEsp &&
+        !_isAvalon &&
         (widget.miner.type == MinerType.avalonQ ||
             widget.miner.type == MinerType.avalonMini3);
     setState(() {
@@ -335,6 +355,11 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
     });
 
     if (ok) {
+      widget.miner.coin = _selectedCoin == Coin.sha256Auto
+          ? PoolCatalogService.inferCoinFromHost(host1)
+          : _selectedCoin;
+      // ignore: use_build_context_synchronously
+      await Provider.of<MinerStore>(context, listen: false).save();
       await Future.delayed(const Duration(seconds: 3));
       if (mounted) Navigator.pop(context);
     }
@@ -345,6 +370,7 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final kc = KratosColors.of(context);
+    final presets = PoolCatalogService.forCoin(_selectedCoin);
     return Scaffold(
       backgroundColor: kc.bg,
       appBar: AppBar(
@@ -362,7 +388,6 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
         children: [
-
           // ── How pools work banner ──────────────────────────────────────────
           _InfoBanner(
             icon: Icons.info_outline,
@@ -373,17 +398,76 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
           ),
           const SizedBox(height: 16),
 
+          // ── Coin rail ─────────────────────────────────────────────────────
+          _SectionLabel('COIN / SHA-256 MODE'),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 48,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: PoolCatalogService.sha256Coins.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final coin = PoolCatalogService.sha256Coins[i];
+                final selected = coin == _selectedCoin;
+                return GestureDetector(
+                  onTap: () => setState(() => _selectedCoin = coin),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color:
+                          selected ? coin.color.withOpacity(0.18) : kc.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: selected ? coin.color.withOpacity(0.7) : kc.line,
+                        width: selected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(children: [
+                      Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: coin.color,
+                          shape: BoxShape.circle,
+                          boxShadow: selected
+                              ? [
+                                  BoxShadow(
+                                      color: coin.color.withOpacity(0.6),
+                                      blurRadius: 10)
+                                ]
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        coin.ticker,
+                        style: TextStyle(
+                          color: selected ? coin.color : kc.muted,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ]),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // ── Quick Presets ──────────────────────────────────────────────────
-          _SectionLabel('⚡ QUICK PRESETS — TAP TO FILL'),
+          _SectionLabel('⚡ ${_selectedCoin.ticker} PRESETS — TAP TO FILL'),
           const SizedBox(height: 8),
           SizedBox(
             height: 88,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: _presets.length,
+              itemCount: presets.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (ctx, i) {
-                final p = _presets[i];
+                final p = presets[i];
                 final isMineshop = p.host.contains('mineshop');
                 return GestureDetector(
                   onTap: () => _showPresetSheet(p),
@@ -391,14 +475,13 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
                     width: 140,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: isMineshop
-                          ? kc.accent.withOpacity(0.08)
-                          : kc.surface,
+                      color:
+                          isMineshop ? kc.accent.withOpacity(0.08) : kc.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isMineshop
                             ? kc.accent.withOpacity(0.5)
-                            : kc.line,
+                            : p.coin.color.withOpacity(0.35),
                         width: isMineshop ? 1.5 : 1,
                       ),
                     ),
@@ -409,14 +492,16 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
                           if (isMineshop)
                             Icon(Icons.star, size: 11, color: kc.accent),
                           if (p.isSolo && !isMineshop)
-                            Icon(Icons.emoji_events, size: 11, color: const Color(0xFFffd700)),
+                            Icon(Icons.emoji_events,
+                                size: 11, color: const Color(0xFFffd700)),
                           SizedBox(width: isMineshop || p.isSolo ? 4 : 0),
                           Expanded(
                             child: Text(p.name,
                                 style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
-                                    color: isMineshop ? kc.accent : kc.text),
+                                    color:
+                                        isMineshop ? kc.accent : p.coin.color),
                                 overflow: TextOverflow.ellipsis),
                           ),
                         ]),
@@ -433,7 +518,10 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
                                 color: kc.muted,
                                 fontFamily: 'Courier')),
                         const Spacer(),
-                        Text(p.isSolo ? '🎯 SOLO' : '🏊 POOL',
+                        Text(
+                            p.isSolo
+                                ? '🎯 ${p.coin.ticker} SOLO'
+                                : '🏊 ${p.coin.ticker} POOL',
                             style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w700,
@@ -529,9 +617,8 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: _result!.startsWith('✅')
-                        ? kc.accent
-                        : KratosTheme.red,
+                    color:
+                        _result!.startsWith('✅') ? kc.accent : KratosTheme.red,
                   )),
             ),
             const SizedBox(height: 12),
@@ -543,31 +630,36 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
             height: 54,
             child: FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: _host1.text.trim().isEmpty
-                    ? kc.line
-                    : KratosTheme.orange,
+                backgroundColor:
+                    _host1.text.trim().isEmpty ? kc.line : KratosTheme.orange,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: _host1.text.trim().isEmpty || _saving ? null : _save,
               child: _saving
-                  ? const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2.5, color: Colors.black54)),
-                      SizedBox(width: 10),
-                      Text('Sending & verifying...', style: TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16)),
-                    ])
-                  : const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.check_circle_outline, size: 20),
-                      SizedBox(width: 8),
-                      Text('Save Pool Configuration',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16)),
-                    ]),
+                  ? const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                          SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2.5, color: Colors.black54)),
+                          SizedBox(width: 10),
+                          Text('Sending & verifying...',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
+                        ])
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                          Icon(Icons.check_circle_outline, size: 20),
+                          SizedBox(width: 8),
+                          Text('Save Pool Configuration',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 16)),
+                        ]),
             ),
           ),
           const SizedBox(height: 8),
@@ -575,7 +667,8 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
             child: Text(
               widget.miner.isRemote
                   ? '📡 Saving via remote relay'
-                  : (RelayService.instance.state == RelayState.bridgeOnline || RelayService.instance.state == RelayState.connected)
+                  : (RelayService.instance.state == RelayState.bridgeOnline ||
+                          RelayService.instance.state == RelayState.connected)
                       ? '📡 Relay connected — will try local then relay'
                       : '📶 Saving over local network',
               style: TextStyle(fontSize: 11, color: kc.muted),
@@ -588,7 +681,7 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
 
   // ── Preset bottom sheet ───────────────────────────────────────────────────
 
-  void _showPresetSheet(_Preset p) {
+  void _showPresetSheet(PoolCatalogEntry p) {
     final kc = KratosColors.of(context);
     showModalBottomSheet(
       context: context,
@@ -606,7 +699,7 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
                   style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
-                      color: kc.text)),
+                      color: p.coin.color)),
               const SizedBox(height: 4),
               Text(p.description,
                   style: TextStyle(fontSize: 13, color: kc.muted)),
@@ -624,18 +717,23 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
                   const SizedBox(height: 6),
                   _DetailRow('Port', p.port.toString(), kc),
                   const SizedBox(height: 6),
-                  _DetailRow('Full URL',
-                      'stratum+tcp://${p.host}:${p.port}', kc),
-                  if (p.workerHint != null) ...[
+                  _DetailRow(
+                      'Full URL', 'stratum+tcp://${p.host}:${p.port}', kc),
+                  const SizedBox(height: 6),
+                  _DetailRow('Coin', p.coin.displayName, kc),
+                  const SizedBox(height: 6),
+                  _DetailRow('Worker', p.workerHint, kc),
+                  if (p.password != 'x') ...[
                     const SizedBox(height: 6),
-                    _DetailRow('Worker', p.workerHint!, kc),
+                    _DetailRow('Password', p.password, kc),
                   ],
                 ]),
               ),
               const SizedBox(height: 16),
               Text('Apply to which pool?',
                   style: TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                       color: kc.muted)),
               const SizedBox(height: 10),
               Row(children: [
@@ -643,7 +741,10 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
                   child: _ApplyButton(
                     label: 'Pool 1\n(Primary)',
                     color: KratosTheme.orange,
-                    onTap: () { Navigator.pop(context); _applyPreset(p, 1); },
+                    onTap: () {
+                      Navigator.pop(context);
+                      _applyPreset(p, 1);
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -651,7 +752,10 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
                   child: _ApplyButton(
                     label: 'Pool 2\n(Fallback)',
                     color: kc.secondary,
-                    onTap: () { Navigator.pop(context); _applyPreset(p, 2); },
+                    onTap: () {
+                      Navigator.pop(context);
+                      _applyPreset(p, 2);
+                    },
                   ),
                 ),
                 if (!_isEsp && !_isAvalon) ...[
@@ -660,7 +764,10 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
                     child: _ApplyButton(
                       label: 'Pool 3\n(Failover 2)',
                       color: KratosTheme.purple,
-                      onTap: () { Navigator.pop(context); _applyPreset(p, 3); },
+                      onTap: () {
+                        Navigator.pop(context);
+                        _applyPreset(p, 3);
+                      },
                     ),
                   ),
                 ],
@@ -680,9 +787,7 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
           Expanded(
             child: Text(value,
                 style: TextStyle(
-                    fontSize: 12,
-                    color: kc.text,
-                    fontFamily: 'Courier'),
+                    fontSize: 12, color: kc.text, fontFamily: 'Courier'),
                 overflow: TextOverflow.ellipsis),
           ),
         ],
@@ -730,7 +835,9 @@ class _PoolCardState extends State<_PoolCard> {
     final host = parts[0].trim();
     final port = parts.length > 1
         ? (int.tryParse(parts[1].trim()) ?? 3333).toString()
-        : widget.portCtrl.text.isEmpty ? '3333' : widget.portCtrl.text;
+        : widget.portCtrl.text.isEmpty
+            ? '3333'
+            : widget.portCtrl.text;
     setState(() {
       widget.hostCtrl.text = host;
       widget.portCtrl.text = port;
@@ -753,7 +860,6 @@ class _PoolCardState extends State<_PoolCard> {
                 : kc.line),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-
         // HOST field
         _FieldLabel('POOL ADDRESS (HOST)', kc),
         const SizedBox(height: 4),
@@ -782,17 +888,19 @@ class _PoolCardState extends State<_PoolCard> {
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(Icons.content_paste, size: 14, color: accentColor),
                   const SizedBox(width: 4),
-                  Text('PASTE', style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      color: accentColor)),
+                  Text('PASTE',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: accentColor)),
                 ]),
               ),
             ),
           ),
         ]),
         const SizedBox(height: 4),
-        Text('💡 You can also paste a full stratum URL — it will be parsed automatically',
+        Text(
+            '💡 You can also paste a full stratum URL — it will be parsed automatically',
             style: TextStyle(fontSize: 10, color: kc.muted)),
 
         const SizedBox(height: 12),
@@ -879,22 +987,21 @@ class _FallbackToggle extends StatelessWidget {
         decoration: BoxDecoration(
           color: value ? color.withOpacity(0.06) : kc.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: value ? color.withOpacity(0.4) : kc.line),
+          border: Border.all(color: value ? color.withOpacity(0.4) : kc.line),
         ),
         child: Row(children: [
           Icon(value ? Icons.shield : Icons.shield_outlined,
               size: 20, color: value ? color : kc.muted),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(label,
                   style: TextStyle(
                       fontWeight: FontWeight.w700,
                       color: value ? color : kc.text,
                       fontSize: 14)),
-              Text(subtitle,
-                  style: TextStyle(fontSize: 11, color: kc.muted)),
+              Text(subtitle, style: TextStyle(fontSize: 11, color: kc.muted)),
             ]),
           ),
           Switch(
@@ -928,8 +1035,7 @@ class _StyledField extends StatelessWidget {
       controller: controller,
       autocorrect: false,
       keyboardType: keyboardType,
-      style: TextStyle(
-          color: kc.text, fontFamily: 'Courier', fontSize: 13),
+      style: TextStyle(color: kc.text, fontFamily: 'Courier', fontSize: 13),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(color: kc.muted, fontSize: 12),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/volt_theme.dart';
 
 class KratosShield extends StatelessWidget {
   final double size;

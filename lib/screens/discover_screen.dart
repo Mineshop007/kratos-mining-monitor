@@ -24,6 +24,8 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
+  KratosPalette get kc => KratosColors.of(context);
+
   StreamSubscription<DiscoveredMiner>? _sub;
   final Map<String, DiscoveredMiner> _found = {};
   final Set<String> _added = {};
@@ -102,29 +104,30 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final discovered = _found.values
         .where((m) => !_added.contains(m.key))
         .toList()
       ..sort((a, b) => a.ip.compareTo(b.ip));
 
     return Scaffold(
-      backgroundColor: KratosColors.bg,
+      backgroundColor: kc.bg,
       appBar: AppBar(
-        title: const Text('Discover',
+        title: Text('Discover',
             style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: KratosColors.text)),
+                color: kc.text)),
         actions: [
           // Manual subnet button
           IconButton(
             icon: Icon(Icons.edit_outlined,
-                color: _showManualSubnet ? KratosColors.volt : KratosColors.muted),
+                color: _showManualSubnet ? kc.accent : kc.muted),
             tooltip: 'Set subnet manually',
             onPressed: () => setState(() => _showManualSubnet = !_showManualSubnet),
           ),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: KratosColors.muted),
+            icon: Icon(Icons.refresh_rounded, color: kc.muted),
             tooltip: 'Re-scan',
             onPressed: _scanning
                 ? null
@@ -148,7 +151,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           // Subnet info + manual override
           if (_currentSubnet != null || _showManualSubnet)
             Container(
-              color: KratosColors.surface.withOpacity(0.5),
+              color: kc.surface.withOpacity(0.5),
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,8 +161,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       padding: const EdgeInsets.only(top: 4, bottom: 4),
                       child: Text(
                         '📶 Scanning: $_currentSubnet',
-                        style: const TextStyle(
-                            fontSize: 11, color: KratosColors.muted),
+                        style: TextStyle(
+                            fontSize: 11, color: kc.muted),
                       ),
                     ),
                   if (_showManualSubnet)
@@ -167,35 +170,35 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       Expanded(
                         child: TextField(
                           controller: _subnetCtrl,
-                          style: const TextStyle(
-                              color: KratosColors.text, fontSize: 13,
+                          style: TextStyle(
+                              color: kc.text, fontSize: 13,
                               fontFamily: 'Courier'),
                           decoration: InputDecoration(
                             hintText: 'e.g. 192.168.0  or  10.0.0',
-                            hintStyle: const TextStyle(
-                                color: KratosColors.muted, fontSize: 12),
+                            hintStyle: TextStyle(
+                                color: kc.muted, fontSize: 12),
                             isDense: true,
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 8),
                             filled: true,
-                            fillColor: KratosColors.surface,
+                            fillColor: kc.surface,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                  color: KratosColors.volt, width: 1),
+                              borderSide: BorderSide(
+                                  color: kc.accent, width: 1),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
                               borderSide: BorderSide(
-                                  color: KratosColors.volt.withOpacity(0.4)),
+                                  color: kc.accent.withOpacity(0.4)),
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       FilledButton(
                         style: FilledButton.styleFrom(
-                          backgroundColor: KratosColors.volt,
+                          backgroundColor: kc.accent,
                           foregroundColor: const Color(0xFF001A0E),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 14, vertical: 10),
@@ -212,7 +215,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                           _sub?.cancel();
                           _start(manualSubnet: manual.isNotEmpty ? manual : null);
                         },
-                        child: const Text('Scan',
+                        child: Text('Scan',
                             style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ]),
@@ -257,11 +260,11 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(children: [
-          const Icon(Icons.check_circle, color: KratosColors.volt),
-          const SizedBox(width: 10),
+          Icon(Icons.check_circle, color: kc.accent),
+          SizedBox(width: 10),
           Expanded(child: Text('${d.hostname} added')),
         ]),
-        backgroundColor: KratosColors.surface2,
+        backgroundColor: kc.surface2,
       ),
     );
   }
@@ -278,29 +281,30 @@ class _StatusBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Container(
-      color: KratosColors.surface.withOpacity(0.7),
+      color: kc.surface.withOpacity(0.7),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Row(
         children: [
           if (scanning)
-            const SizedBox(
+            SizedBox(
               width: 14,
               height: 14,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: KratosColors.volt,
+                color: kc.accent,
               ),
             )
           else
-            const Icon(Icons.check_circle,
-                size: 14, color: KratosColors.volt),
-          const SizedBox(width: 10),
+            Icon(Icons.check_circle,
+                size: 14, color: kc.accent),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               phase,
-              style: const TextStyle(
-                color: KratosColors.muted,
+              style: TextStyle(
+                color: kc.muted,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -319,32 +323,33 @@ class _DiscoveredCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: KratosColors.surface,
+        color: kc.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: KratosColors.volt.withOpacity(0.12)),
+        border: Border.all(color: kc.accent.withOpacity(0.12)),
       ),
       child: Row(
         children: [
           MinerIcon(type: miner.type, size: 40),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(miner.hostname,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: KratosColors.text)),
-                const SizedBox(height: 2),
+                        color: kc.text)),
+                SizedBox(height: 2),
                 Text(
                     '${miner.type.displayName} · ${miner.ip}${miner.firmware.isNotEmpty ? " · ${miner.firmware}" : ""}',
-                    style: const TextStyle(
-                        fontSize: 11, color: KratosColors.muted)),
+                    style: TextStyle(
+                        fontSize: 11, color: kc.muted)),
                 if (miner.source != DiscoverySource.cgminerTcp)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -352,17 +357,17 @@ class _DiscoveredCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: KratosColors.volt.withOpacity(0.12),
+                        color: kc.accent.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Text(
                           miner.source == DiscoverySource.mdns
                               ? 'mDNS'
                               : 'ESP-Miner API',
-                          style: const TextStyle(
+                          style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.w800,
-                              color: KratosColors.voltBright,
+                              color: kc.accentBright,
                               letterSpacing: 0.6)),
                     ),
                   ),
@@ -371,7 +376,7 @@ class _DiscoveredCard extends StatelessWidget {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: KratosColors.volt,
+              backgroundColor: kc.accent,
               foregroundColor: const Color(0xFF001A0E),
               padding:
                   const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -379,7 +384,7 @@ class _DiscoveredCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(99)),
             ),
             onPressed: onAdd,
-            child: const Text('Add',
+            child: Text('Add',
                 style:
                     TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
           ),
@@ -394,6 +399,7 @@ class _ScanningHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -417,22 +423,22 @@ class _ScanningHero extends StatelessWidget {
                     begin: const Offset(1.05, 1.05),
                     end: const Offset(0.95, 0.95),
                     curve: Curves.easeInOut),
-            const SizedBox(height: 22),
-            const Text(
+            SizedBox(height: 22),
+            Text(
               'Sniffing the LAN…',
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: KratosColors.text),
+                  color: kc.text),
             ),
-            const SizedBox(height: 6),
-            const Padding(
+            SizedBox(height: 6),
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 32),
               child: Text(
                 'Klaw is checking every ESP-Miner and cgminer on your network. Up to ~10 seconds.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    fontSize: 12, color: KratosColors.muted, height: 1.4),
+                    fontSize: 12, color: kc.muted, height: 1.4),
               ),
             ),
           ],
@@ -447,6 +453,7 @@ class _NothingFoundHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Center(
       child: KlawEmptyState(
         headline: 'Nothing on the network.',

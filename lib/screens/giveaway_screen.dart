@@ -14,6 +14,8 @@ class GiveawayScreen extends StatefulWidget {
 
 class _GiveawayScreenState extends State<GiveawayScreen>
     with TickerProviderStateMixin {
+  KratosPalette get kc => KratosColors.of(context);
+
   late AnimationController _particleCtrl;
   late AnimationController _pulseCtrl;
   late Timer _countdownTimer;
@@ -70,13 +72,14 @@ class _GiveawayScreenState extends State<GiveawayScreen>
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final d = _remaining.inDays;
     final h = _remaining.inHours % 24;
     final m = _remaining.inMinutes % 60;
     final s = _remaining.inSeconds % 60;
 
     return Scaffold(
-      backgroundColor: KratosColors.bg,
+      backgroundColor: kc.bg,
       body: Stack(children: [
         // Animated gold particles background
         AnimatedBuilder(
@@ -93,16 +96,16 @@ class _GiveawayScreenState extends State<GiveawayScreen>
               backgroundColor: Colors.transparent,
               elevation: 0,
               leading: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_rounded,
-                    color: KratosColors.text),
+                icon: Icon(Icons.arrow_back_ios_rounded,
+                    color: kc.text),
                 onPressed: () => Navigator.pop(context),
               ),
-              title: const Text('Monthly Challenge',
-                  style: TextStyle(color: KratosColors.text,
+              title: Text('Monthly Challenge',
+                  style: TextStyle(color: kc.text,
                       fontWeight: FontWeight.w800)),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.share_rounded, color: KratosColors.warning),
+                  icon: Icon(Icons.share_rounded, color: KratosColors.warning),
                   onPressed: _share,
                 ),
               ],
@@ -114,23 +117,23 @@ class _GiveawayScreenState extends State<GiveawayScreen>
 
                   // ── Hero Prize Card ──────────────────────────────────
                   _buildPrizeHero(d, h, m, s),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
 
                   // ── How it works ─────────────────────────────────────
                   _buildHowItWorks(),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
 
                   // ── Leaderboard ───────────────────────────────────────
                   _buildLeaderboard(),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
 
                   // ── Rules ─────────────────────────────────────────────
                   _buildRules(),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
 
                   // ── CTAs ──────────────────────────────────────────────
                   _buildCTAs(),
-                  const SizedBox(height: 32),
+                  SizedBox(height: 32),
                 ]),
               ),
             ),
@@ -157,7 +160,7 @@ class _GiveawayScreenState extends State<GiveawayScreen>
               begin: Alignment.topLeft, end: Alignment.bottomRight,
               colors: [
                 KratosColors.warning.withOpacity(0.12),
-                KratosColors.bg.withOpacity(0.95),
+                kc.bg.withOpacity(0.95),
                 const Color(0xFF1a1200).withOpacity(0.9),
               ],
             ),
@@ -169,19 +172,19 @@ class _GiveawayScreenState extends State<GiveawayScreen>
       child: Column(children: [
         // Trophy + title
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          const Text('🏆', style: TextStyle(fontSize: 36)),
-          const SizedBox(width: 12),
+          Text('🏆', style: TextStyle(fontSize: 36)),
+          SizedBox(width: 12),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('MONTHLY MINING CHALLENGE',
+            Text('MONTHLY MINING CHALLENGE',
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
                     color: KratosColors.warning, letterSpacing: 1.5)),
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Text(_monthName(),
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
-                    color: KratosColors.text)),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900,
+                    color: kc.text)),
           ]),
         ]),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         // Prize
         Container(
           width: double.infinity,
@@ -192,31 +195,31 @@ class _GiveawayScreenState extends State<GiveawayScreen>
             border: Border.all(color: KratosColors.warning.withOpacity(0.25)),
           ),
           child: Column(children: [
-            const Text('PRIZE', style: TextStyle(fontSize: 10,
+            Text('PRIZE', style: TextStyle(fontSize: 10,
                 fontWeight: FontWeight.w800, color: KratosColors.warning,
                 letterSpacing: 1.5)),
-            const SizedBox(height: 8),
-            const Text('Avalon Nano 3S', style: TextStyle(fontSize: 24,
-                fontWeight: FontWeight.w900, color: KratosColors.text)),
-            const Text('6.5 TH/s Bitcoin Miner · €399 value',
-                style: TextStyle(fontSize: 13, color: KratosColors.muted)),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
+            Text('Avalon Nano 3S', style: TextStyle(fontSize: 24,
+                fontWeight: FontWeight.w900, color: kc.text)),
+            Text('6.5 TH/s Bitcoin Miner · €399 value',
+                style: TextStyle(fontSize: 13, color: kc.muted)),
+            SizedBox(height: 8),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               _prizeChip('⚡ 6.5 TH/s'),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               _prizeChip('🔇 Whisper quiet'),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               _prizeChip('🏠 Home friendly'),
             ]),
           ]),
         ),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         // Countdown
         Column(children: [
-          const Text('ENDS IN', style: TextStyle(fontSize: 10,
-              fontWeight: FontWeight.w800, color: KratosColors.muted,
+          Text('ENDS IN', style: TextStyle(fontSize: 10,
+              fontWeight: FontWeight.w800, color: kc.muted,
               letterSpacing: 1.5)),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             _countdownBox('$d', 'DAYS'),
             const _CountdownSep(),
@@ -246,14 +249,14 @@ class _GiveawayScreenState extends State<GiveawayScreen>
     width: 64,
     padding: const EdgeInsets.symmetric(vertical: 10),
     decoration: BoxDecoration(
-      color: KratosColors.surface2,
+      color: kc.surface2,
       borderRadius: BorderRadius.circular(10),
       border: Border.all(color: KratosColors.warning.withOpacity(0.3)),
     ),
     child: Column(children: [
       Text(value, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900,
           color: KratosColors.warning, fontFamily: 'Courier')),
-      Text(label, style: const TextStyle(fontSize: 8, color: KratosColors.muted,
+      Text(label, style: TextStyle(fontSize: 8, color: kc.muted,
           fontWeight: FontWeight.w700, letterSpacing: 0.5)),
     ]),
   );
@@ -261,21 +264,21 @@ class _GiveawayScreenState extends State<GiveawayScreen>
   Widget _buildHowItWorks() => Container(
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      color: KratosColors.surface,
+      color: kc.surface,
       borderRadius: BorderRadius.circular(18),
-      border: Border.all(color: KratosColors.line),
+      border: Border.all(color: kc.line),
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('HOW TO WIN', style: TextStyle(fontSize: 11,
-          fontWeight: FontWeight.w800, color: KratosColors.volt,
+      Text('HOW TO WIN', style: TextStyle(fontSize: 11,
+          fontWeight: FontWeight.w800, color: kc.accent,
           letterSpacing: 1.5)),
-      const SizedBox(height: 14),
+      SizedBox(height: 14),
       _howStep('1', '📱', 'Download Kratos',
           'Free app — iOS App Store, Android beta'),
-      const SizedBox(height: 12),
+      SizedBox(height: 12),
       _howStep('2', '⛏️', 'Mine with any supported miner',
           'BitAxe, NerdQaxe, NerdOctaxe, Avalon, Antminer & more'),
-      const SizedBox(height: 12),
+      SizedBox(height: 12),
       _howStep('3', '🏆', 'Highest difficulty share wins',
           'Automatically tracked — no signup, no manual entry'),
     ]),
@@ -286,60 +289,60 @@ class _GiveawayScreenState extends State<GiveawayScreen>
         Container(
           width: 28, height: 28,
           decoration: BoxDecoration(
-            color: KratosColors.volt.withOpacity(0.15),
+            color: kc.accent.withOpacity(0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           alignment: Alignment.center,
-          child: Text(num, style: const TextStyle(fontSize: 13,
-              fontWeight: FontWeight.w900, color: KratosColors.volt)),
+          child: Text(num, style: TextStyle(fontSize: 13,
+              fontWeight: FontWeight.w900, color: kc.accent)),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start,
             children: [
           Row(children: [
             Text(emoji, style: const TextStyle(fontSize: 16)),
-            const SizedBox(width: 6),
-            Text(title, style: const TextStyle(fontSize: 14,
-                fontWeight: FontWeight.w700, color: KratosColors.text)),
+            SizedBox(width: 6),
+            Text(title, style: TextStyle(fontSize: 14,
+                fontWeight: FontWeight.w700, color: kc.text)),
           ]),
-          const SizedBox(height: 2),
-          Text(sub, style: const TextStyle(fontSize: 12,
-              color: KratosColors.muted, height: 1.4)),
+          SizedBox(height: 2),
+          Text(sub, style: TextStyle(fontSize: 12,
+              color: kc.muted, height: 1.4)),
         ])),
       ]);
 
   Widget _buildLeaderboard() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        const Text('THIS MONTH · TOP 10', style: TextStyle(fontSize: 11,
-            fontWeight: FontWeight.w800, color: KratosColors.muted,
+        Text('THIS MONTH · TOP 10', style: TextStyle(fontSize: 11,
+            fontWeight: FontWeight.w800, color: kc.muted,
             letterSpacing: 1.5)),
         const Spacer(),
         if (_global.loading)
-          const SizedBox(width: 14, height: 14,
+          SizedBox(width: 14, height: 14,
               child: CircularProgressIndicator(strokeWidth: 2,
-                  color: KratosColors.volt)),
+                  color: kc.accent)),
       ]),
-      const SizedBox(height: 10),
+      SizedBox(height: 10),
       if (_monthRecords.isEmpty)
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: KratosColors.surface,
+            color: kc.surface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: KratosColors.line),
+            border: Border.all(color: kc.line),
           ),
-          child: const Column(children: [
+          child: Column(children: [
             Text('🏆', style: TextStyle(fontSize: 48)),
             SizedBox(height: 10),
             Text('No entries yet this month',
                 style: TextStyle(fontWeight: FontWeight.w800,
-                    color: KratosColors.text, fontSize: 15)),
+                    color: kc.text, fontSize: 15)),
             SizedBox(height: 6),
             Text('Be the first! The top spot is yours.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: KratosColors.muted)),
+                style: TextStyle(fontSize: 12, color: kc.muted)),
           ]),
         )
       else
@@ -353,42 +356,42 @@ class _GiveawayScreenState extends State<GiveawayScreen>
               decoration: BoxDecoration(
                 color: isFirst
                     ? KratosColors.warning.withOpacity(0.06)
-                    : KratosColors.surface,
+                    : kc.surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isFirst
                       ? KratosColors.warning.withOpacity(0.35)
-                      : KratosColors.line,
+                      : kc.line,
                   width: isFirst ? 1.5 : 1,
                 ),
               ),
               child: Row(children: [
                 SizedBox(width: 32, child: Center(child:
-                  e.key == 0 ? const Text('🥇', style: TextStyle(fontSize: 22))
-                  : e.key == 1 ? const Text('🥈', style: TextStyle(fontSize: 20))
-                  : e.key == 2 ? const Text('🥉', style: TextStyle(fontSize: 20))
-                  : Text('${e.key + 1}', style: const TextStyle(
+                  e.key == 0 ? Text('🥇', style: TextStyle(fontSize: 22))
+                  : e.key == 1 ? Text('🥈', style: TextStyle(fontSize: 20))
+                  : e.key == 2 ? Text('🥉', style: TextStyle(fontSize: 20))
+                  : Text('${e.key + 1}', style: TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w800,
-                      color: KratosColors.muted)),
+                      color: kc.muted)),
                 )),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(r.name, style: const TextStyle(fontSize: 13,
-                      fontWeight: FontWeight.w700, color: KratosColors.text),
+                  Text(r.name, style: TextStyle(fontSize: 13,
+                      fontWeight: FontWeight.w700, color: kc.text),
                       overflow: TextOverflow.ellipsis),
                   if (r.model.isNotEmpty)
-                    Text(r.model, style: const TextStyle(
-                        fontSize: 10, color: KratosColors.muted),
+                    Text(r.model, style: TextStyle(
+                        fontSize: 10, color: kc.muted),
                         overflow: TextOverflow.ellipsis),
                 ])),
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   Text(formatBestDiff(r.bestDiff),
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900,
-                          color: isFirst ? KratosColors.warning : KratosColors.volt,
+                          color: isFirst ? KratosColors.warning : kc.accent,
                           fontFamily: 'Courier')),
                   Text(_shortDate(r.achievedAt),
-                      style: const TextStyle(fontSize: 9, color: KratosColors.muted)),
+                      style: TextStyle(fontSize: 9, color: kc.muted)),
                 ]),
               ]),
             ),
@@ -400,15 +403,15 @@ class _GiveawayScreenState extends State<GiveawayScreen>
   Widget _buildRules() => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: KratosColors.surface,
+      color: kc.surface,
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: KratosColors.line),
+      border: Border.all(color: kc.line),
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('RULES', style: TextStyle(fontSize: 10,
-          fontWeight: FontWeight.w800, color: KratosColors.muted,
+      Text('RULES', style: TextStyle(fontSize: 10,
+          fontWeight: FontWeight.w800, color: kc.muted,
           letterSpacing: 1.5)),
-      const SizedBox(height: 10),
+      SizedBox(height: 10),
       for (final rule in [
         'One entry per miner — best difficulty in the calendar month',
         'All supported miners eligible: BitAxe, NerdQaxe, NerdOctaxe, Avalon, Antminer, Whatsminer',
@@ -420,11 +423,11 @@ class _GiveawayScreenState extends State<GiveawayScreen>
         Padding(
           padding: const EdgeInsets.only(bottom: 6),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('•', style: TextStyle(color: KratosColors.volt,
+            Text('•', style: TextStyle(color: kc.accent,
                 fontWeight: FontWeight.w900)),
-            const SizedBox(width: 8),
-            Expanded(child: Text(rule, style: const TextStyle(
-                fontSize: 12, color: KratosColors.muted, height: 1.4))),
+            SizedBox(width: 8),
+            Expanded(child: Text(rule, style: TextStyle(
+                fontSize: 12, color: kc.muted, height: 1.4))),
           ]),
         ),
     ]),
@@ -441,12 +444,12 @@ class _GiveawayScreenState extends State<GiveawayScreen>
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         onPressed: _share,
-        icon: const Icon(Icons.share_rounded),
-        label: const Text('Share this contest',
+        icon: Icon(Icons.share_rounded),
+        label: Text('Share this contest',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
       ),
     ),
-    const SizedBox(height: 10),
+    SizedBox(height: 10),
     SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
@@ -459,8 +462,8 @@ class _GiveawayScreenState extends State<GiveawayScreen>
         ),
         onPressed: () => launchUrl(Uri.parse('https://discord.gg/yWtYegkDJw'),
             mode: LaunchMode.externalApplication),
-        icon: const Icon(Icons.chat_bubble_rounded),
-        label: const Text('Join Discord — see winner announced',
+        icon: Icon(Icons.chat_bubble_rounded),
+        label: Text('Join Discord — see winner announced',
             style: TextStyle(fontWeight: FontWeight.w700)),
       ),
     ),
@@ -497,7 +500,7 @@ class _GiveawayScreenState extends State<GiveawayScreen>
 class _CountdownSep extends StatelessWidget {
   const _CountdownSep();
   @override
-  Widget build(BuildContext context) => const Padding(
+  Widget build(BuildContext context) => Padding(
     padding: EdgeInsets.symmetric(horizontal: 6),
     child: Text(':', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900,
         color: KratosColors.warning, fontFamily: 'Courier')),

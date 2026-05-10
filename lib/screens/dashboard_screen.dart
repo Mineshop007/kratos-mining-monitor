@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/volt_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -19,6 +20,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  KratosPalette get kc => KratosColors.of(context);
+
   bool _isGridView = false;
   String? _longPressedId; // grid delete badge
 
@@ -68,9 +71,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         margin: const EdgeInsets.all(16),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         content: Row(children: [
-          const Icon(Icons.delete_outline,
+          Icon(Icons.delete_outline,
               color: Color(0xFFff4d4d), size: 18),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Text('${miner.name} removed',
                 style: const TextStyle(color: Color(0xFFe6edf3))),
@@ -95,14 +98,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return GestureDetector(
       onTap: () {
         if (_longPressedId != null) setState(() => _longPressedId = null);
       },
       child: Scaffold(
-        backgroundColor: KratosTheme.bg,
+        backgroundColor: kc.bg,
         appBar: AppBar(
-          backgroundColor: KratosTheme.bg,
+          backgroundColor: kc.bg,
           title: const _KratosLogo(),
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(2),
@@ -126,7 +130,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _isGridView
                     ? Icons.view_list_rounded
                     : Icons.grid_view_rounded,
-                color: KratosTheme.muted,
+                color: kc.muted,
                 size: 22,
               ),
               tooltip: _isGridView ? 'List view' : 'Grid view',
@@ -139,20 +143,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
             ),
             IconButton(
-              icon: const Icon(Icons.add_circle,
+              icon: Icon(Icons.add_circle,
                   color: KratosTheme.orange, size: 28),
               onPressed: () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const AddMinerScreen())),
             ),
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
           ],
         ),
         body: Consumer<MinerStore>(
           builder: (ctx, store, _) {
             if (store.miners.isEmpty) return const _EmptyState();
             return RefreshIndicator(
-              color: KratosTheme.neon,
-              backgroundColor: KratosTheme.surface,
+              color: kc.accent,
+              backgroundColor: kc.surface,
               onRefresh: store.refreshAll,
               child: _isGridView
                   ? _buildGrid(ctx, store)
@@ -169,12 +173,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       key: const ValueKey('list'),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         const FleetSummaryBar(),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         // Thermal strip
         _ThermalStrip(store: store),
-        const SizedBox(height: 12),
+        SizedBox(height: 12),
         ...store.miners.map((m) {
           final s = store.stats[m.id];
           final earnings = store.minerDailyEarningsUsd(m.id);
@@ -192,7 +196,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   border: Border.all(
                       color: const Color(0xFFff4d4d).withOpacity(0.4)),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Icon(Icons.delete_outline,
@@ -225,9 +229,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           );
         }),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         const _DiscordButton(),
-        const SizedBox(height: 32),
+        SizedBox(height: 32),
       ],
     );
   }
@@ -241,7 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Column(children: [
               const FleetSummaryBar(),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               _ThermalStrip(store: store),
             ]),
           ),
@@ -328,6 +332,7 @@ class _ThermalStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     if (store.miners.isEmpty) return const SizedBox.shrink();
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -339,8 +344,8 @@ class _ThermalStrip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.thermostat, size: 12, color: Color(0xFF6e7681)),
-          const SizedBox(width: 6),
+          Icon(Icons.thermostat, size: 12, color: Color(0xFF6e7681)),
+          SizedBox(width: 6),
           ...store.miners.map((m) {
             final color = _tempDotColor(store.stats[m.id]);
             return Padding(
@@ -363,7 +368,7 @@ class _ThermalStrip extends StatelessWidget {
               ),
             );
           }),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Text(
             _summary(),
             style: const TextStyle(
@@ -386,6 +391,7 @@ class _BlockFoundDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -409,9 +415,9 @@ class _BlockFoundDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('₿', style: TextStyle(fontSize: 64)),
-            const SizedBox(height: 12),
-            const Text(
+            Text('₿', style: TextStyle(fontSize: 64)),
+            SizedBox(height: 12),
+            Text(
               'BLOCK FOUND!',
               style: TextStyle(
                 fontSize: 28,
@@ -420,7 +426,7 @@ class _BlockFoundDialog extends StatelessWidget {
                 letterSpacing: 2,
               ),
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               miner.name,
               style: const TextStyle(
@@ -429,8 +435,8 @@ class _BlockFoundDialog extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 6),
-            const Text(
+            SizedBox(height: 6),
+            Text(
               'Just mined a Bitcoin block!\n3.125 BTC block reward.',
               style: TextStyle(
                 fontSize: 13,
@@ -438,7 +444,7 @@ class _BlockFoundDialog extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
@@ -450,7 +456,7 @@ class _BlockFoundDialog extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12)),
                 ),
                 onPressed: () => Navigator.pop(context),
-                child: const Text('Celebrate!',
+                child: Text('Celebrate!',
                     style: TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 16)),
               ),
@@ -469,17 +475,18 @@ class _KratosLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         const KratosShield(size: 28),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Text(
           'KRATOS',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w900,
-            color: KratosTheme.textPrim,
+            color: kc.text,
             letterSpacing: 2,
           ),
         ),
@@ -495,6 +502,7 @@ class _DiscordButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return SizedBox(
       height: 44,
       width: double.infinity,
@@ -509,8 +517,8 @@ class _DiscordButton extends StatelessWidget {
           Uri.parse('https://discord.gg/yWtYegkDJw'),
           mode: LaunchMode.externalApplication,
         ),
-        icon: const Icon(Icons.chat_bubble_outline, size: 18),
-        label: const Text('Join Discord — Report Bugs & Suggest Features',
+        icon: Icon(Icons.chat_bubble_outline, size: 18),
+        label: Text('Join Discord — Report Bugs & Suggest Features',
             style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
       ),
     );
@@ -524,24 +532,25 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.bolt_outlined, size: 80, color: KratosTheme.border),
-          const SizedBox(height: 24),
+          Icon(Icons.bolt_outlined, size: 80, color: kc.line),
+          SizedBox(height: 24),
           Text('No Miners Yet',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: KratosTheme.textPrim,
+                color: kc.text,
               )),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text('Add your first miner to start monitoring',
               style:
-                  TextStyle(fontSize: 15, color: KratosTheme.muted),
+                  TextStyle(fontSize: 15, color: kc.muted),
               textAlign: TextAlign.center),
-          const SizedBox(height: 32),
+          SizedBox(height: 32),
           FilledButton.icon(
             style: FilledButton.styleFrom(
               backgroundColor: KratosTheme.orange,
@@ -554,8 +563,8 @@ class _EmptyState extends StatelessWidget {
             onPressed: () => Navigator.push(context,
                 MaterialPageRoute(
                     builder: (_) => const AddMinerScreen())),
-            icon: const Icon(Icons.add),
-            label: const Text('Add Miner',
+            icon: Icon(Icons.add),
+            label: Text('Add Miner',
                 style: TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 16)),
           ),

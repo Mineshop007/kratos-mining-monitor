@@ -36,7 +36,7 @@ class ThemeService extends ChangeNotifier {
       final match = KratosThemeName.values
           .where((t) => t.name == name)
           .firstOrNull;
-      if (match != null && match.unlocked) {
+      if (match != null) {
         _current = match;
       }
     }
@@ -45,7 +45,6 @@ class ThemeService extends ChangeNotifier {
   }
 
   Future<void> set(KratosThemeName name) async {
-    if (!name.unlocked) return;
     if (_current == name) return;
     _current = name;
     final prefs = await SharedPreferences.getInstance();

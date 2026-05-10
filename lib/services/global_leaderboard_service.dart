@@ -2,7 +2,22 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/miner.dart';
-import 'best_diff_tracker.dart';
+
+final _ipAddressPattern = RegExp(r'\b(?:\d{1,3}\.){3}\d{1,3}\b');
+
+String _safeLeaderboardName(String name,
+    {String model = '', String type = ''}) {
+  final trimmed = name.trim();
+  final fallback = model.trim().isNotEmpty
+      ? model.trim()
+      : (type.trim().isNotEmpty ? type.trim() : 'Kratos miner');
+  if (trimmed.isEmpty ||
+      _ipAddressPattern.hasMatch(trimmed) ||
+      trimmed.toLowerCase().startsWith('miner at ')) {
+    return fallback;
+  }
+  return trimmed;
+}
 
 /// Submits best-diff records to the global Kratos leaderboard and
 /// fetches the worldwide top list for display in the Hall of Fame.
@@ -10,7 +25,7 @@ class GlobalLeaderboardService extends ChangeNotifier {
   static final GlobalLeaderboardService instance = GlobalLeaderboardService._();
   GlobalLeaderboardService._();
 
-  static const _base    = 'https://kratos.mineshop.eu/bestdiff';
+  static const _base = 'https://kratos.mineshop.eu/bestdiff';
   static const _timeout = Duration(seconds: 10);
 
   List<GlobalDiffRecord> leaderboard = [];
@@ -32,19 +47,26 @@ class GlobalLeaderboardService extends ChangeNotifier {
   }) async {
     if (bestDiff <= 0) return;
     try {
-      await http.post(
-        Uri.parse('$_base/submit'),
-        headers: const {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'miner_id':    minerId,
-          'miner_name':  minerName,
-          'miner_model': minerModel,
-          'miner_type':  type.name,
-          'best_diff':   bestDiff,
-          'achieved_at': achievedAt.millisecondsSinceEpoch ~/ 1000,
-          'app_version': appVersion,
-        }),
-      ).timeout(_timeout);
+      final safeName = _safeLeaderboardName(
+        minerName,
+        model: minerModel,
+        type: type.name,
+      );
+      await http
+          .post(
+            Uri.parse('$_base/submit'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'miner_id': minerId,
+              'miner_name': safeName,
+              'miner_model': minerModel,
+              'miner_type': type.name,
+              'best_diff': bestDiff,
+              'achieved_at': achievedAt.millisecondsSinceEpoch ~/ 1000,
+              'app_version': appVersion,
+            }),
+          )
+          .timeout(_timeout);
     } catch (e) {
       if (kDebugMode) debugPrint('GlobalLeaderboard: submit error: $e');
     }
@@ -54,7 +76,8 @@ class GlobalLeaderboardService extends ChangeNotifier {
 
   Future<void> fetchLeaderboard({bool force = false}) async {
     // Don't re-fetch within 60 seconds unless forced
-    if (!force && lastFetched != null &&
+    if (!force &&
+        lastFetched != null &&
         DateTime.now().difference(lastFetched!) < const Duration(seconds: 60)) {
       return;
     }
@@ -63,9 +86,11 @@ class GlobalLeaderboardService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final res = await http.get(
-        Uri.parse('$_base/leaderboard?limit=100'),
-      ).timeout(_timeout);
+      final res = await http
+          .get(
+            Uri.parse('$_base/leaderboard?limit=100'),
+          )
+          .timeout(_timeout);
 
       if (res.statusCode == 200) {
         final list = jsonDecode(res.body) as List;
@@ -109,14 +134,18 @@ class GlobalDiffRecord {
   });
 
   factory GlobalDiffRecord.fromJson(Map<String, dynamic> j) => GlobalDiffRecord(
-    rank:       (j['rank'] as num).toInt(),
-    name:       j['name'] as String? ?? 'Anonymous',
-    model:      j['model'] as String? ?? '',
-    type:       j['type']  as String? ?? '',
-    bestDiff:   (j['best_diff'] as num).toDouble(),
-    achievedAt: DateTime.fromMillisecondsSinceEpoch(
-        ((j['achieved_at'] as num?)?.toInt() ?? 0) * 1000),
-  );
+        rank: (j['rank'] as num).toInt(),
+        name: _safeLeaderboardName(
+          j['name'] as String? ?? '',
+          model: j['model'] as String? ?? '',
+          type: j['type'] as String? ?? '',
+        ),
+        model: j['model'] as String? ?? '',
+        type: j['type'] as String? ?? '',
+        bestDiff: (j['best_diff'] as num).toDouble(),
+        achievedAt: DateTime.fromMillisecondsSinceEpoch(
+            ((j['achieved_at'] as num?)?.toInt() ?? 0) * 1000),
+      );
 }
 
 class GlobalStats {
@@ -129,9 +158,8 @@ class GlobalStats {
     final rec = j['all_time_record'];
     return GlobalStats(
       totalMiners: (j['total_miners'] as num?)?.toInt() ?? 0,
-      allTimeRecord: rec != null
-          ? GlobalDiffRecord.fromJson({...rec, 'rank': 1})
-          : null,
+      allTimeRecord:
+          rec != null ? GlobalDiffRecord.fromJson({...rec, 'rank': 1}) : null,
     );
   }
 }

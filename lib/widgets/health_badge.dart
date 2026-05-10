@@ -13,21 +13,22 @@ class HealthBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final h = HealthScore.from(stats);
     if (h == null) {
       return _Pill(
         label: '—',
         sub: compact ? null : 'no data',
-        color: KratosColors.muted,
+        color: kc.muted,
       );
     }
 
     final color = switch (h.grade) {
-      HealthGrade.excellent => KratosColors.volt,
-      HealthGrade.good      => KratosColors.cyan,
+      HealthGrade.excellent => kc.accent,
+      HealthGrade.good      => kc.secondary,
       HealthGrade.fair      => KratosColors.warning,
       HealthGrade.poor      => KratosColors.danger,
-      HealthGrade.offline   => KratosColors.muted,
+      HealthGrade.offline   => kc.muted,
     };
 
     return _Pill(
@@ -47,6 +48,7 @@ class _Pill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
       decoration: BoxDecoration(
@@ -58,7 +60,7 @@ class _Pill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.favorite, size: 10, color: color),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
@@ -69,7 +71,7 @@ class _Pill extends StatelessWidget {
             ),
           ),
           if (sub != null) ...[
-            const SizedBox(width: 4),
+            SizedBox(width: 4),
             Text(
               sub!,
               style: TextStyle(

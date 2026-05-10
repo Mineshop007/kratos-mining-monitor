@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -23,20 +26,45 @@ import 'widgets/klaw.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Unhandled platform error during Kratos runtime: $error');
+    debugPrintStack(stackTrace: stack);
+    return true;
+  };
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint(
+        'Unhandled Flutter error during Kratos runtime: ${details.exception}');
+  };
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
-  await NotificationService.instance.init();
-  await HapticService.instance.init();
-  await HistoryService.instance.init();
-  await ScheduleService.instance.init();
-  await PoolPresetService.instance.init();
-  await MinerModePrefs.instance.init();
-  await UpdateCheckService.instance.init();
+  await _safeStartupInit('notifications', NotificationService.instance.init);
+  await _safeStartupInit('haptics', HapticService.instance.init);
+  await _safeStartupInit('history database', HistoryService.instance.init);
+  await _safeStartupInit('schedule database', ScheduleService.instance.init);
+  await _safeStartupInit('pool presets', PoolPresetService.instance.init);
+  await _safeStartupInit(
+      'miner mode preferences', MinerModePrefs.instance.init);
+  await _safeStartupInit('update checks', UpdateCheckService.instance.init);
   // Auto-reconnect relay if a key was saved from a previous session
-  RelayService.instance.reconnectSaved();
+  unawaited(_safeStartupInit('relay reconnect', () async {
+    RelayService.instance.reconnectSaved();
+  }));
   runApp(const KratosApp());
+}
+
+Future<void> _safeStartupInit(
+  String name,
+  Future<void> Function() init,
+) async {
+  try {
+    await init();
+  } catch (error, stack) {
+    debugPrint('Kratos startup init failed ($name): $error');
+    debugPrintStack(stackTrace: stack);
+  }
 }
 
 class KratosApp extends StatelessWidget {
@@ -50,7 +78,7 @@ class KratosApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MinerStore()),
         ChangeNotifierProvider(
           create: (_) =>
-              CoinPriceService()..startAutoRefresh(const [Coin.btc]),
+              CoinPriceService()..startAutoRefresh(const [Coin.btc, Coin.bch]),
         ),
         ChangeNotifierProvider(create: (_) => CircuitService()),
         ChangeNotifierProvider(create: (_) => GroupService.instance),
@@ -75,15 +103,15 @@ class KratosApp extends StatelessWidget {
 // Kept verbatim so existing miner_card.dart, miner_detail_screen.dart, etc.
 // keep compiling. New code uses `KratosColors` from theme/volt_theme.dart.
 class KratosTheme {
-  static const bg        = KratosColors.bg;
-  static const surface   = KratosColors.surface;
-  static const surface2  = KratosColors.surface2;
-  static const border    = KratosColors.line;
-  static const neon      = KratosColors.volt;
-  static const orange    = Color(0xFFF7931A); // BTC accent — preserved
-  static const blue      = KratosColors.info;
-  static const purple    = Color(0xFFB58CFF);
-  static const red       = KratosColors.danger;
-  static const muted     = KratosColors.muted;
-  static const textPrim  = KratosColors.text;
+  static const bg = KratosColors.bg;
+  static const surface = KratosColors.surface;
+  static const surface2 = KratosColors.surface2;
+  static const border = KratosColors.line;
+  static const neon = KratosColors.volt;
+  static const orange = Color(0xFFF7931A); // BTC accent — preserved
+  static const blue = KratosColors.info;
+  static const purple = Color(0xFFB58CFF);
+  static const red = KratosColors.danger;
+  static const muted = KratosColors.muted;
+  static const textPrim = KratosColors.text;
 }

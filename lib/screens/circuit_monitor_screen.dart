@@ -16,17 +16,18 @@ class CircuitMonitorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Scaffold(
-      backgroundColor: KratosColors.bg,
+      backgroundColor: kc.bg,
       appBar: AppBar(
-        title: const Text('Circuit Monitor',
+        title: Text('Circuit Monitor',
             style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: KratosColors.text)),
+                color: kc.text)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: KratosColors.volt),
+            icon: Icon(Icons.add, color: kc.accent),
             onPressed: () => _editCircuit(context),
           ),
         ],
@@ -40,15 +41,15 @@ class CircuitMonitorScreen extends StatelessWidget {
                 quip: 'Group your miners by which breaker they share.\nKlaw will alarm before a circuit pops.',
                 cta: FilledButton.icon(
                   style: FilledButton.styleFrom(
-                    backgroundColor: KratosColors.volt,
+                    backgroundColor: kc.accent,
                     foregroundColor: const Color(0xFF001A0E),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 28, vertical: 14),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(99)),
                   ),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add circuit',
+                  icon: Icon(Icons.add),
+                  label: Text('Add circuit',
                       style: TextStyle(
                           fontWeight: FontWeight.w800, fontSize: 15)),
                   onPressed: () => _editCircuit(ctx),
@@ -68,7 +69,7 @@ class CircuitMonitorScreen extends StatelessWidget {
                   onEdit: () => _editCircuit(ctx, existing: snap.circuit),
                   onDelete: () => svc.remove(snap.circuit.id),
                 ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _Footnote(),
             ],
           );
@@ -78,12 +79,13 @@ class CircuitMonitorScreen extends StatelessWidget {
   }
 
   Future<void> _editCircuit(BuildContext context, {Circuit? existing}) async {
+    final kc = KratosColors.of(context);
     final svc = context.read<CircuitService>();
     final store = context.read<MinerStore>();
     final result = await showModalBottomSheet<Circuit>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: KratosColors.surface,
+      backgroundColor: kc.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -113,12 +115,13 @@ class _CircuitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final c = snap.circuit;
     final color = switch (snap.status) {
-      CircuitStatus.ok       => KratosColors.volt,
+      CircuitStatus.ok       => kc.accent,
       CircuitStatus.warning  => KratosColors.warning,
       CircuitStatus.overload => KratosColors.danger,
-      CircuitStatus.noData   => KratosColors.muted,
+      CircuitStatus.noData   => kc.muted,
     };
     final loadFraction = (snap.loadFraction ?? 0).clamp(0.0, 1.0);
 
@@ -126,7 +129,7 @@ class _CircuitCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: KratosColors.surface,
+        color: kc.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withOpacity(0.30)),
       ),
@@ -146,42 +149,42 @@ class _CircuitCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(c.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
-                        color: KratosColors.text)),
+                        color: kc.text)),
               ),
               IconButton(
                   iconSize: 18,
                   visualDensity: VisualDensity.compact,
                   onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined,
-                      color: KratosColors.muted)),
+                  icon: Icon(Icons.edit_outlined,
+                      color: kc.muted)),
               IconButton(
                   iconSize: 18,
                   visualDensity: VisualDensity.compact,
                   onPressed: onDelete,
-                  icon: const Icon(Icons.delete_outline,
+                  icon: Icon(Icons.delete_outline,
                       color: KratosColors.danger)),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             '${c.voltage.toStringAsFixed(0)}V · ${c.breakerAmps.toStringAsFixed(0)}A breaker · '
             '${(c.safetyFactor * 100).toStringAsFixed(0)}% safety',
-            style: const TextStyle(fontSize: 11, color: KratosColors.muted),
+            style: TextStyle(fontSize: 11, color: kc.muted),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(99),
             child: SizedBox(
               height: 10,
               child: Stack(
                 children: [
-                  Container(color: KratosColors.surface2),
+                  Container(color: kc.surface2),
                   FractionallySizedBox(
                     widthFactor: loadFraction,
                     child: Container(color: color),
@@ -203,7 +206,7 @@ class _CircuitCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -221,14 +224,14 @@ class _CircuitCard extends StatelessWidget {
                   value: snap.amps == null
                       ? '—'
                       : '${snap.amps!.toStringAsFixed(1)} A',
-                  color: KratosColors.text,
+                  color: kc.text,
                 ),
               ),
               Expanded(
                 child: _MetricCell(
                   label: 'Breaker',
                   value: '${c.breakerAmps.toStringAsFixed(0)} A',
-                  color: KratosColors.muted,
+                  color: kc.muted,
                 ),
               ),
               Expanded(
@@ -245,10 +248,10 @@ class _CircuitCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text(
             '${c.minerIds.length} miners attached · ${snap.onlineCount} online',
-            style: const TextStyle(fontSize: 11, color: KratosColors.muted),
+            style: TextStyle(fontSize: 11, color: kc.muted),
           ),
         ],
       ),
@@ -268,16 +271,17 @@ class _MetricCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label.toUpperCase(),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 9,
-                color: KratosColors.muted,
+                color: kc.muted,
                 letterSpacing: 0.6,
                 fontWeight: FontWeight.w800)),
-        const SizedBox(height: 2),
+        SizedBox(height: 2),
         Text(value,
             style: TextStyle(
                 fontSize: 14, fontWeight: FontWeight.w800, color: color)),
@@ -289,22 +293,23 @@ class _MetricCell extends StatelessWidget {
 class _Footnote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: KratosColors.surface.withOpacity(0.5),
+        color: kc.surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: KratosColors.line),
+        border: Border.all(color: kc.line),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.info_outline, size: 14, color: KratosColors.muted),
+          Icon(Icons.info_outline, size: 14, color: kc.muted),
           SizedBox(width: 8),
           Expanded(
             child: Text(
               "Load is measured from each miner's reported power draw — never from nameplate values. Miners that don't report power are excluded; the circuit shows 'no data' until at least one miner on it reports.",
               style: TextStyle(
-                  fontSize: 11, color: KratosColors.muted, height: 1.4),
+                  fontSize: 11, color: kc.muted, height: 1.4),
             ),
           ),
         ],
@@ -327,6 +332,8 @@ class _CircuitEditor extends StatefulWidget {
 }
 
 class _CircuitEditorState extends State<_CircuitEditor> {
+  KratosPalette get kc => KratosColors.of(context);
+
   late final TextEditingController _name;
   CircuitPreset _preset = CircuitPreset.eu230v16a;
   late double _volts;
@@ -360,6 +367,7 @@ class _CircuitEditorState extends State<_CircuitEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final isEdit = widget.existing != null;
     return Padding(
       padding: EdgeInsets.only(
@@ -377,38 +385,38 @@ class _CircuitEditorState extends State<_CircuitEditor> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: KratosColors.muted.withOpacity(0.3),
+                  color: kc.muted.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             Text(
               isEdit ? 'Edit circuit' : 'New circuit',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
-                  color: KratosColors.text),
+                  color: kc.text),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             TextField(
               controller: _name,
-              style: const TextStyle(color: KratosColors.text),
-              decoration: const InputDecoration(
+              style: TextStyle(color: kc.text),
+              decoration: InputDecoration(
                 labelText: 'Name',
                 hintText: 'e.g. Garage 16A',
-                hintStyle: TextStyle(color: KratosColors.muted),
-                labelStyle: TextStyle(color: KratosColors.muted),
+                hintStyle: TextStyle(color: kc.muted),
+                labelStyle: TextStyle(color: kc.muted),
               ),
             ),
-            const SizedBox(height: 18),
-            const Text('PRESET',
+            SizedBox(height: 18),
+            Text('PRESET',
                 style: TextStyle(
                     fontSize: 11,
-                    color: KratosColors.muted,
+                    color: kc.muted,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8)),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -427,72 +435,72 @@ class _CircuitEditorState extends State<_CircuitEditor> {
                         }
                       });
                     },
-                    selectedColor: KratosColors.volt.withOpacity(0.18),
-                    backgroundColor: KratosColors.surface2,
+                    selectedColor: kc.accent.withOpacity(0.18),
+                    backgroundColor: kc.surface2,
                     labelStyle: TextStyle(
                         color: _preset == p
-                            ? KratosColors.voltBright
-                            : KratosColors.muted,
+                            ? kc.accentBright
+                            : kc.muted,
                         fontSize: 12,
                         fontWeight: FontWeight.w700),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(99),
                       side: BorderSide(
                           color: _preset == p
-                              ? KratosColors.volt
-                              : KratosColors.line),
+                              ? kc.accent
+                              : kc.line),
                     ),
                   ),
               ],
             ),
             if (_preset == CircuitPreset.custom) ...[
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               Row(children: [
                 Expanded(
                   child: TextField(
                     controller: TextEditingController(
                         text: _volts.toStringAsFixed(0)),
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: KratosColors.text),
-                    decoration: const InputDecoration(
+                    style: TextStyle(color: kc.text),
+                    decoration: InputDecoration(
                         labelText: 'Volts',
                         labelStyle:
-                            TextStyle(color: KratosColors.muted)),
+                            TextStyle(color: kc.muted)),
                     onChanged: (v) =>
                         _volts = double.tryParse(v) ?? _volts,
                   ),
                 ),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: TextField(
                     controller: TextEditingController(
                         text: _amps.toStringAsFixed(0)),
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: KratosColors.text),
-                    decoration: const InputDecoration(
+                    style: TextStyle(color: kc.text),
+                    decoration: InputDecoration(
                         labelText: 'Amps',
                         labelStyle:
-                            TextStyle(color: KratosColors.muted)),
+                            TextStyle(color: kc.muted)),
                     onChanged: (v) =>
                         _amps = double.tryParse(v) ?? _amps,
                   ),
                 ),
               ]),
             ],
-            const SizedBox(height: 18),
-            const Text('MINERS ON THIS CIRCUIT',
+            SizedBox(height: 18),
+            Text('MINERS ON THIS CIRCUIT',
                 style: TextStyle(
                     fontSize: 11,
-                    color: KratosColors.muted,
+                    color: kc.muted,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.8)),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             if (widget.availableMiners.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.symmetric(vertical: 14),
                 child: Text('No miners in fleet yet.',
                     style:
-                        TextStyle(color: KratosColors.muted, fontSize: 13)),
+                        TextStyle(color: kc.muted, fontSize: 13)),
               )
             else
               for (final m in widget.availableMiners)
@@ -509,19 +517,19 @@ class _CircuitEditorState extends State<_CircuitEditor> {
                   },
                   title: Text(m.name,
                       style:
-                          const TextStyle(color: KratosColors.text)),
+                          TextStyle(color: kc.text)),
                   subtitle: Text('${m.type.displayName} · ${m.ip}',
-                      style: const TextStyle(
-                          fontSize: 11, color: KratosColors.muted)),
-                  activeColor: KratosColors.volt,
+                      style: TextStyle(
+                          fontSize: 11, color: kc.muted)),
+                  activeColor: kc.accent,
                   contentPadding: EdgeInsets.zero,
                 ),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: KratosColors.volt,
+                  backgroundColor: kc.accent,
                   foregroundColor: const Color(0xFF001A0E),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(

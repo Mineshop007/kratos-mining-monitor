@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'kratos_palette.dart';
+export 'kratos_palette.dart';
 
 /// Kratos v2 — "Volt" electro-green design language.
 ///
@@ -44,6 +46,11 @@ class KratosColors {
 
   // Hard rule: coin colors are never "estimated" — they are fixed brand
   // tokens used only for chips/badges. They are not data.
+
+  /// Returns the active palette for the current theme.
+  /// Falls back to Volt if no extension found.
+  static KratosPalette of(BuildContext context) =>
+      Theme.of(context).extension<KratosPalette>() ?? KratosPalette.volt;
 }
 
 /// Five named themes. Only Circuit and Volt are unlocked in 1.2.0.
@@ -64,40 +71,40 @@ extension KratosThemeNameExt on KratosThemeName {
     KratosThemeName.chrome   => 'Chrome',
   };
 
-  bool get unlocked => this == KratosThemeName.circuit || this == KratosThemeName.volt;
+  bool get unlocked => true; // all 5 themes unlocked
 }
 
 ThemeData kratosThemeData(KratosThemeName name) {
-  // Both Circuit and Volt share the same palette in 1.2.0; Circuit hides
-  // the grid background, Volt shows it. Other themes will diverge in 1.3.0.
+  final p = KratosPalette.forTheme(name);
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: KratosColors.bg,
+    scaffoldBackgroundColor: p.bg,
     fontFamily: 'SF Pro Display',
-    colorScheme: const ColorScheme.dark(
-      primary: KratosColors.volt,
-      onPrimary: Color(0xFF001A0E),
-      secondary: KratosColors.cyan,
-      surface: KratosColors.surface,
-      onSurface: KratosColors.text,
+    extensions: [p],
+    colorScheme: ColorScheme.dark(
+      primary: p.accent,
+      onPrimary: Color.lerp(p.bg, Colors.black, 0.5)!,
+      secondary: p.secondary,
+      surface: p.surface,
+      onSurface: p.text,
       error: KratosColors.danger,
     ),
-    appBarTheme: const AppBarTheme(
-      backgroundColor: KratosColors.bg,
+    appBarTheme: AppBarTheme(
+      backgroundColor: p.bg,
       elevation: 0,
       centerTitle: false,
       titleTextStyle: TextStyle(
-        color: KratosColors.text,
+        color: p.text,
         fontSize: 18,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.3,
       ),
     ),
-    snackBarTheme: const SnackBarThemeData(
-      backgroundColor: KratosColors.surface2,
-      contentTextStyle: TextStyle(color: KratosColors.text),
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: p.surface2,
+      contentTextStyle: TextStyle(color: p.text),
     ),
-    dividerColor: KratosColors.line,
+    dividerColor: p.line,
   );
 }

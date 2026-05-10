@@ -9,21 +9,22 @@ class FaqScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Scaffold(
-      backgroundColor: KratosColors.bg,
+      backgroundColor: kc.bg,
       appBar: AppBar(
-        title: const Text('FAQ',
+        title: Text('FAQ',
             style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
-                color: KratosColors.text)),
+                color: kc.text)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
           for (final s in _sections)
             _FaqSection(title: s.title, items: s.items),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
           _StillStuckCard(),
         ],
       ),
@@ -38,38 +39,39 @@ class _FaqSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 14, 8, 8),
           child: Text(title.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 11,
-                  color: KratosColors.muted,
+                  color: kc.muted,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.2)),
         ),
         Container(
           decoration: BoxDecoration(
-            color: KratosColors.surface,
+            color: kc.surface,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: KratosColors.volt.withOpacity(0.06)),
+            border: Border.all(color: kc.accent.withOpacity(0.06)),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
             children: [
               for (var i = 0; i < items.length; i++) ...[
-                if (i > 0) const Divider(height: 1, color: KratosColors.line),
+                if (i > 0) Divider(height: 1, color: kc.line),
                 ExpansionTile(
-                  iconColor: KratosColors.muted,
-                  collapsedIconColor: KratosColors.muted,
+                  iconColor: kc.muted,
+                  collapsedIconColor: kc.muted,
                   title: Text(
                     items[i].q,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: KratosColors.text),
+                        color: kc.text),
                   ),
                   childrenPadding:
                       const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -78,9 +80,9 @@ class _FaqSection extends StatelessWidget {
                       alignment: Alignment.topLeft,
                       child: Text(
                         items[i].a,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 13,
-                            color: KratosColors.muted,
+                            color: kc.muted,
                             height: 1.5),
                       ),
                     ),
@@ -98,31 +100,32 @@ class _FaqSection extends StatelessWidget {
 class _StillStuckCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            KratosColors.volt.withOpacity(0.18),
-            KratosColors.volt.withOpacity(0.04),
+            kc.accent.withOpacity(0.18),
+            kc.accent.withOpacity(0.04),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: KratosColors.volt.withOpacity(0.30)),
+        border: Border.all(color: kc.accent.withOpacity(0.30)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Still stuck?',
+          Text('Still stuck?',
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
-                  color: KratosColors.text)),
-          const SizedBox(height: 6),
-          const Text(
+                  color: kc.text)),
+          SizedBox(height: 6),
+          Text(
               'Hop into the Mineshop Discord. Real humans, real answers, real fast.',
-              style: TextStyle(fontSize: 13, color: KratosColors.muted)),
-          const SizedBox(height: 14),
+              style: TextStyle(fontSize: 13, color: kc.muted)),
+          SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             height: 44,
@@ -137,8 +140,8 @@ class _StillStuckCard extends StatelessWidget {
                 Uri.parse('https://discord.gg/yWtYegkDJw'),
                 mode: LaunchMode.externalApplication,
               ),
-              icon: const Icon(Icons.chat_bubble_outline, size: 18),
-              label: const Text('Open Discord',
+              icon: Icon(Icons.chat_bubble_outline, size: 18),
+              label: Text('Open Discord',
                   style: TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w700)),
             ),

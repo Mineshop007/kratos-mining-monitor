@@ -6,6 +6,7 @@ import '../services/miner_store.dart';
 import '../services/best_diff_tracker.dart';
 import '../widgets/klaw.dart';
 import 'miner_detail_screen.dart';
+import 'sha256_switchboard_screen.dart';
 
 /// Pools tab — universal best-diff hero + multi-pool fleet split.
 /// Block-found feed (Discord-bridged) layers in once the server endpoint
@@ -18,15 +19,25 @@ class PoolsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Scaffold(
-      backgroundColor: KratosColors.bg,
+      backgroundColor: kc.bg,
       appBar: AppBar(
-        backgroundColor: KratosColors.bg,
-        title: const Text('Pools',
+        backgroundColor: kc.bg,
+        title: Text('Pools',
             style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: KratosColors.text)),
+                fontSize: 20, fontWeight: FontWeight.w800, color: kc.text)),
+        actions: [
+          IconButton(
+            tooltip: 'SHA-256 switchboard',
+            icon: Icon(Icons.swap_horiz_rounded, color: kc.accent),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const Sha256SwitchboardScreen()),
+            ),
+          ),
+        ],
       ),
       body: Consumer<MinerStore>(
         builder: (ctx, store, _) {
@@ -34,7 +45,8 @@ class PoolsScreen extends StatelessWidget {
             return Center(
               child: KlawEmptyState(
                 headline: 'Pools live here',
-                quip: 'Add a miner first.\nKlaw will track every share, on every pool, on every coin.',
+                quip:
+                    'Add a miner first.\nKlaw will track every share, on every pool, on every coin.',
               ),
             );
           }
@@ -51,19 +63,78 @@ class _Body extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return RefreshIndicator(
-      color: KratosColors.volt,
-      backgroundColor: KratosColors.surface,
+      color: kc.accent,
+      backgroundColor: kc.surface,
       onRefresh: store.refreshAll,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
         children: [
+          _SwitchboardTeaser(),
+          SizedBox(height: 14),
           _BestDiffHero(store: store),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           _FleetByPoolCard(store: store),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           _PerMinerBestList(store: store),
         ],
+      ),
+    );
+  }
+}
+
+class _SwitchboardTeaser extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const Sha256SwitchboardScreen()),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              KratosColors.cyan.withOpacity(0.18),
+              KratosColors.coinBtc.withOpacity(0.10),
+              kc.surface.withOpacity(0.75),
+            ],
+          ),
+          border: Border.all(color: KratosColors.cyan.withOpacity(0.25)),
+        ),
+        child: Row(children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: KratosColors.cyan.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(color: KratosColors.cyan.withOpacity(0.35)),
+            ),
+            child: Icon(Icons.swap_horiz_rounded, color: KratosColors.cyan),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('SHA-256 Switchboard',
+                  style: TextStyle(
+                      color: kc.text,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15)),
+              const SizedBox(height: 3),
+              Text('BTC, BCH and smart pool presets in one simple view',
+                  style: TextStyle(color: kc.muted, fontSize: 12)),
+            ]),
+          ),
+          Icon(Icons.chevron_right_rounded, color: kc.muted),
+        ]),
       ),
     );
   }
@@ -75,6 +146,7 @@ class _BestDiffHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final fleet = store.bestDiffTracker.fleetRecord;
     final has = fleet != null && fleet.bestShare > 0;
 
@@ -85,12 +157,12 @@ class _BestDiffHero extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            KratosColors.volt.withOpacity(0.18),
-            KratosColors.volt.withOpacity(0.04),
+            kc.accent.withOpacity(0.18),
+            kc.accent.withOpacity(0.04),
           ],
         ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: KratosColors.volt.withOpacity(0.3)),
+        border: Border.all(color: kc.accent.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,34 +170,34 @@ class _BestDiffHero extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 '🎯 BEST DIFF · FLEET ALL-TIME',
                 style: TextStyle(
                   fontSize: 11,
                   letterSpacing: 1,
                   fontWeight: FontWeight.w700,
-                  color: KratosColors.muted,
+                  color: kc.muted,
                 ),
               ),
               if (has)
                 Text(
                   _agoLabel(fleet.achievedAt),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: KratosColors.muted,
+                    color: kc.muted,
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               ShaderMask(
                 blendMode: BlendMode.srcIn,
-                shaderCallback: (r) => const LinearGradient(colors: [
-                  KratosColors.voltBright,
-                  KratosColors.volt,
+                shaderCallback: (r) => LinearGradient(colors: [
+                  kc.accentBright,
+                  kc.accent,
                 ]).createShader(r),
                 child: Text(
                   has ? formatBestDiff(fleet.bestShare) : '—',
@@ -139,14 +211,14 @@ class _BestDiffHero extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             has
                 ? '${fleet.minerName} · ${fleet.type.displayName}'
                 : 'Awaiting first share with measurable difficulty',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: KratosColors.muted,
+              color: kc.muted,
             ),
           ),
         ],
@@ -170,6 +242,7 @@ class _FleetByPoolCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     // Group active miners by their currently active stratum host.
     final byHost = <String, _PoolBucket>{};
     for (final m in store.miners) {
@@ -182,8 +255,7 @@ class _FleetByPoolCard extends StatelessWidget {
             : s.pools.first,
       );
       final host = activePool.host.isEmpty ? 'unknown' : activePool.host;
-      final bucket = byHost.putIfAbsent(
-          host, () => _PoolBucket(host: host));
+      final bucket = byHost.putIfAbsent(host, () => _PoolBucket(host: host));
       bucket.count += 1;
       if (s.status != MinerStatus.offline) {
         bucket.hashrateGh += s.hashrateAvg;
@@ -192,15 +264,16 @@ class _FleetByPoolCard extends StatelessWidget {
 
     if (byHost.isEmpty) {
       return _emptyShell(
+        context,
         text: 'No pool data yet — Klaw is waiting for the first share.',
       );
     }
 
     final buckets = byHost.values.toList()
       ..sort((a, b) => b.hashrateGh.compareTo(a.hashrateGh));
-    final palette = const [
-      KratosColors.volt,
-      KratosColors.cyan,
+    final palette = [
+      kc.accent,
+      kc.secondary,
       KratosColors.info,
       KratosColors.warning,
       KratosColors.coinCkb,
@@ -212,9 +285,9 @@ class _FleetByPoolCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: KratosColors.surface.withOpacity(0.7),
+        color: kc.surface.withOpacity(0.7),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: KratosColors.volt.withOpacity(0.10)),
+        border: Border.all(color: kc.accent.withOpacity(0.10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -222,17 +295,16 @@ class _FleetByPoolCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Fleet by pool',
+              Text('Fleet by pool',
                   style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: KratosColors.text)),
+                      color: kc.text)),
               Text('${store.miners.length} miners',
-                  style: const TextStyle(
-                      fontSize: 11, color: KratosColors.muted)),
+                  style: TextStyle(fontSize: 11, color: kc.muted)),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           if (totalGh > 0)
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
@@ -245,14 +317,13 @@ class _FleetByPoolCard extends StatelessWidget {
                         flex: ((buckets[i].hashrateGh / totalGh) * 1000)
                             .round()
                             .clamp(1, 1000),
-                        child: Container(
-                            color: palette[i % palette.length]),
+                        child: Container(color: palette[i % palette.length]),
                       ),
                   ],
                 ),
               ),
             ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           for (var i = 0; i < buckets.length; i++)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
@@ -266,23 +337,23 @@ class _FleetByPoolCard extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       buckets[i].host,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 13,
-                          color: KratosColors.text,
+                          color: kc.text,
                           fontWeight: FontWeight.w600),
                     ),
                   ),
                   Text(
                     '${buckets[i].count} · ${_hashLabel(buckets[i].hashrateGh)}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: KratosColors.muted,
+                      color: kc.muted,
                       fontFamily: 'monospace',
                     ),
                   ),
@@ -301,16 +372,18 @@ class _FleetByPoolCard extends StatelessWidget {
     return '${(gh * 1000).toStringAsFixed(0)} MH/s';
   }
 
-  static Widget _emptyShell({required String text}) => Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: KratosColors.surface.withOpacity(0.5),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: KratosColors.line),
-        ),
-        child: Text(text,
-            style: const TextStyle(color: KratosColors.muted, fontSize: 13)),
-      );
+  static Widget _emptyShell(BuildContext context, {required String text}) {
+    final kc = KratosColors.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kc.surface.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: kc.line),
+      ),
+      child: Text(text, style: TextStyle(color: kc.muted, fontSize: 13)),
+    );
+  }
 }
 
 class _PoolBucket {
@@ -326,6 +399,7 @@ class _PerMinerBestList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final entries = store.miners.map((m) {
       final s = store.stats[m.id];
       final tracked = store.bestDiffTracker.records[m.id];
@@ -333,8 +407,8 @@ class _PerMinerBestList extends StatelessWidget {
         miner: m,
         bestShare: (tracked?.bestShare ?? s?.bestShare ?? 0).toDouble(),
         sessionShare: s?.bestShare ?? 0,
-        online: s?.status == MinerStatus.online ||
-            s?.status == MinerStatus.warning,
+        online:
+            s?.status == MinerStatus.online || s?.status == MinerStatus.warning,
       );
     }).toList()
       ..sort((a, b) => b.bestShare.compareTo(a.bestShare));
@@ -342,19 +416,17 @@ class _PerMinerBestList extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: KratosColors.surface.withOpacity(0.6),
+        color: kc.surface.withOpacity(0.6),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: KratosColors.volt.withOpacity(0.10)),
+        border: Border.all(color: kc.accent.withOpacity(0.10)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Per-miner best diff',
+          Text('Per-miner best diff',
               style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: KratosColors.text)),
-          const SizedBox(height: 12),
+                  fontSize: 14, fontWeight: FontWeight.w700, color: kc.text)),
+          SizedBox(height: 12),
           for (final e in entries) ...[
             InkWell(
               onTap: () => Navigator.push(
@@ -371,37 +443,31 @@ class _PerMinerBestList extends StatelessWidget {
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: e.online
-                            ? KratosColors.volt
-                            : KratosColors.muted,
+                        color: e.online ? kc.accent : kc.muted,
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(e.miner.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: KratosColors.text)),
+                                  color: kc.text)),
                           Text(e.miner.type.displayName,
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  color: KratosColors.muted)),
+                              style: TextStyle(fontSize: 11, color: kc.muted)),
                         ],
                       ),
                     ),
                     Text(
-                      e.bestShare > 0
-                          ? formatBestDiff(e.bestShare)
-                          : '—',
-                      style: const TextStyle(
+                      e.bestShare > 0 ? formatBestDiff(e.bestShare) : '—',
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: KratosColors.voltBright,
+                        color: kc.accentBright,
                         fontFamily: 'monospace',
                       ),
                     ),
@@ -409,20 +475,19 @@ class _PerMinerBestList extends StatelessWidget {
                 ),
               ),
             ),
-            const Divider(color: KratosColors.line, height: 14),
+            Divider(color: kc.line, height: 14),
           ],
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Row(
             children: [
-              const Icon(Icons.info_outline,
-                  size: 12, color: KratosColors.muted),
-              const SizedBox(width: 6),
+              Icon(Icons.info_outline, size: 12, color: kc.muted),
+              SizedBox(width: 6),
               Expanded(
                 child: Text(
                   'Source: each miner\'s local API. Updated every 30s. Block-found notifications fire when bestDiff ≥ network difficulty.',
                   style: TextStyle(
                       fontSize: 10,
-                      color: KratosColors.muted.withOpacity(0.85),
+                      color: kc.muted.withOpacity(0.85),
                       height: 1.3),
                 ),
               ),

@@ -17,6 +17,8 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  KratosPalette get kc => KratosColors.of(context);
+
   String? _activeSlug;
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
@@ -74,30 +76,31 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Scaffold(
-      backgroundColor: KratosColors.bg,
+      backgroundColor: kc.bg,
       appBar: AppBar(
         title: Row(
           children: [
-            const Text('Chat',
+            Text('Chat',
                 style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
-                    color: KratosColors.text)),
-            const SizedBox(width: 10),
+                    color: kc.text)),
+            SizedBox(width: 10),
             Consumer<ChatService>(
               builder: (ctx, svc, _) => Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: svc.connected
-                      ? KratosColors.volt.withOpacity(0.16)
-                      : KratosColors.muted.withOpacity(0.16),
+                      ? kc.accent.withOpacity(0.16)
+                      : kc.muted.withOpacity(0.16),
                   borderRadius: BorderRadius.circular(99),
                   border: Border.all(
                       color: svc.connected
-                          ? KratosColors.volt.withOpacity(0.4)
-                          : KratosColors.muted.withOpacity(0.3)),
+                          ? kc.accent.withOpacity(0.4)
+                          : kc.muted.withOpacity(0.3)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -106,18 +109,18 @@ class _ChatScreenState extends State<ChatScreen> {
                       svc.connected ? Icons.link : Icons.link_off,
                       size: 11,
                       color: svc.connected
-                          ? KratosColors.volt
-                          : KratosColors.muted,
+                          ? kc.accent
+                          : kc.muted,
                     ),
-                    const SizedBox(width: 4),
+                    SizedBox(width: 4),
                     Text(
                       svc.connected ? 'Discord' : 'offline',
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
                           color: svc.connected
-                              ? KratosColors.voltBright
-                              : KratosColors.muted,
+                              ? kc.accentBright
+                              : kc.muted,
                           letterSpacing: 0.4),
                     ),
                   ],
@@ -130,8 +133,8 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
             onPressed: () => launchUrl(Uri.parse(_kDiscordInvite),
                 mode: LaunchMode.externalApplication),
-            icon: const Icon(Icons.open_in_new_rounded,
-                color: KratosColors.muted, size: 20),
+            icon: Icon(Icons.open_in_new_rounded,
+                color: kc.muted, size: 20),
             tooltip: 'Open in Discord app',
           ),
         ],
@@ -142,8 +145,8 @@ class _ChatScreenState extends State<ChatScreen> {
             return _OfflineHero(error: svc.lastError!);
           }
           if (svc.channels.isEmpty) {
-            return const Center(
-              child: CircularProgressIndicator(color: KratosColors.volt),
+            return Center(
+              child: CircularProgressIndicator(color: kc.accent),
             );
           }
           final activeSlug = _activeSlug ?? svc.channels.first.slug;
@@ -194,13 +197,14 @@ class _ChannelPills extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return SizedBox(
       height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
         itemCount: channels.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        separatorBuilder: (_, __) => SizedBox(width: 6),
         itemBuilder: (ctx, i) {
           final c = channels[i];
           final isActive = c.slug == active;
@@ -211,13 +215,13 @@ class _ChannelPills extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: isActive
-                    ? KratosColors.volt.withOpacity(0.18)
-                    : KratosColors.surface2,
+                    ? kc.accent.withOpacity(0.18)
+                    : kc.surface2,
                 borderRadius: BorderRadius.circular(99),
                 border: Border.all(
                     color: isActive
-                        ? KratosColors.volt.withOpacity(0.5)
-                        : KratosColors.line),
+                        ? kc.accent.withOpacity(0.5)
+                        : kc.line),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -228,15 +232,15 @@ class _ChannelPills extends StatelessWidget {
                       child: Icon(Icons.bolt_rounded,
                           size: 11,
                           color: isActive
-                              ? KratosColors.volt
-                              : KratosColors.muted),
+                              ? kc.accent
+                              : kc.muted),
                     ),
                   Text(
                     '#${c.slug}',
                     style: TextStyle(
                       color: isActive
-                          ? KratosColors.voltBright
-                          : KratosColors.muted,
+                          ? kc.accentBright
+                          : kc.muted,
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
                       letterSpacing: 0.3,
@@ -258,6 +262,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     final initials = (msg.authorName.isEmpty ? '?' : msg.authorName)
         .trim()
         .split(RegExp(r'\s+'))
@@ -275,8 +280,8 @@ class _MessageBubble extends StatelessWidget {
             height: 30,
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: [
-                KratosColors.volt.withOpacity(0.6),
-                KratosColors.voltDeep,
+                kc.accent.withOpacity(0.6),
+                kc.accentDeep,
               ]),
               shape: BoxShape.circle,
             ),
@@ -289,7 +294,7 @@ class _MessageBubble extends StatelessWidget {
                   color: Color(0xFF001A0E)),
             ),
           ),
-          const SizedBox(width: 9),
+          SizedBox(width: 9),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,10 +303,10 @@ class _MessageBubble extends StatelessWidget {
                   children: [
                     Text(
                       msg.authorName,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
-                          color: KratosColors.voltBright),
+                          color: kc.accentBright),
                     ),
                     if (msg.authorIsBot || msg.authorIsWebhook)
                       Container(
@@ -309,31 +314,31 @@ class _MessageBubble extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 1),
                         decoration: BoxDecoration(
-                          color: KratosColors.muted.withOpacity(0.18),
+                          color: kc.muted.withOpacity(0.18),
                           borderRadius: BorderRadius.circular(99),
                         ),
-                        child: const Text('BOT',
+                        child: Text('BOT',
                             style: TextStyle(
                                 fontSize: 8,
-                                color: KratosColors.muted,
+                                color: kc.muted,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 0.5)),
                       ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     Text(
                       _shortTime(msg.createdAt),
-                      style: const TextStyle(
-                          fontSize: 10, color: KratosColors.muted),
+                      style: TextStyle(
+                          fontSize: 10, color: kc.muted),
                     ),
                   ],
                 ),
-                const SizedBox(height: 1),
+                SizedBox(height: 1),
                 if (msg.text.isNotEmpty)
                   Text(
                     msg.text,
-                    style: const TextStyle(
+                    style: TextStyle(
                         fontSize: 13.5,
-                        color: KratosColors.text,
+                        color: kc.text,
                         height: 1.4),
                   ),
               ],
@@ -359,6 +364,7 @@ class _ChannelEmpty extends StatelessWidget {
   const _ChannelEmpty({required this.slug});
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -366,18 +372,18 @@ class _ChannelEmpty extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Klaw(size: 100),
-            const SizedBox(height: 14),
+            SizedBox(height: 14),
             Text(
               '#$slug is quiet.',
-              style: const TextStyle(
+              style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
-                  color: KratosColors.text),
+                  color: kc.text),
             ),
-            const SizedBox(height: 4),
-            const Text(
+            SizedBox(height: 4),
+            Text(
               'Send the first message — Klaw approves.',
-              style: TextStyle(fontSize: 13, color: KratosColors.muted),
+              style: TextStyle(fontSize: 13, color: kc.muted),
             ),
           ],
         ),
@@ -401,20 +407,21 @@ class _Composer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     if (readOnly) {
       return Container(
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
-        color: KratosColors.surface.withOpacity(0.5),
+        color: kc.surface.withOpacity(0.5),
         child: Row(
           children: [
-            const Icon(Icons.lock_outline_rounded,
-                size: 14, color: KratosColors.muted),
-            const SizedBox(width: 8),
+            Icon(Icons.lock_outline_rounded,
+                size: 14, color: kc.muted),
+            SizedBox(width: 8),
             Expanded(
               child: Text(
                 '#$slug is read-only — populated automatically when blocks are found.',
-                style: const TextStyle(
-                    fontSize: 11, color: KratosColors.muted, height: 1.3),
+                style: TextStyle(
+                    fontSize: 11, color: kc.muted, height: 1.3),
               ),
             ),
           ],
@@ -423,7 +430,7 @@ class _Composer extends StatelessWidget {
     }
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-      color: KratosColors.bg,
+      color: kc.bg,
       child: SafeArea(
         top: false,
         child: Row(
@@ -431,7 +438,7 @@ class _Composer extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
-                style: const TextStyle(color: KratosColors.text),
+                style: TextStyle(color: kc.text),
                 minLines: 1,
                 maxLines: 4,
                 textInputAction: TextInputAction.send,
@@ -439,9 +446,9 @@ class _Composer extends StatelessWidget {
                 decoration: InputDecoration(
                   hintText: 'Message #$slug',
                   hintStyle:
-                      const TextStyle(color: KratosColors.muted),
+                      TextStyle(color: kc.muted),
                   filled: true,
-                  fillColor: KratosColors.surface2,
+                  fillColor: kc.surface2,
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   border: OutlineInputBorder(
@@ -451,14 +458,14 @@ class _Composer extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: 8),
             Material(
-              color: KratosColors.volt,
+              color: kc.accent,
               shape: const CircleBorder(),
               child: InkWell(
                 customBorder: const CircleBorder(),
                 onTap: onSend,
-                child: const SizedBox(
+                child: SizedBox(
                   width: 44,
                   height: 44,
                   child: Icon(Icons.arrow_upward_rounded,
@@ -478,6 +485,7 @@ class _OfflineHero extends StatelessWidget {
   const _OfflineHero({required this.error});
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -485,22 +493,22 @@ class _OfflineHero extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Klaw(size: 140),
-            const SizedBox(height: 18),
-            const Text(
+            SizedBox(height: 18),
+            Text(
               "Can't reach the bridge.",
               style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: KratosColors.text),
+                  color: kc.text),
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             Text(
               error,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 12, color: KratosColors.muted, height: 1.4),
+              style: TextStyle(
+                  fontSize: 12, color: kc.muted, height: 1.4),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: 18),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF5865F2),
@@ -510,8 +518,8 @@ class _OfflineHero extends StatelessWidget {
               ),
               onPressed: () => launchUrl(Uri.parse(_kDiscordInvite),
                   mode: LaunchMode.externalApplication),
-              icon: const Icon(Icons.chat_bubble_outline, size: 16),
-              label: const Text('Open Discord directly',
+              icon: Icon(Icons.chat_bubble_outline, size: 16),
+              label: Text('Open Discord directly',
                   style:
                       TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
             ),
@@ -523,31 +531,32 @@ class _OfflineHero extends StatelessWidget {
 }
 
 Future<String?> _pickDisplayName(BuildContext context) async {
+  final kc = KratosColors.of(context);
   final ctrl = TextEditingController();
   final picked = await showDialog<String>(
     context: context,
     builder: (ctx) => AlertDialog(
-      backgroundColor: KratosColors.surface,
-      title: const Text('Pick a display name',
-          style: TextStyle(color: KratosColors.text)),
+      backgroundColor: kc.surface,
+      title: Text('Pick a display name',
+          style: TextStyle(color: kc.text)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'This is how you appear in Discord. Anything within reason — 32 chars max.',
             style:
-                TextStyle(fontSize: 12, color: KratosColors.muted, height: 1.4),
+                TextStyle(fontSize: 12, color: kc.muted, height: 1.4),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           TextField(
             controller: ctrl,
             autofocus: true,
             maxLength: 32,
-            style: const TextStyle(color: KratosColors.text),
-            decoration: const InputDecoration(
+            style: TextStyle(color: kc.text),
+            decoration: InputDecoration(
               hintText: 'e.g. NerdMiner42',
-              hintStyle: TextStyle(color: KratosColors.muted),
+              hintStyle: TextStyle(color: kc.muted),
             ),
           ),
         ],
@@ -555,16 +564,16 @@ Future<String?> _pickDisplayName(BuildContext context) async {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('Cancel',
-              style: TextStyle(color: KratosColors.muted)),
+          child: Text('Cancel',
+              style: TextStyle(color: kc.muted)),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
-            backgroundColor: KratosColors.volt,
+            backgroundColor: kc.accent,
             foregroundColor: const Color(0xFF001A0E),
           ),
           onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-          child: const Text('Set name',
+          child: Text('Set name',
               style: TextStyle(fontWeight: FontWeight.w800)),
         ),
       ],

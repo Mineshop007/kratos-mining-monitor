@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/volt_theme.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../models/miner.dart';
@@ -41,11 +42,11 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
       final skipped = all.where((m) => !_isEsp(m)).toList();
 
       return Scaffold(
-        backgroundColor: KratosTheme.bg,
+        backgroundColor: KratosColors.of(context).bg,
         appBar: AppBar(
-          backgroundColor: KratosTheme.bg,
-          title: const Text('Fleet OC',
-              style: TextStyle(color: KratosTheme.textPrim)),
+          backgroundColor: KratosColors.of(context).bg,
+          title: Text('Fleet OC',
+              style: TextStyle(color: KratosColors.of(context).text)),
         ),
         body: ListView(padding: const EdgeInsets.all(16), children: [
           // Info banner
@@ -57,7 +58,7 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
               border: Border.all(
                   color: KratosTheme.orange.withOpacity(0.3)),
             ),
-            child: const Row(children: [
+            child: Row(children: [
               Icon(Icons.warning_amber,
                   color: KratosTheme.orange, size: 18),
               SizedBox(width: 10),
@@ -65,7 +66,7 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
                 child: Text(
                   'Applies settings to all ESP-Miner compatible miners (BitAxe, NerdAxe, LuckyMiner). Avalon and Antminer miners are skipped.',
                   style: TextStyle(
-                      fontSize: 12, color: KratosTheme.muted),
+                      fontSize: 12, color: KratosColors.of(context).muted),
                 ),
               ),
             ]),
@@ -91,12 +92,12 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
                         decoration: BoxDecoration(
                           color: _selectedFreq == p.mhz
                               ? KratosTheme.orange
-                              : KratosTheme.surface,
+                              : KratosColors.of(context).surface,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                               color: _selectedFreq == p.mhz
                                   ? KratosTheme.orange
-                                  : KratosTheme.border),
+                                  : KratosColors.of(context).line),
                         ),
                         child: Column(children: [
                           Text('${p.mhz}',
@@ -105,14 +106,14 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
                                   fontWeight: FontWeight.bold,
                                   color: _selectedFreq == p.mhz
                                       ? Colors.black
-                                      : KratosTheme.textPrim,
+                                      : KratosColors.of(context).text,
                                   fontFamily: 'Courier')),
                           Text('MHz',
                               style: TextStyle(
                                   fontSize: 8,
                                   color: _selectedFreq == p.mhz
                                       ? Colors.black54
-                                      : KratosTheme.muted)),
+                                      : KratosColors.of(context).muted)),
                           const SizedBox(height: 2),
                           Text(p.label,
                               style: TextStyle(
@@ -120,7 +121,7 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
                                   fontWeight: FontWeight.bold,
                                   color: _selectedFreq == p.mhz
                                       ? Colors.black54
-                                      : KratosTheme.muted,
+                                      : KratosColors.of(context).muted,
                                   letterSpacing: 0.5)),
                         ]),
                       ),
@@ -136,8 +137,8 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
                   .firstWhere((p) => p.mhz == _selectedFreq,
                       orElse: () => _presets[1])
                   .hint,
-              style: const TextStyle(
-                  fontSize: 11, color: KratosTheme.muted),
+              style: TextStyle(
+                  fontSize: 11, color: KratosColors.of(context).muted),
             ),
           ),
           const SizedBox(height: 20),
@@ -157,7 +158,7 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: KratosTheme.orange,
               thumbColor: KratosTheme.orange,
-              inactiveTrackColor: KratosTheme.border,
+              inactiveTrackColor: KratosColors.of(context).line,
               overlayColor: KratosTheme.orange.withOpacity(0.15),
               valueIndicatorColor: KratosTheme.orange,
               valueIndicatorTextStyle:
@@ -174,17 +175,17 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
                   : (v) => setState(() => _selectedVoltage = v.round()),
             ),
           ),
-          const Padding(
+          Padding(
             padding: EdgeInsets.symmetric(horizontal: 4),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('1100 mV',
                     style: TextStyle(
-                        fontSize: 10, color: KratosTheme.muted)),
+                        fontSize: 10, color: KratosColors.of(context).muted)),
                 Text('1250 mV',
                     style: TextStyle(
-                        fontSize: 10, color: KratosTheme.muted)),
+                        fontSize: 10, color: KratosColors.of(context).muted)),
               ],
             ),
           ),
@@ -197,14 +198,14 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: KratosTheme.surface,
+                color: KratosColors.of(context).surface,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: KratosTheme.border),
+                border: Border.all(color: KratosColors.of(context).line),
               ),
-              child: const Text(
+              child: Text(
                 'No ESP-Miner compatible miners found.',
                 style: TextStyle(
-                    fontSize: 12, color: KratosTheme.muted),
+                    fontSize: 12, color: KratosColors.of(context).muted),
               ),
             )
           else
@@ -229,7 +230,7 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
             child: FilledButton.icon(
               style: FilledButton.styleFrom(
                 backgroundColor: (_applying || espMiners.isEmpty)
-                    ? KratosTheme.border
+                    ? KratosColors.of(context).line
                     : KratosTheme.orange,
                 foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -269,18 +270,18 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: KratosTheme.surface,
-        title: const Text('Apply to fleet?',
-            style: TextStyle(color: KratosTheme.textPrim)),
+        backgroundColor: KratosColors.of(context).surface,
+        title: Text('Apply to fleet?',
+            style: TextStyle(color: KratosColors.of(context).text)),
         content: Text(
           'Apply ${preset.label} (${preset.mhz} MHz) @ ${_selectedVoltage} mV to ${miners.length} miner${miners.length == 1 ? '' : 's'}?',
-          style: const TextStyle(color: KratosTheme.muted),
+          style: TextStyle(color: KratosColors.of(context).muted),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel',
-                style: TextStyle(color: KratosTheme.muted)),
+            child: Text('Cancel',
+                style: TextStyle(color: KratosColors.of(context).muted)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
@@ -327,7 +328,7 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
     final messenger = ScaffoldMessenger.of(context);
     messenger.clearSnackBars();
     messenger.showSnackBar(SnackBar(
-      backgroundColor: KratosTheme.surface,
+      backgroundColor: KratosColors.of(context).surface,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10)),
@@ -335,7 +336,7 @@ class _FleetOCScreenState extends State<FleetOCScreen> {
         failed == 0
             ? '✅ Applied to all $success miner${success == 1 ? '' : 's'}'
             : '⚠️  $success applied · $failed failed',
-        style: const TextStyle(color: KratosTheme.textPrim),
+        style: TextStyle(color: KratosColors.of(context).text),
       ),
     ));
   }
@@ -377,10 +378,10 @@ class _SectionLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: KratosTheme.muted,
+            color: KratosColors.of(context).muted,
             letterSpacing: 1.5),
       );
 }
@@ -397,25 +398,25 @@ class _MinerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = enabled ? KratosTheme.textPrim : KratosTheme.muted;
+    final fg = enabled ? KratosColors.of(context).text : KratosColors.of(context).muted;
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: enabled
-            ? KratosTheme.surface
-            : KratosTheme.surface.withOpacity(0.5),
+            ? KratosColors.of(context).surface
+            : KratosColors.of(context).surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
             color: enabled
-                ? KratosTheme.border
-                : KratosTheme.border.withOpacity(0.5)),
+                ? KratosColors.of(context).line
+                : KratosColors.of(context).line.withOpacity(0.5)),
       ),
       child: Row(children: [
         Icon(
           enabled ? Icons.memory : Icons.block,
           size: 16,
-          color: enabled ? KratosTheme.neon : KratosTheme.muted,
+          color: enabled ? KratosColors.of(context).accent : KratosColors.of(context).muted,
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -433,9 +434,9 @@ class _MinerRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
-            color: KratosTheme.bg,
+            color: KratosColors.of(context).bg,
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: KratosTheme.border),
+            border: Border.all(color: KratosColors.of(context).line),
           ),
           child: Text(
             _typeLabel(miner.type),
@@ -448,15 +449,15 @@ class _MinerRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        SizedBox(width: 22, child: Center(child: _badge(enabled))),
+        SizedBox(width: 22, child: Center(child: _badge(context, enabled))),
       ]),
     );
   }
 
-  Widget _badge(bool enabled) {
+  Widget _badge(BuildContext context, bool enabled) {
     if (!enabled) {
-      return const Text('—',
-          style: TextStyle(color: KratosTheme.muted, fontSize: 14));
+      return Text('—',
+          style: TextStyle(color: KratosColors.of(context).muted, fontSize: 14));
     }
     switch (state) {
       case _ApplyState.idle:

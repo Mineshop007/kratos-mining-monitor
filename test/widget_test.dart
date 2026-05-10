@@ -9,6 +9,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -37,7 +38,8 @@ Widget _withProviders(Widget child) {
       ChangeNotifierProvider(create: (_) => CircuitService()),
       ChangeNotifierProvider(create: (_) => ChatService()),
     ],
-    child: MaterialApp(theme: kratosThemeData(KratosThemeName.volt), home: child),
+    child:
+        MaterialApp(theme: kratosThemeData(KratosThemeName.volt), home: child),
   );
 }
 
@@ -46,6 +48,13 @@ void main() {
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    PackageInfo.setMockInitialValues(
+      appName: 'Kratos',
+      packageName: 'eu.mineshop.kratos',
+      version: '2.0.12',
+      buildNumber: '74',
+      buildSignature: '',
+    );
     // Tall viewport so long-scroll screens (Settings) fit without scrolling.
     TestWidgetsFlutterBinding.ensureInitialized();
     final tb = TestWidgetsFlutterBinding.instance;
@@ -93,41 +102,33 @@ void main() {
   group('Circuit safety thresholds', () {
     test('EU 230V/16A breaker = 3.68 kW trip, 2.94 kW safe at 80%', () {
       final c = Circuit(
-          name: 'Garage',
-          voltage: 230,
-          breakerAmps: 16,
-          safetyFactor: 0.80);
+          name: 'Garage', voltage: 230, breakerAmps: 16, safetyFactor: 0.80);
       expect(c.tripWatts, closeTo(3680, 0.5));
       expect(c.safeWatts, closeTo(2944, 0.5));
     });
 
     test('CircuitSnapshot returns no-data when no miner reports power', () {
-      final c = Circuit(
-          name: 'X',
-          voltage: 230,
-          breakerAmps: 16,
-          minerIds: ['m1']);
-      final snap = CircuitSnapshot(
-          circuit: c, measuredWatts: null, onlineCount: 0);
+      final c =
+          Circuit(name: 'X', voltage: 230, breakerAmps: 16, minerIds: ['m1']);
+      final snap =
+          CircuitSnapshot(circuit: c, measuredWatts: null, onlineCount: 0);
       expect(snap.status, CircuitStatus.noData);
       expect(snap.amps, isNull);
       expect(snap.loadFraction, isNull);
     });
 
     test('CircuitSnapshot warns at ≥80% load, trips at ≥100%', () {
-      final c = Circuit(
-          name: 'X', voltage: 230, breakerAmps: 16, safetyFactor: 0.8);
+      final c =
+          Circuit(name: 'X', voltage: 230, breakerAmps: 16, safetyFactor: 0.8);
       // 50% load → ok
-      var snap = CircuitSnapshot(
-          circuit: c, measuredWatts: 1840, onlineCount: 2);
+      var snap =
+          CircuitSnapshot(circuit: c, measuredWatts: 1840, onlineCount: 2);
       expect(snap.status, CircuitStatus.ok);
       // 85% load → warn
-      snap = CircuitSnapshot(
-          circuit: c, measuredWatts: 3128, onlineCount: 2);
+      snap = CircuitSnapshot(circuit: c, measuredWatts: 3128, onlineCount: 2);
       expect(snap.status, CircuitStatus.warning);
       // 100% load → trip
-      snap = CircuitSnapshot(
-          circuit: c, measuredWatts: 3680, onlineCount: 2);
+      snap = CircuitSnapshot(circuit: c, measuredWatts: 3680, onlineCount: 2);
       expect(snap.status, CircuitStatus.overload);
     });
   });
@@ -138,8 +139,7 @@ void main() {
     });
 
     test('offline miner scores 0 with offline grade', () {
-      final h =
-          HealthScore.from(MinerStats(status: MinerStatus.offline));
+      final h = HealthScore.from(MinerStats(status: MinerStatus.offline));
       expect(h, isNotNull);
       expect(h!.score, 0);
       expect(h.grade, HealthGrade.offline);
@@ -161,8 +161,7 @@ void main() {
 
   testWidgets('FAQ screen renders sections with no fake message data',
       (tester) async {
-    await tester
-        .pumpWidget(_withProviders(const FaqScreen()));
+    await tester.pumpWidget(_withProviders(const FaqScreen()));
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('FAQ'), findsOneWidget);
     // Section titles render uppercase via the FAQ widget, so the source
@@ -172,13 +171,14 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('Settings tab shows v1.5.0 + theme + electricity sections',
+  testWidgets(
+      'Settings tab shows current version + theme + electricity sections',
       (tester) async {
     await tester.pumpWidget(_withProviders(const SettingsScreen()));
     await tester.pump(const Duration(milliseconds: 50));
 
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('v1.5.0'), findsOneWidget);
+    expect(find.text('v2.0.12'), findsOneWidget);
     expect(find.text('THEME'), findsOneWidget);
     expect(find.text('Volt'), findsOneWidget);
     expect(find.text('Circuit'), findsOneWidget);

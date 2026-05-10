@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/volt_theme.dart';
 import '../main.dart';
 import '../services/dashboard_prefs.dart';
 
@@ -10,6 +11,8 @@ class DashboardSettingsScreen extends StatefulWidget {
 }
 
 class _DashboardSettingsState extends State<DashboardSettingsScreen> {
+  KratosPalette get kc => KratosColors.of(context);
+
   final _prefs = DashboardPrefs.instance;
 
   @override
@@ -28,18 +31,19 @@ class _DashboardSettingsState extends State<DashboardSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
     return Scaffold(
-      backgroundColor: KratosTheme.bg,
+      backgroundColor: kc.bg,
       appBar: AppBar(
-        backgroundColor: KratosTheme.bg,
-        title: const Text('Customize Dashboard',
-            style: TextStyle(color: KratosTheme.textPrim, fontWeight: FontWeight.w800)),
+        backgroundColor: kc.bg,
+        title: Text('Customize Dashboard',
+            style: TextStyle(color: kc.text, fontWeight: FontWeight.w800)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           _sectionHeader('MINER CARDS'),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _tile(
             icon: Icons.speed,
             color: KratosTheme.blue,
@@ -90,7 +94,7 @@ class _DashboardSettingsState extends State<DashboardSettingsScreen> {
           ),
           _tile(
             icon: Icons.memory,
-            color: KratosTheme.neon,
+            color: kc.accent,
             title: 'Frequency',
             subtitle: 'Current ASIC clock speed',
             value: _prefs.showFrequency,
@@ -104,12 +108,12 @@ class _DashboardSettingsState extends State<DashboardSettingsScreen> {
             value: _prefs.showUptime,
             key: 'uptime',
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           _sectionHeader('LAYOUT'),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           _tile(
             icon: Icons.view_agenda_outlined,
-            color: KratosTheme.neon,
+            color: kc.accent,
             title: 'Wide Miner Cards',
             subtitle: 'Full-width single-column layout',
             value: _prefs.wideCards,
@@ -123,28 +127,28 @@ class _DashboardSettingsState extends State<DashboardSettingsScreen> {
             value: _prefs.showFleetTotals,
             key: 'fleet',
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: KratosTheme.surface,
+              color: kc.surface,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: KratosTheme.border),
+              border: Border.all(color: kc.line),
             ),
-            child: const Text(
+            child: Text(
               '💡 Changes apply immediately. At least one stat must remain visible per card.',
-              style: TextStyle(fontSize: 12, color: KratosTheme.muted, height: 1.5),
+              style: TextStyle(fontSize: 12, color: kc.muted, height: 1.5),
             ),
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: 32),
         ],
       ),
     );
   }
 
   Widget _sectionHeader(String label) => Text(label,
-      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
-          color: KratosTheme.muted, letterSpacing: 1.5));
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
+          color: kc.muted, letterSpacing: 1.5));
 
   Widget _tile({
     required IconData icon,
@@ -158,9 +162,9 @@ class _DashboardSettingsState extends State<DashboardSettingsScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: KratosTheme.surface,
+        color: kc.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: value ? color.withOpacity(0.3) : KratosTheme.border),
+        border: Border.all(color: value ? color.withOpacity(0.3) : kc.line),
       ),
       child: Row(children: [
         Container(
@@ -171,13 +175,13 @@ class _DashboardSettingsState extends State<DashboardSettingsScreen> {
           ),
           child: Icon(icon, color: color, size: 18),
         ),
-        const SizedBox(width: 14),
+        SizedBox(width: 14),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
-                  color: KratosTheme.textPrim)),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
+                  color: kc.text)),
           Text(subtitle,
-              style: const TextStyle(fontSize: 12, color: KratosTheme.muted)),
+              style: TextStyle(fontSize: 12, color: kc.muted)),
         ])),
         Switch(
           value: value,

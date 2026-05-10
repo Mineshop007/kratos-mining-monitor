@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/volt_theme.dart';
 import '../models/miner.dart';
 
 class MinerIcon extends StatelessWidget {
