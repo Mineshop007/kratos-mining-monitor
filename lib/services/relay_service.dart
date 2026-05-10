@@ -5,7 +5,13 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-enum RelayState { disconnected, connecting, connected, bridgeOffline, bridgeOnline }
+enum RelayState {
+  disconnected,
+  connecting,
+  connected,
+  bridgeOffline,
+  bridgeOnline
+}
 
 class RelayService extends ChangeNotifier {
   static final RelayService instance = RelayService._();
@@ -13,6 +19,7 @@ class RelayService extends ChangeNotifier {
 
   static const _wsBase = 'wss://kratos.mineshop.eu/relay/app/';
   static const _prefKey = 'kratos_relay_key';
+  static final _keyPattern = RegExp(r'^[A-Za-z0-9_-]{16,96}$');
 
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
@@ -26,13 +33,22 @@ class RelayService extends ChangeNotifier {
   Stream<RelayState> get stateStream => _stateController.stream;
   RelayState get state => _state;
 
+  static bool isValidAccessKey(String key) => _keyPattern.hasMatch(key.trim());
+
   /// Connect to relay; persists the key.
   Future<void> connect(String key) async {
-    if (_state == RelayState.connecting || _state == RelayState.connected ||
-        _state == RelayState.bridgeOffline || _state == RelayState.bridgeOnline) {
+    final normalizedKey = key.trim();
+    if (!isValidAccessKey(normalizedKey)) {
+      _setState(RelayState.disconnected);
+      return;
+    }
+    if (_state == RelayState.connecting ||
+        _state == RelayState.connected ||
+        _state == RelayState.bridgeOffline ||
+        _state == RelayState.bridgeOnline) {
       await disconnect();
     }
-    accessKey = key.trim();
+    accessKey = normalizedKey;
     _setState(RelayState.connecting);
 
     final prefs = await SharedPreferences.getInstance();
@@ -110,7 +126,8 @@ class RelayService extends ChangeNotifier {
         if (miners is List) {
           remoteMinersList = miners.cast<Map<String, dynamic>>();
         }
-        _setState(bridgeOnline ? RelayState.bridgeOnline : RelayState.bridgeOffline);
+        _setState(
+            bridgeOnline ? RelayState.bridgeOnline : RelayState.bridgeOffline);
 
       case 'miners':
         // Bridge updated its miner list — MERGE by IP (never shrink the list).
@@ -150,7 +167,8 @@ class RelayService extends ChangeNotifier {
         final online = msg['online'];
         bridgeOnline = online == true || online == 1;
         if (!bridgeOnline) remoteMinersList = [];
-        _setState(bridgeOnline ? RelayState.bridgeOnline : RelayState.bridgeOffline);
+        _setState(
+            bridgeOnline ? RelayState.bridgeOnline : RelayState.bridgeOffline);
 
       case 'pong':
         // keepalive response — ignore
@@ -220,7 +238,8 @@ class RelayService extends ChangeNotifier {
       const Duration(seconds: 15),
       onTimeout: () {
         _commandCompleters.remove(reqId);
-        throw TimeoutException('Relay command timed out', const Duration(seconds: 15));
+        throw TimeoutException(
+            'Relay command timed out', const Duration(seconds: 15));
       },
     );
   }
@@ -234,7 +253,8 @@ class RelayService extends ChangeNotifier {
     _reconnectTimer?.cancel();
     if (accessKey == null || accessKey!.isEmpty) return;
     // Exponential backoff: 3s, 6s, 12s… capped at 60s
-    final delay = Duration(seconds: (3 * (1 << _reconnectAttempts.clamp(0, 4))));
+    final delay =
+        Duration(seconds: (3 * (1 << _reconnectAttempts.clamp(0, 4))));
     _reconnectTimer = Timer(delay, () async {
       if (_state == RelayState.disconnected && accessKey != null) {
         _reconnectAttempts++;
@@ -283,8 +303,7 @@ class RelayService extends ChangeNotifier {
     } catch (_) {}
   }
 
-  String _randomId() =>
-      Random().nextInt(999999).toString().padLeft(6, '0');
+  String _randomId() => Random().nextInt(999999).toString().padLeft(6, '0');
 
   @override
   void dispose() {

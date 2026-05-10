@@ -49,6 +49,17 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
   Future<void> _connect() async {
     final key = _keyCtrl.text.trim();
     if (key.isEmpty) return;
+    if (!RelayService.isValidAccessKey(key)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Use a fresh Kratos Link key. Old short keys are not accepted.'),
+          backgroundColor: Color(0xFF5A1E1E),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
     setState(() => _connecting = true);
     await _relay.connect(key);
     if (mounted) setState(() => _connecting = false);
@@ -62,8 +73,17 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
   void _copySetupCommand() {
     final key = _keyCtrl.text.trim();
     if (key.isEmpty) return;
-    Clipboard.setData(
-        ClipboardData(text: 'python3 kratos_link.py --key $key'));
+    if (!RelayService.isValidAccessKey(key)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Generate a new secure key first.'),
+          backgroundColor: Color(0xFF5A1E1E),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    Clipboard.setData(ClipboardData(text: 'python3 kratos_link.py --key $key'));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Setup command copied to clipboard'),
@@ -139,7 +159,8 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
                 controller: _keyCtrl,
                 enabled: !_isConnected,
                 style: TextStyle(
-                    color: KratosColors.of(context).text, fontFamily: 'Courier'),
+                    color: KratosColors.of(context).text,
+                    fontFamily: 'Courier'),
                 decoration: InputDecoration(
                   hintText: 'Paste your access key here',
                   hintStyle: TextStyle(color: KratosColors.of(context).muted),
@@ -157,11 +178,10 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide:
-                        const BorderSide(color: KratosTheme.orange),
+                    borderSide: const BorderSide(color: KratosTheme.orange),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
             ),
@@ -170,14 +190,12 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
               height: 48,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: _isConnected
-                      ? KratosTheme.red
-                      : KratosTheme.orange,
+                  backgroundColor:
+                      _isConnected ? KratosTheme.red : KratosTheme.orange,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                 ),
                 onPressed: _connecting
                     ? null
@@ -187,12 +205,9 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.black54))
-                    : Text(
-                        _isConnected ? 'Disconnect' : 'Connect',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold)),
+                            strokeWidth: 2, color: Colors.black54))
+                    : Text(_isConnected ? 'Disconnect' : 'Connect',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ]),
@@ -204,16 +219,14 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
               child: OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: KratosTheme.blue,
-                  side: BorderSide(
-                      color: KratosTheme.blue.withOpacity(0.4)),
+                  side: BorderSide(color: KratosTheme.blue.withOpacity(0.4)),
                   backgroundColor: KratosTheme.blue.withOpacity(0.07),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
                 ),
-                onPressed: _keyCtrl.text.trim().isNotEmpty
-                    ? _copySetupCommand
-                    : null,
+                onPressed:
+                    _keyCtrl.text.trim().isNotEmpty ? _copySetupCommand : null,
                 icon: const Icon(Icons.copy, size: 16),
                 label: const Text('Copy Setup Command',
                     style: TextStyle(fontSize: 13)),
@@ -226,7 +239,8 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
                   foregroundColor: KratosColors.of(context).muted,
                   side: BorderSide(
                       color: KratosColors.of(context).line.withOpacity(0.6)),
-                  backgroundColor: KratosColors.of(context).surface.withOpacity(0.5),
+                  backgroundColor:
+                      KratosColors.of(context).surface.withOpacity(0.5),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
@@ -259,8 +273,8 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
                 },
                 icon: const Icon(Icons.refresh, size: 16),
                 label: const Text('Rescan', style: TextStyle(fontSize: 12)),
-                style: TextButton.styleFrom(
-                    foregroundColor: KratosTheme.orange),
+                style:
+                    TextButton.styleFrom(foregroundColor: KratosTheme.orange),
               ),
             ]),
             const SizedBox(height: 8),
@@ -274,7 +288,8 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
                 ),
                 child: Text(
                   'Bridge online but no miners reported yet. Tap Rescan.',
-                  style: TextStyle(color: KratosColors.of(context).muted, fontSize: 13),
+                  style: TextStyle(
+                      color: KratosColors.of(context).muted, fontSize: 13),
                 ),
               )
             else
@@ -344,7 +359,8 @@ class _StatusCard extends StatelessWidget {
       child: Column(children: [
         _StatusRow(
           label: 'Relay',
-          ok: state != RelayState.disconnected && state != RelayState.connecting,
+          ok: state != RelayState.disconnected &&
+              state != RelayState.connecting,
           value: stateLabel,
           color: stateColor,
         ),
@@ -388,8 +404,8 @@ class _StatusRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(children: [
         Text(label,
-            style: TextStyle(
-                fontSize: 13, color: KratosColors.of(context).muted)),
+            style:
+                TextStyle(fontSize: 13, color: KratosColors.of(context).muted)),
         const Spacer(),
         Text(ok ? '✅' : '⬜', style: const TextStyle(fontSize: 14)),
         const SizedBox(width: 6),
@@ -438,9 +454,8 @@ class _RemoteMinerRow extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(model,
                 style: TextStyle(
                     fontSize: 13,
@@ -467,8 +482,8 @@ class _RemoteMinerRow extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8)),
-              textStyle: const TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.bold),
+              textStyle:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
             onPressed: onAdd,
             child: const Text('Add to fleet'),
@@ -492,8 +507,7 @@ class _InfoBanner extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.lan_outlined,
-                color: KratosTheme.blue, size: 20),
+            Icon(Icons.lan_outlined, color: KratosTheme.blue, size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -527,7 +541,8 @@ class _HowItWorksSection extends StatelessWidget {
           children: [
             const _SectionLabel('HOW IT WORKS'),
             const SizedBox(height: 12),
-            _Step('1', 'Download Kratos Link (Python script) to your home PC / Pi'),
+            _Step('1',
+                'Download Kratos Link (Python script) to your home PC / Pi'),
             _Step('2', 'Run: python3 kratos_link.py --key <your-key>'),
             _Step('3', 'Copy the key, paste above, tap Connect'),
             _Step('4', 'Your miners appear — add them to your fleet'),

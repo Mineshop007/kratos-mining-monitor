@@ -12,7 +12,7 @@ Usage:
 Download: https://kratos.mineshop.eu/link
 """
 
-import asyncio, json, logging, sys, socket, ipaddress, argparse, secrets
+import asyncio, json, logging, sys, socket, ipaddress, argparse, secrets, re
 from typing import Optional
 import aiohttp, websockets
 
@@ -24,6 +24,17 @@ DISCOVERY_TIMEOUT = 2.5   # seconds per host (generous — miners under load are
 CGMINER_TIMEOUT   = 1.5
 RECONNECT_DELAY   = 5
 REDISCOVER_EVERY  = 60    # seconds between auto-rescans (was 120)
+KEY_RE            = re.compile(r'^[A-Za-z0-9_-]{16,96}$')
+HTTP_GET_PATHS    = {
+    '/api/system/info',
+    '/cgi-bin/luci/admin/miner/api/status',
+    '/api/miner/status',
+    '/api/v1/status',
+    '/cgi-bin/luci/api/miner/status',
+}
+HTTP_POST_PATHS   = {'/api/system/restart', '/api/system/pause', '/api/system/resume'}
+HTTP_PATCH_PATHS  = {'/api/system'}
+CGMINER_READ_COMMANDS = {'summary', 'pools', 'stats', 'version', 'devdetails'}
 
 # ── Probe helpers ──────────────────────────────────────────────────────────────
 
@@ -205,13 +216,68 @@ async def discover_miners(known: dict = None) -> dict:
 
 # ── Command forwarding ────────────────────────────────────────────────────────
 
-async def forward_command(cmd: dict) -> dict:
+def _normalize_path(path) -> str:
+    p = str(path or '').strip()
+    if not p.startswith('/'):
+        p = '/' + p
+    return p.split('?', 1)[0]
+
+
+def _command_allowed(cmd: dict, miners_map: dict) -> tuple[bool, str]:
+    ip = str(cmd.get('miner_ip') or '').strip()
+    if ip not in miners_map:
+        return False, 'target miner not discovered by this bridge'
+    miner = miners_map[ip]
+    try:
+        port = int(cmd.get('miner_port', 0))
+    except Exception:
+        return False, 'invalid port'
+    protocol = str(cmd.get('protocol') or miner.get('protocol') or '')
+    try:
+        discovered_port = int(miner.get('port', 0))
+    except Exception:
+        discovered_port = 0
+    allowed_ports = {discovered_port}
+    if protocol == 'esp_miner':
+        allowed_ports.update({80, 8080})
+    elif protocol == 'cgminer_tcp':
+        allowed_ports.add(4028)
+    else:
+        allowed_ports.update({80, 8080, 4028})
+    if port not in allowed_ports:
+        return False, 'port does not match discovered miner'
+
+    method = str(cmd.get('method') or 'GET').upper()
+    path = _normalize_path(cmd.get('path'))
+    if len(path) > 160 or '..' in path or '://' in path:
+        return False, 'invalid path'
+
+    if port == 4028 or protocol == 'cgminer_tcp':
+        command = path.lstrip('/').replace('/', ',').split(',', 1)[0]
+        if method == 'GET' and command in CGMINER_READ_COMMANDS:
+            return True, ''
+        return False, 'cgminer relay commands are read-only'
+    if method == 'GET' and path in HTTP_GET_PATHS:
+        return True, ''
+    if method == 'POST' and path in HTTP_POST_PATHS:
+        return True, ''
+    if method == 'PATCH' and path in HTTP_PATCH_PATHS:
+        return True, ''
+    return False, 'command not allowed'
+
+
+async def forward_command(cmd: dict, miners_map: dict) -> dict:
     ip, port = cmd.get('miner_ip'), cmd.get('miner_port', 80)
     method   = cmd.get('method', 'GET').upper()
-    path     = cmd.get('path', '/api/system/info')
+    path     = _normalize_path(cmd.get('path', '/api/system/info'))
     body     = cmd.get('body')
     req_id   = cmd.get('request_id', '')
     protocol = cmd.get('protocol', 'esp_miner')
+
+    allowed, reason = _command_allowed(cmd, miners_map)
+    if not allowed:
+        log.warning(f'Blocked relay command for {ip}:{port}: {reason}')
+        return {'type': 'response', 'request_id': req_id, 'status': 403, 'error': reason}
 
     # cgminer TCP commands
     if port == 4028 or protocol == 'cgminer_tcp':
@@ -294,7 +360,7 @@ async def run_bridge(key: str, relay_url: str):
                         t = msg.get('type')
                         if t == 'command':
                             log.info(f'→ {msg.get("method","?")} {msg.get("path","?")} @ {msg.get("miner_ip","?")}')
-                            resp = await forward_command(msg)
+                            resp = await forward_command(msg, miners_map)
                             await ws.send(json.dumps(resp))
                         elif t == 'ping':
                             await ws.send(json.dumps({'type': 'pong'}))
@@ -349,6 +415,9 @@ Examples:
         print('\nError: --key required.\n')
         print('  Generate a key:  python3 kratos_link.py --generate-key')
         print('  Then run:        python3 kratos_link.py --key <your-key>\n')
+        sys.exit(1)
+    if not KEY_RE.fullmatch(args.key):
+        print('\nError: invalid key. Generate a fresh key with: python3 kratos_link.py --generate-key\n')
         sys.exit(1)
 
     print(f"""
