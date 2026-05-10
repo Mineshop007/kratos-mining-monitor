@@ -19,7 +19,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 /// a follow-up.
 class ChatService extends ChangeNotifier {
   static const _baseUrl = 'https://kratos.mineshop.eu/kratos/chat';
-  static const _wsUrl   = 'wss://kratos.mineshop.eu/kratos/chat/stream';
+  static const _wsUrl = 'wss://kratos.mineshop.eu/kratos/chat/stream';
 
   static const _kTokenKey = 'kratos_chat_token_v1';
   static const _kDisplayNameKey = 'kratos_chat_display_name_v1';
@@ -32,12 +32,15 @@ class ChatService extends ChangeNotifier {
   StreamSubscription? _wsSub;
   bool _connected = false;
   bool _ready = false;
+  bool _reconnectScheduled = false;
   String? _lastError;
 
   /// channel slug → list of messages (newest at end)
   final Map<String, List<ChatMessage>> _byChannel = {};
+
   /// channels exposed by server. Empty until /channels probe completes.
   final List<ChatChannel> _channels = [];
+
   /// Channels marked read-only by the server (block-feed et al.)
   final Set<String> _readOnly = {};
 
@@ -112,10 +115,12 @@ class ChatService extends ChangeNotifier {
   Future<void> loadHistory(String slug, {int limit = 50}) async {
     if (_token == null) return;
     try {
-      final resp = await http.get(
-        Uri.parse('$_baseUrl/$slug/messages?limit=$limit'),
-        headers: _authHeaders(),
-      ).timeout(const Duration(seconds: 12));
+      final resp = await http
+          .get(
+            Uri.parse('$_baseUrl/$slug/messages?limit=$limit'),
+            headers: _authHeaders(),
+          )
+          .timeout(const Duration(seconds: 12));
       if (resp.statusCode == 503) {
         _lastError = 'Discord offline';
         _safeNotify();
@@ -146,17 +151,19 @@ class ChatService extends ChangeNotifier {
     if (_readOnly.contains(slug)) return false;
     if (text.trim().isEmpty) return false;
     try {
-      final resp = await http.post(
-        Uri.parse('$_baseUrl/$slug/send'),
-        headers: {
-          ..._authHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'text': text,
-          'displayName': _displayName.isEmpty ? null : _displayName,
-        }),
-      ).timeout(const Duration(seconds: 12));
+      final resp = await http
+          .post(
+            Uri.parse('$_baseUrl/$slug/send'),
+            headers: {
+              ..._authHeaders(),
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'text': text,
+              'displayName': _displayName.isEmpty ? null : _displayName,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
       if (resp.statusCode == 200) {
         // Server will broadcast through WS too; that's authoritative.
         return true;
@@ -183,8 +190,6 @@ class ChatService extends ChangeNotifier {
     try {
       final ws = WebSocketChannel.connect(uri);
       _ws = ws;
-      _connected = true;
-      _safeNotify();
       _wsSub = ws.stream.listen(
         _onWsMessage,
         onDone: _onWsDone,
@@ -194,6 +199,16 @@ class ChatService extends ChangeNotifier {
         },
         cancelOnError: true,
       );
+      ws.ready.then((_) {
+        if (_disposed || _ws != ws) return;
+        _connected = true;
+        _reconnectScheduled = false;
+        _safeNotify();
+      }).catchError((e) {
+        if (_disposed || _ws != ws) return;
+        _lastError = 'ws connect: $e';
+        _onWsDone();
+      });
     } catch (e) {
       _connected = false;
       _ready = false;
@@ -237,9 +252,14 @@ class ChatService extends ChangeNotifier {
     _ws?.sink.close();
     _ws = null;
     _safeNotify();
-    if (_disposed) return;
-    // Auto-reconnect with simple backoff.
+    _scheduleReconnect();
+  }
+
+  void _scheduleReconnect() {
+    if (_disposed || _reconnectScheduled) return;
+    _reconnectScheduled = true;
     Future.delayed(const Duration(seconds: 5), () {
+      _reconnectScheduled = false;
       if (_disposed) return;
       connect();
     });
@@ -310,8 +330,8 @@ class ChatMessage {
       authorIsBot: author['isBot'] == true,
       authorIsWebhook: author['isWebhook'] == true,
       text: j['text'] as String? ?? '',
-      createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ??
-          DateTime.now(),
+      createdAt:
+          DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
       replyToId: j['replyTo'] as String?,
     );
   }

@@ -1,4 +1,4 @@
-package com.kratos.kratos
+package com.kratos.miningmonitor
 
 import io.flutter.embedding.android.FlutterActivity
 
