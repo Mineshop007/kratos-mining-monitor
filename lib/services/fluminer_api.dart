@@ -2,43 +2,80 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/miner.dart';
 
+// ── Run mode enum ─────────────────────────────────────────────────────────────
+
+enum FluMinerRunMode {
+  efficiency, // mode "0" — low power, best J/TH
+  normal,     // mode "1" — balanced
+  turbo;      // mode "2" — max hashrate
+
+  String get apiValue => switch (this) {
+        efficiency => '0',
+        normal => '1',
+        turbo => '2',
+      };
+
+  String get label => switch (this) {
+        efficiency => 'Efficiency',
+        normal => 'Normal',
+        turbo => 'Turbo',
+      };
+
+  static FluMinerRunMode fromApi(String? v) => switch (v) {
+        '0' => efficiency,
+        '2' => turbo,
+        _ => normal,
+      };
+}
+
+// ── API client ────────────────────────────────────────────────────────────────
+
 /// HTTP REST API client for FluMiner T3 stock firmware.
 ///
-/// API reference (reverse-engineered from pyasic + Fluminer firmware):
-///   GET  /api/overview   — device identity (no auth)
-///   GET  /api/summary    — mining stats (no auth)
-///   GET  /api/getPools   — configured pools (auth required)
-///   POST /api/login      — authenticate → session cookie
-///   POST /api/setPool    — update pool config (auth required)
+/// Public endpoints (no auth):
+///   GET  /api/overview         — device identity
+///   GET  /api/summary          — live mining stats
 ///
-/// Default credentials: root / root
+/// Auth-required endpoints (POST /api/login first → session cookie):
+///   GET  /api/getPools
+///   POST /api/setPool
+///   POST /api/updateFrequencyAndVoltage
+///   POST /api/updateRunCtrl
+///   POST /api/setAutoTune
+///   GET  /api/getAutoTuneStatus
+///
+/// Default credentials: admin / admin  (configurable per-miner in notes field)
 class FluMinerAPI {
   static final FluMinerAPI instance = FluMinerAPI._();
   FluMinerAPI._();
 
   static const _timeout = Duration(seconds: 8);
-  static const _defaultUser = 'root';
-  static const _defaultPass = 'root';
+  static const defaultUsername = 'admin';
+  static const defaultPassword = 'admin';
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
-  Future<String?> _login(String ip, int port) async {
+  Future<String?> login(String ip, int port,
+      {String username = defaultUsername,
+      String password = defaultPassword}) async {
     try {
-      final resp = await http.post(
-        Uri.parse('http://$ip:$port/api/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'username': _defaultUser, 'password': _defaultPass}),
-      ).timeout(_timeout);
+      final resp = await http
+          .post(
+            Uri.parse('http://$ip:$port/api/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'username': username, 'password': password}),
+          )
+          .timeout(_timeout);
       if (resp.statusCode != 200) return null;
       final data = jsonDecode(resp.body) as Map<String, dynamic>?;
-      if (data?['code'] != 0) return null;
-      // Session cookie returned as Set-Cookie header
-      final cookie = resp.headers['set-cookie'];
-      if (cookie != null) {
-        final match = RegExp(r'session=([^;]+)').firstMatch(cookie);
-        if (match != null) return match.group(1);
-      }
-      return 'authenticated'; // some firmware just sets status 200
+      if (data == null || data['code'] != 0) return null;
+      // Extract session cookie
+      final setCookie = resp.headers['set-cookie'] ?? '';
+      final match = RegExp(r'session=([^;,\s]+)').firstMatch(setCookie);
+      if (match != null) return match.group(1);
+      // Some firmware returns token in body
+      final token = data['data']?['token'] as String?;
+      return token ?? 'ok';
     } catch (_) {
       return null;
     }
@@ -48,7 +85,6 @@ class FluMinerAPI {
 
   Future<MinerStats> fetchStats(String ip, {int port = 80}) async {
     try {
-      // Parallel fetch for speed
       final results = await Future.wait([
         _getJson('http://$ip:$port/api/summary'),
         _getJson('http://$ip:$port/api/overview'),
@@ -57,38 +93,39 @@ class FluMinerAPI {
       final summaryResp = results[0];
       final overviewResp = results[1];
 
-      // ── Parse summary ────────────────────────────────────────────────────
+      // ── Summary ───────────────────────────────────────────────────────────
       final summaryData = summaryResp?['data'] as Map<String, dynamic>?;
       final summaries = summaryData?['summary'] as List?;
       final s = (summaries != null && summaries.isNotEmpty)
           ? summaries[0] as Map<String, dynamic>
           : <String, dynamic>{};
 
-      // Hashrate: 'hrt' field in GH/s
       final hashrateGH = _toDouble(s['hrt']) ?? 0.0;
 
-      // Temp: "boardTemp|chipTemp" pipe-separated
+      // temp: "boardTemp|chipTemp" pipe-separated
       final temps = _splitPipe(s['temp'] as String?);
       final outTemp = temps.isNotEmpty ? temps[0] : 0.0;
 
-      // Fans: "r1|r2|r3|r4" pipe-separated RPM
+      // fan: "r1|r2|r3|r4" pipe-separated RPM
       final fanSpeeds = _splitPipe(s['fan'] as String?);
       final fanRPM = fanSpeeds.isNotEmpty ? fanSpeeds[0].toInt() : 0;
 
-      // Power
       final powerDraw = _toDouble(s['power']) ?? 0.0;
-
-      // Uptime (seconds)
       final uptime = _toInt(s['uptime']) ?? 0;
-
-      // Shares
       final accepted = _toInt(s['acc']) ?? 0;
       final rejected = _toInt(s['rej']) ?? 0;
 
-      // Pool (active)
+      // Frequency & voltage (may or may not be in summary)
+      final frequency = _toDouble(s['frequency']) ?? 0.0;
+      final voltageRaw = _toInt(s['voltage']) ?? 0; // mV
+
+      // Run mode
+      final runMode = FluMinerRunMode.fromApi(s['mode']?.toString());
+
+      // Active pool
       final poolHost = s['pool'] as String? ?? '';
       final poolPort = s['port']?.toString() ?? '3333';
-      final poolAlive = s['poolAlive'] == '1';
+      final poolAlive = s['poolAlive'] == '1' || s['poolAlive'] == 1;
       final pools = poolHost.isNotEmpty
           ? [
               PoolInfo(
@@ -101,40 +138,136 @@ class FluMinerAPI {
             ]
           : <PoolInfo>[];
 
-      // ── Parse overview ────────────────────────────────────────────────────
+      // ── Overview ──────────────────────────────────────────────────────────
       final overviewData = overviewResp?['data'] as Map<String, dynamic>?;
-      final minerInfo = overviewData?['minerInfo'] as Map<String, dynamic>? ?? {};
+      final minerInfo =
+          overviewData?['minerInfo'] as Map<String, dynamic>? ?? {};
       final firmware = minerInfo['minerVersion'] as String? ?? '';
 
-      // Status
       final status = hashrateGH > 0
           ? (outTemp > 85 ? MinerStatus.warning : MinerStatus.online)
           : MinerStatus.warning;
 
       return MinerStats(
-        hashrate5s: hashrateGH,    // stored in GH/s
+        hashrate5s: hashrateGH,
         hashrateAvg: hashrateGH,
         outTemp: outTemp,
         fanRPM: fanRPM,
-        fanPercent: 0,
         accepted: accepted,
         rejected: rejected,
         pools: pools,
         uptime: uptime,
-        frequency: 0,
+        frequency: frequency,
         powerDraw: powerDraw,
-        bestShare: 0,
+        firmware: firmware,
+        model: 'FluMiner T3',
+        type: MinerType.fluMinerT3,
+        coreVoltage: voltageRaw, // reuse existing field
+        workMode: runMode.index,  // 0=efficiency 1=normal 2=turbo
         status: status,
         lastUpdated: DateTime.now(),
-        model: firmware.isNotEmpty ? 'FluMiner T3 ($firmware)' : 'FluMiner T3',
-        type: MinerType.fluMinerT3,
       );
     } catch (_) {
       return MinerStats.offline;
     }
   }
 
-  // ── Set Pool ──────────────────────────────────────────────────────────────
+  // ── OC: Frequency + Voltage ───────────────────────────────────────────────
+
+  Future<bool> setFrequencyAndVoltage(
+    String ip,
+    int port, {
+    required int frequencyMHz,
+    required int voltageMv,
+  }) async {
+    final session = await login(ip, port);
+    if (session == null) return false;
+    try {
+      final resp = await http
+          .post(
+            Uri.parse('http://$ip:$port/api/updateFrequencyAndVoltage'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': 'session=$session',
+            },
+            body: jsonEncode(
+                {'frequency': frequencyMHz, 'voltage': voltageMv}),
+          )
+          .timeout(_timeout);
+      if (resp.statusCode != 200) return false;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>?;
+      return data?['code'] == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ── Run Mode ──────────────────────────────────────────────────────────────
+
+  Future<bool> setRunMode(String ip, int port, FluMinerRunMode mode) async {
+    final session = await login(ip, port);
+    if (session == null) return false;
+    try {
+      final resp = await http
+          .post(
+            Uri.parse('http://$ip:$port/api/updateRunCtrl'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': 'session=$session',
+            },
+            body: jsonEncode({'fan': '1', 'mode': mode.apiValue}),
+          )
+          .timeout(_timeout);
+      if (resp.statusCode != 200) return false;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>?;
+      return data?['code'] == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ── Autotune ──────────────────────────────────────────────────────────────
+
+  Future<bool> startAutoTune(String ip, int port) async {
+    final session = await login(ip, port);
+    if (session == null) return false;
+    try {
+      final resp = await http
+          .post(
+            Uri.parse('http://$ip:$port/api/setAutoTune'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': 'session=$session',
+            },
+            body: jsonEncode({}),
+          )
+          .timeout(_timeout);
+      if (resp.statusCode != 200) return false;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>?;
+      return data?['code'] == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getAutoTuneStatus(String ip, int port) async {
+    try {
+      final resp = await http
+          .get(
+            Uri.parse('http://$ip:$port/api/getAutoTuneStatus'),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(_timeout);
+      if (resp.statusCode != 200) return null;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>?;
+      if (data?['code'] != 0) return null;
+      return data?['data'] as Map<String, dynamic>?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── Pool Config ───────────────────────────────────────────────────────────
 
   Future<bool> setPool(
     String ip,
@@ -147,68 +280,63 @@ class FluMinerAPI {
     int? fallbackPort,
     String? fallbackUser,
   }) async {
+    final session = await login(ip, port);
+    if (session == null) return false;
     try {
-      final session = await _login(ip, port);
-      if (session == null) return false;
-
-      final cookies = session != 'authenticated' ? 'session=$session' : '';
       final pools = <Map<String, String>>[
         {'url': 'stratum+tcp://$host:$poolPort', 'user': user, 'pass': pass},
         if (fallbackHost != null && fallbackHost.isNotEmpty)
           {
-            'url': 'stratum+tcp://$fallbackHost:${fallbackPort ?? 3333}',
+            'url':
+                'stratum+tcp://$fallbackHost:${fallbackPort ?? 3333}',
             'user': fallbackUser ?? user,
             'pass': pass,
           },
       ];
-
-      final body = jsonEncode({'pools': pools});
-      final resp = await http.post(
-        Uri.parse('http://$ip:$port/api/setPool'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (cookies.isNotEmpty) 'Cookie': cookies,
-        },
-        body: body,
-      ).timeout(_timeout);
-
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body) as Map<String, dynamic>?;
-        return data?['code'] == 0;
-      }
-      return false;
+      final resp = await http
+          .post(
+            Uri.parse('http://$ip:$port/api/setPool'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Cookie': 'session=$session',
+            },
+            body: jsonEncode({'pools': pools}),
+          )
+          .timeout(_timeout);
+      if (resp.statusCode != 200) return false;
+      final data = jsonDecode(resp.body) as Map<String, dynamic>?;
+      return data?['code'] == 0;
     } catch (_) {
       return false;
     }
   }
 
-  // ── Fingerprint (for scanner) ─────────────────────────────────────────────
+  // ── Scanner fingerprint (no auth) ─────────────────────────────────────────
 
-  /// Returns non-null DiscoveredMiner if IP is a FluMiner device.
-  static Future<Map<String, dynamic>?> probe(String ip, {int port = 80}) async {
+  static Future<Map<String, dynamic>?> probe(String ip,
+      {int port = 80}) async {
     try {
-      final resp = await http.get(
-        Uri.parse('http://$ip:$port/api/overview'),
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(milliseconds: 1800));
-
+      final resp = await http
+          .get(
+            Uri.parse('http://$ip:$port/api/overview'),
+            headers: {'Accept': 'application/json'},
+          )
+          .timeout(const Duration(milliseconds: 2000));
       if (resp.statusCode != 200) return null;
-      final body = resp.body.trim();
-      if (body.isEmpty) return null;
-      final data = jsonDecode(body) as Map<String, dynamic>?;
-      if (data == null) return null;
-
-      // FluMiner always returns {code: 0, data: {minerInfo: {...}}}
-      final code = data['code'];
-      final innerData = data['data'] as Map<String, dynamic>?;
-      if (code != 0 || innerData == null) return null;
-      if (!innerData.containsKey('minerInfo')) return null;
-
+      final data = jsonDecode(resp.body) as Map<String, dynamic>?;
+      if (data?['code'] != 0) return null;
+      final innerData = data?['data'] as Map<String, dynamic>?;
+      if (innerData == null || !innerData.containsKey('minerInfo')) return null;
       final minerInfo = innerData['minerInfo'] as Map<String, dynamic>? ?? {};
+      // Identify: model == "T3" OR macAddress starts with "70:69:79"
+      final model = minerInfo['model'] as String? ?? '';
+      final mac = (minerInfo['macAddress'] as String? ?? '').toLowerCase();
+      if (model != 'T3' && !mac.startsWith('70:69:79')) return null;
       return {
         'firmware': minerInfo['minerVersion'] as String? ?? '',
         'hostname': 'FluMiner T3',
-        'model': 'T3',
+        'model': model,
+        'mac': mac,
       };
     } catch (_) {
       return null;

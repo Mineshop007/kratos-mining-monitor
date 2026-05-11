@@ -14,6 +14,7 @@ import '../services/miner_store.dart';
 import '../services/history_service.dart';
 import 'pool_editor_screen.dart';
 import 'oc_screen.dart';
+import 'fluminer_oc_screen.dart';
 import 'schedule_screen.dart';
 import 'apply_preset_sheet.dart';
 import '../services/miner_mode_prefs.dart';
@@ -326,6 +327,20 @@ class _MinerDetailScreenState extends State<MinerDetailScreen> {
               const SizedBox(height: 8),
             ],
             if (miner.type == MinerType.fluMinerT3) ...[
+              // FluMiner T3: in-app OC + mode + autotune
+              _ActionBtn(
+                'OC, Mode & Autotune',
+                Icons.tune,
+                Colors.cyan,
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        FluMinerOCScreen(miner: miner, stats: s),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               // FluMiner T3: pool config via its own web UI
               _ActionBtn(
                 'Pool Config — Open Web UI',
