@@ -17,7 +17,6 @@ import 'add_miner_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/relay_service.dart';
 import '../widgets/update_banner.dart';
-import '../widgets/bitcoin_node_card.dart';
 import 'hall_of_fame_screen.dart';
 import 'giveaway_screen.dart';
 
@@ -321,7 +320,6 @@ class _OverviewBody extends StatelessWidget {
               minerIds: store.miners.map((m) => m.id).toList(),
             ),
             const SizedBox(height: 14),
-            const BitcoinNodeCard(),
             const SizedBox(height: 14),
             _TileGrid(store: store, onSwitchTab: onSwitchTab),
           ],

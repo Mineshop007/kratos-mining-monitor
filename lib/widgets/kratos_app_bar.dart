@@ -36,15 +36,29 @@ class KratosAppBar extends StatelessWidget implements PreferredSizeWidget {
     if (leadingWidget == null) {
       if (canPop) {
         // Back-navigation screen — show back arrow, no KLAW
-        leadingWidget = const BackButton();
+        // Any screen with KLAW — tapping always pops to root (home tabs)
+        leadingWidget = GestureDetector(
+          onTap: () => Navigator.of(context).popUntil((r) => r.isFirst),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Image.asset(
+              'assets/images/klaw-mascot.png',
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+            ),
+          ),
+        );
       } else if (showKlaw) {
-        // Root screen — show KLAW logo
-        leadingWidget = Padding(
-          padding: const EdgeInsets.all(8),
-          child: Image.asset(
-            'assets/images/klaw-mascot.png',
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.medium,
+        // Root screen — show KLAW logo (tapping still navigates home)
+        leadingWidget = GestureDetector(
+          onTap: () => Navigator.of(context).popUntil((r) => r.isFirst),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Image.asset(
+              'assets/images/klaw-mascot.png',
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+            ),
           ),
         );
       }
