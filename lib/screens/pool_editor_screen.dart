@@ -8,6 +8,7 @@ import '../models/miner.dart';
 import '../services/cgminer_api.dart';
 import '../services/esp_miner_api.dart';
 import '../services/avalon_api.dart';
+import '../services/fluminer_api.dart';
 import '../services/miner_store.dart';
 import '../services/pool_catalog_service.dart';
 import '../services/relay_service.dart';
@@ -54,6 +55,7 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
 
   bool get _isEsp => widget.miner.type.apiType == ApiType.espMinerHttp;
   bool get _isAvalon => widget.miner.type.apiType == ApiType.avalonHttp;
+  bool get _isFluMiner => widget.miner.type.apiType == ApiType.fluMinerHttp;
 
   @override
   void initState() {
@@ -216,6 +218,26 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
           isRemote: true,
         );
       }
+    } else if (_isFluMiner) {
+      // FluMiner T3 — POST /api/setPool with session cookie auth
+      final port1 = int.tryParse(_port1.text.trim()) ?? 3333;
+      final user1 = _user1.text.trim().isEmpty ? 'worker' : _user1.text.trim();
+      final host2 = _showFallback ? _host2.text.trim() : null;
+      final port2 =
+          _showFallback ? (int.tryParse(_port2.text.trim()) ?? 3333) : null;
+      final user2 = _showFallback
+          ? (_user2.text.trim().isEmpty ? user1 : _user2.text.trim())
+          : null;
+      ok = await FluMinerAPI.instance.setPool(
+        widget.miner.ip,
+        widget.miner.port,
+        host: host1,
+        poolPort: port1,
+        user: user1,
+        fallbackHost: host2,
+        fallbackPort: port2,
+        fallbackUser: user2,
+      );
     } else if (_isAvalon) {
       // Avalon Nano 3S / Nano 3 — HTTP PATCH with host+port (same format as ESP-Miner)
       final port1 = int.tryParse(_port1.text.trim()) ?? 3333;
@@ -343,6 +365,7 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
 
     final isAvalonReboot = !_isEsp &&
         !_isAvalon &&
+        !_isFluMiner &&
         (widget.miner.type == MinerType.avalonQ ||
             widget.miner.type == MinerType.avalonMini3);
     setState(() {
@@ -375,6 +398,8 @@ class _PoolEditorScreenState extends State<PoolEditorScreen> {
       backgroundColor: kc.bg,
       appBar: AppBar(
         backgroundColor: kc.bg,
+        leading: Navigator.canPop(context) ? BackButton(color: kc.text) : null,
+        iconTheme: IconThemeData(color: kc.text),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

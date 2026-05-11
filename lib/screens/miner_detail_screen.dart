@@ -290,9 +290,12 @@ class _MinerDetailScreenState extends State<MinerDetailScreen> {
             _InfoRow('Type', miner.type.displayName),
             _InfoRow(
                 'API',
-                miner.type.apiType == ApiType.espMinerHttp
-                    ? 'ESP-Miner HTTP'
-                    : 'CGMiner TCP'),
+                switch (miner.type.apiType) {
+                  ApiType.espMinerHttp => 'ESP-Miner HTTP',
+                  ApiType.avalonHttp => 'Avalon HTTP',
+                  ApiType.fluMinerHttp => 'FluMiner HTTP',
+                  ApiType.cgminerTcp => 'CGMiner TCP',
+                }),
             _InfoRow('IP Address', miner.ip, copyable: true),
             _InfoRow('Port', '${miner.port}', copyable: true),
             if ((s?.frequency ?? 0) > 0)
@@ -327,7 +330,7 @@ class _MinerDetailScreenState extends State<MinerDetailScreen> {
               const SizedBox(height: 8),
             ],
             if (miner.type == MinerType.fluMinerT3) ...[
-              // FluMiner T3: in-app OC + mode + autotune
+              // FluMiner T3: OC/mode/autotune in-app
               _ActionBtn(
                 'OC, Mode & Autotune',
                 Icons.tune,
@@ -341,14 +344,19 @@ class _MinerDetailScreenState extends State<MinerDetailScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              // FluMiner T3: pool config via its own web UI
+              // FluMiner T3: in-app pool editor (POST /api/setPool)
               _ActionBtn(
-                'Pool Config — Open Web UI',
-                Icons.open_in_browser,
+                'Configure Pools',
+                Icons.dns,
                 KratosTheme.orange,
-                () => launchUrl(
-                  Uri.parse('http://${miner.ip}'),
-                  mode: LaunchMode.externalApplication,
+                () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PoolEditorScreen(
+                      miner: miner,
+                      currentPools: s?.pools ?? [],
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -1740,9 +1748,12 @@ class _EditMinerSheetState extends State<_EditMinerSheet> {
                           : KratosTheme.blue.withOpacity(0.25)),
                 ),
                 child: Text(
-                  _type.apiType == ApiType.espMinerHttp
-                      ? 'ESP-Miner HTTP API · port ${_type.defaultPort}'
-                      : 'CGMiner TCP API · port ${_type.defaultPort}',
+                  switch (_type.apiType) {
+                    ApiType.espMinerHttp => 'ESP-Miner HTTP · port ${_type.defaultPort}',
+                    ApiType.avalonHttp => 'Avalon HTTP · port ${_type.defaultPort}',
+                    ApiType.fluMinerHttp => 'FluMiner HTTP · port ${_type.defaultPort}',
+                    ApiType.cgminerTcp => 'CGMiner TCP · port ${_type.defaultPort}',
+                  },
                   style: TextStyle(
                       fontSize: 11,
                       color: _type.apiType == ApiType.espMinerHttp

@@ -86,13 +86,27 @@ class _FluMinerOCScreenState extends State<FluMinerOCScreen> {
   // ── Autotune ─────────────────────────────────────────────────────────────
 
   Future<void> _startAutoTune() async {
-    setState(() { _autoTuning = true; _result = '⏳ Starting autotune — this takes several minutes…'; });
+    setState(() { _autoTuning = true; _result = '⏳ Logging in…'; });
+    // Test auth first so we can give a specific error
+    final session = await FluMinerAPI.instance.login(
+        widget.miner.ip, widget.miner.port);
+    if (session == null) {
+      setState(() {
+        _autoTuning = false;
+        _result = '❌ Login failed — check miner is on same WiFi. '
+            'Default creds: root/root or admin/123456.';
+      });
+      return;
+    }
+    setState(() => _result = '⏳ Starting autotune…');
     final ok = await FluMinerAPI.instance.startAutoTune(
         widget.miner.ip, widget.miner.port);
     if (!ok) {
       setState(() {
         _autoTuning = false;
-        _result = '❌ Autotune start failed — check connection.';
+        _result = '❌ Autotune endpoint failed — '
+            'your firmware may not support it. '
+            'Try OC manually instead.';
       });
       return;
     }
