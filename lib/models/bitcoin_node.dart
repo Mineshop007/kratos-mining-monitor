@@ -42,13 +42,6 @@ class BitcoinNodeConfig {
         proxyUrl: json['proxyUrl'] as String?,
       );
 
-  /// Quick constructor for Mineshop pool node via proxy URL
-  factory BitcoinNodeConfig.mineshopPool() => const BitcoinNodeConfig(
-        host: 'POOL_NODE_HOST',
-        port: 80,
-        proxyUrl:
-            'http://POOL_NODE_HOST/node-rpc/5tggCi3QJxzcp6btwlWsk6Mm8YgMTL40/',
-      );
 }
 
 class BitcoinNodeStats {
