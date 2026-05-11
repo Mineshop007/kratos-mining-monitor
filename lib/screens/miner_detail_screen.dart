@@ -326,10 +326,8 @@ class _MinerDetailScreenState extends State<MinerDetailScreen> {
               const SizedBox(height: 8),
             ],
             if (miner.type == MinerType.avalonQ ||
-                miner.type == MinerType.avalonMini3 ||
-                miner.type == MinerType.avalonNano3s ||
-                miner.type == MinerType.avalonNano3) ...[
-              // All Avalon home devices: pool config via the miner’s own web UI
+                miner.type == MinerType.avalonMini3) ...[
+              // Avalon Q / Mini3 (CGMiner TCP): pool config via web UI only
               _ActionBtn(
                 'Pool Config — Open Web UI',
                 Icons.open_in_browser,
@@ -341,6 +339,7 @@ class _MinerDetailScreenState extends State<MinerDetailScreen> {
               ),
               const SizedBox(height: 8),
             ] else ...[
+              // avalonNano3s/Nano3 use in-app pool editor (supports relay + Avalon PATCH API)
               _ActionBtn(
                 'Configure Pools',
                 Icons.dns,

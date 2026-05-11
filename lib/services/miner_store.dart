@@ -13,6 +13,7 @@ import 'btc_price.dart';
 import 'notification_service.dart';
 import 'best_diff_tracker.dart';
 import 'haptic_service.dart';
+import 'widget_service.dart';
 import 'history_service.dart';
 
 class MinerStore extends ChangeNotifier {
@@ -190,6 +191,16 @@ class MinerStore extends ChangeNotifier {
     _prevStats[miner.id] = s;
     stats[miner.id] = s;
 
+    // Auto-upgrade stored miner type if stats reveal a more specific type
+    // (e.g. miner was saved as 'generic' before Avalon detection was added).
+    if (s.status != MinerStatus.offline &&
+        s.type != MinerType.generic &&
+        s.type != miner.type) {
+      miner.type = s.type;
+      // ignore: unawaited_futures
+      save();
+    }
+
     // Persist hashrate sample (real readings only).
     if (s.status != MinerStatus.offline && s.hashrateAvg > 0) {
       // ignore: unawaited_futures
@@ -223,6 +234,8 @@ class MinerStore extends ChangeNotifier {
       _save();
     }
     notifyListeners();
+    // Push latest stats to home screen widget (fire-and-forget)
+    WidgetService.instance.update(this).catchError((_) {});
   }
 
   int _updateOfflineTracking(String minerId, MinerStats current) {
