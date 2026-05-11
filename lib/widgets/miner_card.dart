@@ -15,6 +15,11 @@ import '../services/miner_mode_prefs.dart';
 import '../utils/block_calc.dart';
 import '../screens/solo_luck_sheet.dart';
 
+String _poolDisplayHost(PoolInfo pool) => pool.host;
+
+Color _rejectColor(int rejected) =>
+    rejected > 1000 ? const Color(0xFFff4d4d) : const Color(0xFFffa657);
+
 // ── List Card ─────────────────────────────────────────────────────────────────
 
 class MinerCard extends StatefulWidget {
@@ -117,37 +122,37 @@ class _MinerCardState extends State<MinerCard>
           // in an unbounded ListView context (without it the row height = 0)
           child: IntrinsicHeight(
             child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Left accent border
-              Container(width: 4, color: accentColor),
-              // Main content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _CardHeader(
-                      miner: widget.miner,
-                      stats: s,
-                      status: status,
-                      pulseAnim: _pulseAnim,
-                    ),
-                    _AutotuneChip(minerName: widget.miner.name),
-                    Container(height: 1, color: const Color(0xFF21262d)),
-                    _CardStats(stats: s),
-                    // Sparkline + earnings footer
-                    if (s != null && s.hashrateHistory.isNotEmpty)
-                      _CardFooter(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Left accent border
+                Container(width: 4, color: accentColor),
+                // Main content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _CardHeader(
+                        miner: widget.miner,
                         stats: s,
-                        earningsPerDay: widget.earningsPerDay,
-                        minerId: widget.miner.ip,
+                        status: status,
+                        pulseAnim: _pulseAnim,
                       ),
-                  ],
+                      _AutotuneChip(minerName: widget.miner.name),
+                      Container(height: 1, color: const Color(0xFF21262d)),
+                      _CardStats(stats: s),
+                      // Sparkline + earnings footer
+                      if (s != null && s.hashrateHistory.isNotEmpty)
+                        _CardFooter(
+                          stats: s,
+                          earningsPerDay: widget.earningsPerDay,
+                          minerId: widget.miner.ip,
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-            ),  // Row
-          ),  // IntrinsicHeight
+              ],
+            ), // Row
+          ), // IntrinsicHeight
         ),
       ),
     );
@@ -198,6 +203,7 @@ class _CardHeader extends StatelessWidget {
                   color: Color(0xFFe6edf3),
                   letterSpacing: 0.2,
                 ),
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
@@ -212,8 +218,7 @@ class _CardHeader extends StatelessWidget {
                 ),
                 if (stats != null && stats!.pools.isNotEmpty) ...[
                   const Text('  ·  ',
-                      style:
-                          TextStyle(color: Color(0xFF30363D), fontSize: 11)),
+                      style: TextStyle(color: Color(0xFF30363D), fontSize: 11)),
                   Flexible(
                     child: Text(
                       _poolHost(stats!.pools),
@@ -235,7 +240,7 @@ class _CardHeader extends StatelessWidget {
 
   String _poolHost(List<PoolInfo> pools) {
     final active = pools.where((p) => p.active).firstOrNull ?? pools.first;
-    return active.host;
+    return _poolDisplayHost(active);
   }
 }
 
@@ -247,54 +252,90 @@ class _CardStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = stats;
     final p = DashboardPrefs.instance;
-    final fanVal = s == null ? '--'
-        : s.fanRPM > 0 ? '${s.fanRPM}r'
-        : s.fanPercent > 0 ? '${s.fanPercent}%' : '--';
+    final rejected = s?.rejected ?? 0;
+    final fanVal = s == null
+        ? '--'
+        : s.fanRPM > 0
+            ? '${s.fanRPM}r'
+            : s.fanPercent > 0
+                ? '${s.fanPercent}%'
+                : '--';
 
     // Build visible cells for each row, then intersperse dividers
     final row1 = <Widget>[
-      if (p.showHashrate) _StatCell(
-        label: 'HASHRATE', value: s?.hashrateFormatted ?? '--',
-        color: const Color(0xFF39d353), icon: Icons.flash_on,
-        trend: s?.trendDirection,
-      ),
-      if (p.showTemp) _StatCell(
-        label: 'CHIP°',
-        value: s != null && s.outTemp > 0 ? '${s.outTemp.toInt()}°' : '--',
-        color: _tempColor(s?.outTemp ?? 0), icon: Icons.thermostat_outlined,
-      ),
+      if (p.showHashrate)
+        _StatCell(
+          label: 'HASHRATE',
+          value: s?.hashrateFormatted ?? '--',
+          color: const Color(0xFF39d353),
+          icon: Icons.flash_on,
+          trend: s?.trendDirection,
+        ),
+      if (p.showTemp)
+        _StatCell(
+          label: 'CHIP°',
+          value: s != null && s.outTemp > 0 ? '${s.outTemp.toInt()}°' : '--',
+          color: _tempColor(s?.outTemp ?? 0),
+          icon: Icons.thermostat_outlined,
+        ),
       // Avalon Q: show inlet/chassis temp instead of VR temp
-      if (p.showTemp && (s?.inletTemp ?? 0) > 0) _StatCell(
-        label: 'INLET°',
-        value: '${s!.inletTemp.toInt()}°',
-        color: _tempColor(s.inletTemp), icon: Icons.device_thermostat_outlined,
-      ) else if (p.showTemp) _StatCell(
-        label: 'VR°',
-        value: s != null && s.vrTemp > 0 ? '${s.vrTemp.toInt()}°' : '--',
-        color: _vrTempColor(s?.vrTemp ?? 0), icon: Icons.electric_bolt,
-      ),
-      if (p.showFanSpeed) _StatCell(
-        label: 'FAN', value: fanVal,
-        color: const Color(0xFF58a6ff), icon: Icons.air,
-      ),
+      if (p.showTemp && (s?.inletTemp ?? 0) > 0)
+        _StatCell(
+          label: 'INLET°',
+          value: '${s!.inletTemp.toInt()}°',
+          color: _tempColor(s.inletTemp),
+          icon: Icons.device_thermostat_outlined,
+        )
+      else if (p.showTemp)
+        _StatCell(
+          label: 'VR°',
+          value: s != null && s.vrTemp > 0 ? '${s.vrTemp.toInt()}°' : '--',
+          color: _vrTempColor(s?.vrTemp ?? 0),
+          icon: Icons.electric_bolt,
+        ),
+      if (p.showFanSpeed)
+        _StatCell(
+          label: 'FAN',
+          value: fanVal,
+          color: const Color(0xFF58a6ff),
+          icon: Icons.air,
+        ),
     ];
 
     final row2 = <Widget>[
-      if (p.showBestDiff) _StatCell(
-        label: 'BEST DIFF', value: s?.bestShareFormatted ?? '--',
-        color: const Color(0xFFd2a8ff), icon: Icons.star_outline,
-      ),
-      if (p.showPowerDraw) _StatCell(
-        label: 'POWER',
-        value: s != null && s.powerDraw > 0 ? '${s.powerDraw.toStringAsFixed(1)}W' : '--',
-        color: const Color(0xFFffa657), icon: Icons.power,
-      ),
-      if (p.showEfficiency) _StatCell(
-        label: 'J/TH',
-        value: s != null && s.efficiency > 0 ? '${s.efficiency.toStringAsFixed(0)}' : '--',
-        color: _effColor(s?.efficiency ?? 0), icon: Icons.speed,
-      ),
+      if (p.showBestDiff)
+        _StatCell(
+          label: 'BEST DIFF',
+          value: s?.bestShareFormatted ?? '--',
+          color: const Color(0xFFd2a8ff),
+          icon: Icons.star_outline,
+        ),
+      if (p.showPowerDraw)
+        _StatCell(
+          label: 'POWER',
+          value: s != null && s.powerDraw > 0
+              ? '${s.powerDraw.toStringAsFixed(1)}W'
+              : '--',
+          color: const Color(0xFFffa657),
+          icon: Icons.power,
+        ),
+      if (p.showEfficiency)
+        _StatCell(
+          label: 'J/TH',
+          value: s != null && s.efficiency > 0
+              ? '${s.efficiency.toStringAsFixed(0)}'
+              : '--',
+          color: _effColor(s?.efficiency ?? 0),
+          icon: Icons.speed,
+        ),
       if (p.showUptime) _UptimeCell(stats: s),
+      if (rejected > 500)
+        _StatCell(
+          label: 'REJECTS',
+          value: rejected.toString(),
+          color: _rejectColor(rejected),
+          icon: Icons.warning_amber_rounded,
+        ),
     ];
 
     if (row1.isEmpty && row2.isEmpty) return const SizedBox.shrink();
@@ -306,7 +347,9 @@ class _CardStats extends StatelessWidget {
           child: Row(children: _withDividers(row1)),
         ),
       if (row1.isNotEmpty && row2.isNotEmpty)
-        Container(height: 1, color: const Color(0xFF21262d),
+        Container(
+            height: 1,
+            color: const Color(0xFF21262d),
             margin: const EdgeInsets.only(top: 8)),
       if (row2.isNotEmpty)
         Padding(
@@ -326,12 +369,6 @@ class _CardStats extends StatelessWidget {
     return result;
   }
 
-  String _fmtHashrate(double ghs) {
-    if (ghs >= 1000) return '${(ghs / 1000).toStringAsFixed(2)} TH/s';
-    if (ghs >= 1)    return '${ghs.toStringAsFixed(1)} GH/s';
-    return '${(ghs * 1000).toStringAsFixed(0)} MH/s';
-  }
-
   Color _tempColor(double t) {
     if (t > 85) return const Color(0xFFff4d4d);
     if (t > 75) return const Color(0xFFffd700);
@@ -346,10 +383,10 @@ class _CardStats extends StatelessWidget {
   }
 
   Color _effColor(double jth) {
-    if (jth <= 0)  return const Color(0xFF6e7681);
-    if (jth < 15)  return const Color(0xFF39d353); // great
-    if (jth < 25)  return const Color(0xFFffd700); // ok
-    return const Color(0xFFff4d4d);                // hot/inefficient
+    if (jth <= 0) return const Color(0xFF6e7681);
+    if (jth < 15) return const Color(0xFF39d353); // great
+    if (jth < 25) return const Color(0xFFffd700); // ok
+    return const Color(0xFFff4d4d); // hot/inefficient
   }
 }
 
@@ -358,7 +395,8 @@ class _CardFooter extends StatelessWidget {
   final double earningsPerDay;
   final String minerId;
 
-  const _CardFooter({required this.stats, this.earningsPerDay = 0, this.minerId = ''});
+  const _CardFooter(
+      {required this.stats, this.earningsPerDay = 0, this.minerId = ''});
 
   List<Widget> _modeChip(BuildContext context) {
     final poolUrl = stats.pools.isNotEmpty ? stats.pools.first.url : '';
@@ -375,14 +413,11 @@ class _CardFooter extends StatelessWidget {
     Color color;
     if (solo) {
       color = KratosTheme.orange;
-      if (networkThs > 0 && hashrateThs > 0) {
-        label = BlockCalc.formatOneInX(hashrateThs, networkThs) + '/mo';
-      } else {
-        label = 'solo';
-      }
+      label = 'solo';
     } else {
       color = const Color(0xFFf7931a);
-      label = earningsPerDay > 0 ? '\$${earningsPerDay.toStringAsFixed(2)}/d' : '';
+      label =
+          earningsPerDay > 0 ? '\$${earningsPerDay.toStringAsFixed(2)}/d' : '';
     }
     if (label.isEmpty) return [];
     final chip = Container(
@@ -392,9 +427,12 @@ class _CardFooter extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Text(label, style: TextStyle(fontSize: 10,
-          fontWeight: FontWeight.w700, color: color,
-          fontFamily: 'Courier')),
+      child: Text(label,
+          style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: color,
+              fontFamily: 'Courier')),
     );
     // Solo chips are tappable — opens the full probability breakdown
     final tappable = solo && networkThs > 0 && hashrateThs > 0;
@@ -516,10 +554,10 @@ class _MinerGridCardState extends State<MinerGridCard>
   }
 
   Color _effColor(double jth) {
-    if (jth <= 0)  return const Color(0xFF6e7681);
-    if (jth < 15)  return const Color(0xFF39d353);
-    if (jth < 22)  return const Color(0xFFffd700);
-    if (jth < 30)  return const Color(0xFFffa657);
+    if (jth <= 0) return const Color(0xFF6e7681);
+    if (jth < 15) return const Color(0xFF39d353);
+    if (jth < 22) return const Color(0xFFffd700);
+    if (jth < 30) return const Color(0xFFffa657);
     return const Color(0xFFff4d4d);
   }
 
@@ -602,9 +640,7 @@ class _MinerGridCardState extends State<MinerGridCard>
                       ),
                       if (trend != 0)
                         Icon(
-                          trend > 0
-                              ? Icons.trending_up
-                              : Icons.trending_down,
+                          trend > 0 ? Icons.trending_up : Icons.trending_down,
                           size: 14,
                           color: trend > 0
                               ? const Color(0xFF39d353)
@@ -630,8 +666,10 @@ class _MinerGridCardState extends State<MinerGridCard>
                   if (s != null && s.pools.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
-                      s.pools.where((p) => p.active).firstOrNull?.host ??
-                          s.pools.first.host,
+                      _poolDisplayHost(
+                        s.pools.where((p) => p.active).firstOrNull ??
+                            s.pools.first,
+                      ),
                       style: const TextStyle(
                         fontSize: 9,
                         color: Color(0xFF6e7681),
@@ -643,16 +681,15 @@ class _MinerGridCardState extends State<MinerGridCard>
                   ],
                   // Earnings or solo block time pill
                   Builder(builder: (ctx) {
-                    final poolUrl = s?.pools.isNotEmpty == true
-                        ? s!.pools.first.url : '';
-                    final isSolo = (MinerModePrefs.instance.getOverride(widget.miner.ip) ??
+                    final poolUrl =
+                        s?.pools.isNotEmpty == true ? s!.pools.first.url : '';
+                    final isSolo = (MinerModePrefs.instance
+                            .getOverride(widget.miner.ip) ??
                         (poolUrl.isNotEmpty && BlockCalc.isSoloPool(poolUrl)));
-                    final networkThs = BlockCalc.networkHashrateThs();
-                    final hashrateThs = (s?.hashrateAvg ?? 0) / 1000.0;
                     String label = '';
                     Color color = const Color(0xFFf7931a);
-                    if (isSolo && networkThs > 0 && hashrateThs > 0) {
-                      label = BlockCalc.formatOneInX(hashrateThs, networkThs) + '/mo';
+                    if (isSolo) {
+                      label = 'solo';
                       color = KratosTheme.orange;
                     } else if (!isSolo && widget.earningsPerDay > 0) {
                       label = '\$${widget.earningsPerDay.toStringAsFixed(2)}/d';
@@ -667,16 +704,20 @@ class _MinerGridCardState extends State<MinerGridCard>
                           color: color.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Text(label, style: TextStyle(
-                          fontSize: 9, color: color,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'Courier',
-                        )),
+                        child: Text(label,
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: color,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Courier',
+                            )),
                       ),
                     );
                   }),
                   // Efficiency bar - only if pref enabled
-                  if (s != null && s.efficiency > 0 && DashboardPrefs.instance.showEfficiency) ...[
+                  if (s != null &&
+                      s.efficiency > 0 &&
+                      DashboardPrefs.instance.showEfficiency) ...[
                     const SizedBox(height: 6),
                     _EfficiencyBar(jth: s.efficiency),
                   ],
@@ -751,7 +792,10 @@ class _QuickActionsSheetState extends State<_QuickActionsSheet> {
   }
 
   Future<void> _action(Future<bool> Function() fn, String successMsg) async {
-    setState(() { _loading = true; _result = null; });
+    setState(() {
+      _loading = true;
+      _result = null;
+    });
     final ok = await fn();
     if (mounted) {
       setState(() {
@@ -770,7 +814,8 @@ class _QuickActionsSheetState extends State<_QuickActionsSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 36, height: 4,
+            width: 36,
+            height: 4,
             decoration: BoxDecoration(
               color: const Color(0xFF30363D),
               borderRadius: BorderRadius.circular(2),
@@ -800,12 +845,12 @@ class _QuickActionsSheetState extends State<_QuickActionsSheet> {
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(_result!,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: _result!.startsWith('✅')
-                      ? const Color(0xFF39d353)
-                      : const Color(0xFFf85149),
-                )),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: _result!.startsWith('✅')
+                        ? const Color(0xFF39d353)
+                        : const Color(0xFFf85149),
+                  )),
             ),
           // Pause / Resume (ESP-Miner only)
           if (isEsp) ...[
@@ -885,25 +930,26 @@ class _SheetAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: color,
-          side: BorderSide(color: color.withOpacity(0.3)),
-          backgroundColor: color.withOpacity(0.07),
-          padding: const EdgeInsets.symmetric(vertical: 13),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        padding: const EdgeInsets.only(bottom: 8),
+        child: SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: color,
+              side: BorderSide(color: color.withOpacity(0.3)),
+              backgroundColor: color.withOpacity(0.07),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: onTap,
+            icon: Icon(icon, size: 18),
+            label: Text(label,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          ),
         ),
-        onPressed: onTap,
-        icon: Icon(icon, size: 18),
-        label: Text(label,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-      ),
-    ),
-  );
+      );
 }
 
 // ── Shared sub-widgets ────────────────────────────────────────────────────────
@@ -964,8 +1010,7 @@ class _StatusBadge extends StatelessWidget {
           Container(
               width: 6,
               height: 6,
-              decoration:
-                  BoxDecoration(color: color, shape: BoxShape.circle)),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
         const SizedBox(width: 5),
         Text(label,
             style: TextStyle(
@@ -996,7 +1041,8 @@ class _PulseDot extends StatelessWidget {
       return AnimatedBuilder(
         animation: pulseAnim,
         builder: (_, __) => Container(
-          width: 8, height: 8,
+          width: 8,
+          height: 8,
           decoration: BoxDecoration(
             color: color.withOpacity(pulseAnim.value),
             shape: BoxShape.circle,
@@ -1008,7 +1054,8 @@ class _PulseDot extends StatelessWidget {
       );
     }
     return Container(
-      width: 8, height: 8,
+      width: 8,
+      height: 8,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
@@ -1121,17 +1168,20 @@ class _GridMiniStats extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = DashboardPrefs.instance;
+    final rejected = s?.rejected ?? 0;
     Color tc(double t) {
       if (t > 85) return const Color(0xFFff4d4d);
       if (t > 75) return const Color(0xFFffd700);
       return const Color(0xFF6e7681);
     }
+
     Color vc(double t) {
       if (t > 75) return const Color(0xFFff4d4d);
       if (t > 65) return const Color(0xFFffd700);
       if (t <= 0) return const Color(0xFF6e7681);
       return const Color(0xFFffa657);
     }
+
     Color ec(double j) {
       if (j <= 0) return const Color(0xFF6e7681);
       if (j < 15) return const Color(0xFF39d353);
@@ -1140,45 +1190,64 @@ class _GridMiniStats extends StatelessWidget {
       return const Color(0xFFff4d4d);
     }
 
-    final fanVal = s == null ? '--'
-        : s!.fanRPM > 0 ? '${s!.fanRPM}r'
-        : s!.fanPercent > 0 ? '${s!.fanPercent}%' : '--';
+    final fanVal = s == null
+        ? '--'
+        : s!.fanRPM > 0
+            ? '${s!.fanRPM}r'
+            : s!.fanPercent > 0
+                ? '${s!.fanPercent}%'
+                : '--';
 
     final row1 = <Widget>[
-      if (p.showTemp) _MiniStat(
-          icon: Icons.thermostat_outlined,
-          value: s != null && s!.outTemp > 0 ? '${s!.outTemp.toInt()}°' : '--',
-          color: tc(s?.outTemp ?? 0)),
-      if (p.showTemp) _MiniStat(
-          icon: Icons.electric_bolt,
-          value: s != null && s!.vrTemp > 0 ? '${s!.vrTemp.toInt()}°' : '--',
-          color: vc(s?.vrTemp ?? 0)),
-      if (p.showFanSpeed) _MiniStat(
-          icon: Icons.air, value: fanVal,
-          color: const Color(0xFF58a6ff)),
+      if (p.showTemp)
+        _MiniStat(
+            icon: Icons.thermostat_outlined,
+            value:
+                s != null && s!.outTemp > 0 ? '${s!.outTemp.toInt()}°' : '--',
+            color: tc(s?.outTemp ?? 0)),
+      if (p.showTemp)
+        _MiniStat(
+            icon: Icons.electric_bolt,
+            value: s != null && s!.vrTemp > 0 ? '${s!.vrTemp.toInt()}°' : '--',
+            color: vc(s?.vrTemp ?? 0)),
+      if (p.showFanSpeed)
+        _MiniStat(
+            icon: Icons.air, value: fanVal, color: const Color(0xFF58a6ff)),
     ];
 
     final row2 = <Widget>[
-      if (p.showBestDiff) _MiniStat(
-          icon: Icons.star_outline,
-          value: s?.bestShareFormatted ?? '--',
-          color: const Color(0xFFd2a8ff)),
-      if (p.showPowerDraw) _MiniStat(
-          icon: Icons.power,
-          value: s != null && s!.powerDraw > 0 ? '${s!.powerDraw.toStringAsFixed(0)}W' : '--',
-          color: const Color(0xFFffa657)),
-      if (p.showEfficiency) _MiniStat(
-          icon: Icons.speed,
-          value: s != null && s!.efficiency > 0 ? '${s!.efficiency.toStringAsFixed(0)}J' : '--',
-          color: ec(s?.efficiency ?? 0)),
+      if (p.showBestDiff)
+        _MiniStat(
+            icon: Icons.star_outline,
+            value: s?.bestShareFormatted ?? '--',
+            color: const Color(0xFFd2a8ff)),
+      if (p.showPowerDraw)
+        _MiniStat(
+            icon: Icons.power,
+            value: s != null && s!.powerDraw > 0
+                ? '${s!.powerDraw.toStringAsFixed(0)}W'
+                : '--',
+            color: const Color(0xFFffa657)),
+      if (p.showEfficiency)
+        _MiniStat(
+            icon: Icons.speed,
+            value: s != null && s!.efficiency > 0
+                ? '${s!.efficiency.toStringAsFixed(0)}J'
+                : '--',
+            color: ec(s?.efficiency ?? 0)),
+      if (rejected > 500)
+        _MiniStat(
+            icon: Icons.warning_amber_rounded,
+            value: rejected.toString(),
+            color: _rejectColor(rejected)),
     ];
 
     if (row1.isEmpty && row2.isEmpty) return const SizedBox.shrink();
 
     Widget spaced(List<Widget> items) => Row(
-      children: items.expand((w) => [w, const SizedBox(width: 5)]).toList()
-          ..removeLast(),
-    );
+          children: items.expand((w) => [w, const SizedBox(width: 5)]).toList()
+            ..removeLast(),
+        );
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       if (row1.isNotEmpty) spaced(row1),
@@ -1275,8 +1344,7 @@ class _AutotuneChipState extends State<_AutotuneChip>
             builder: (_, __) => Opacity(
               opacity: 0.5 + 0.5 * _pulse.value,
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFA500).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(8),
@@ -1286,8 +1354,7 @@ class _AutotuneChipState extends State<_AutotuneChip>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('⚡',
-                        style: TextStyle(fontSize: 11)),
+                    const Text('⚡', style: TextStyle(fontSize: 11)),
                     const SizedBox(width: 4),
                     Text(
                       'Autotuning... $pct%',
@@ -1335,12 +1402,13 @@ class _UptimeCell extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 1),
-          const Text('UPTIME', style: TextStyle(
-            fontSize: 7,
-            color: Color(0xFF6e7681),
-            letterSpacing: 0.8,
-            fontWeight: FontWeight.w500,
-          )),
+          const Text('UPTIME',
+              style: TextStyle(
+                fontSize: 7,
+                color: Color(0xFF6e7681),
+                letterSpacing: 0.8,
+                fontWeight: FontWeight.w500,
+              )),
         ]),
       ),
     );

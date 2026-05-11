@@ -73,7 +73,10 @@ class MinerStore extends ChangeNotifier {
   }
 
   Future<void> refreshAll() async {
-    await Future.wait(miners.map(_fetch));
+    await Future.wait([
+      _refreshPrice(),
+      ...miners.map(_fetch),
+    ]);
   }
 
   void refreshOne(Miner miner) => _fetch(miner);
@@ -86,8 +89,8 @@ class MinerStore extends ChangeNotifier {
   Future<void> _fetch(Miner miner) async {
     MinerStats rawStats;
     if (miner.type.apiType == ApiType.fluMinerHttp) {
-      rawStats = await FluMinerAPI.instance
-          .fetchStats(miner.ip, port: miner.port);
+      rawStats =
+          await FluMinerAPI.instance.fetchStats(miner.ip, port: miner.port);
     } else if (miner.type.apiType == ApiType.espMinerHttp) {
       rawStats = await EspMinerAPI.instance.fetchAll(miner.ip, miner.port,
           remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);

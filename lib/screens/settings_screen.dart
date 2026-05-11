@@ -10,6 +10,8 @@ import '../services/haptic_service.dart';
 import '../services/energy_report.dart';
 import 'faq_screen.dart';
 import 'circuit_monitor_screen.dart';
+import 'dashboard_settings_screen.dart';
+import 'fleet_oc_screen.dart';
 import 'remote_access_screen.dart';
 import 'pool_presets_screen.dart';
 
@@ -45,17 +47,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         title: Text('Settings',
             style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: kc.text)),
+                fontSize: 20, fontWeight: FontWeight.w800, color: kc.text)),
         actions: [
           if (_version.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(right: 18),
               child: Center(
                   child: Text(_version,
-                      style: TextStyle(
-                          color: kc.muted, fontSize: 13))),
+                      style: TextStyle(color: kc.muted, fontSize: 13))),
             ),
         ],
       ),
@@ -63,6 +62,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.fromLTRB(18, 8, 18, 32),
         children: const [
           _ThemeSection(),
+          SizedBox(height: 18),
+          _FleetSection(),
           SizedBox(height: 18),
           _HapticsSection(),
           SizedBox(height: 18),
@@ -75,6 +76,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SupportSection(),
           SizedBox(height: 18),
           _AboutSection(),
+        ],
+      ),
+    );
+  }
+}
+
+class _FleetSection extends StatelessWidget {
+  const _FleetSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+    return _SectionShell(
+      title: 'Fleet',
+      child: Column(
+        children: [
+          ListTile(
+            leading: Icon(Icons.bolt_rounded, color: kc.accent),
+            title: Text('Fleet OC',
+                style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w700, color: kc.text)),
+            trailing: Icon(Icons.chevron_right_rounded, color: kc.muted),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FleetOCScreen()),
+            ),
+          ),
+          Divider(height: 1, color: kc.line),
+          ListTile(
+            leading: Icon(Icons.tune_rounded, color: kc.secondary),
+            title: Text('Customize Dashboard',
+                style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w700, color: kc.text)),
+            trailing: Icon(Icons.chevron_right_rounded, color: kc.muted),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const DashboardSettingsScreen()),
+            ),
+          ),
         ],
       ),
     );
@@ -174,9 +215,8 @@ class _ThemeTile extends StatelessWidget {
           gradient: _gradient(name),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: active
-                ? _accentForTheme(name)
-                : Colors.white.withOpacity(0.06),
+            color:
+                active ? _accentForTheme(name) : Colors.white.withOpacity(0.06),
             width: active ? 2 : 1,
           ),
           boxShadow: active
@@ -246,12 +286,12 @@ class _ThemeTile extends StatelessWidget {
   }
 
   Color _accentForTheme(KratosThemeName n) => switch (n) {
-    KratosThemeName.circuit => const Color(0xFF39FFA0),
-    KratosThemeName.volt    => const Color(0xFF5DFFB0),
-    KratosThemeName.pulse   => const Color(0xFFF8A0FF),
-    KratosThemeName.stealth => const Color(0xFFFFFFFF),
-    KratosThemeName.chrome  => const Color(0xFF9ADAF8),
-  };
+        KratosThemeName.circuit => const Color(0xFF39FFA0),
+        KratosThemeName.volt => const Color(0xFF5DFFB0),
+        KratosThemeName.pulse => const Color(0xFFF8A0FF),
+        KratosThemeName.stealth => const Color(0xFFFFFFFF),
+        KratosThemeName.chrome => const Color(0xFF9ADAF8),
+      };
 }
 
 class _HapticsSection extends StatefulWidget {
@@ -278,8 +318,7 @@ class _HapticsSectionState extends State<_HapticsSection> {
           children: [
             Row(
               children: [
-                Icon(Icons.vibration_rounded,
-                    size: 22, color: kc.secondary),
+                Icon(Icons.vibration_rounded, size: 22, color: kc.secondary),
                 SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -291,8 +330,7 @@ class _HapticsSectionState extends State<_HapticsSection> {
                               fontWeight: FontWeight.w700,
                               color: kc.text)),
                       Text('one quick pulse per accepted share',
-                          style: TextStyle(
-                              fontSize: 11, color: kc.muted)),
+                          style: TextStyle(fontSize: 11, color: kc.muted)),
                     ],
                   ),
                 ),
@@ -318,16 +356,12 @@ class _HapticsSectionState extends State<_HapticsSection> {
                     labelStyle: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
-                      color: _intensity == v
-                          ? kc.accentBright
-                          : kc.muted,
+                      color: _intensity == v ? kc.accentBright : kc.muted,
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(99),
                       side: BorderSide(
-                        color: _intensity == v
-                            ? kc.accent
-                            : kc.line,
+                        color: _intensity == v ? kc.accent : kc.line,
                       ),
                     ),
                   ),
@@ -353,8 +387,7 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
   @override
   void initState() {
     super.initState();
-    final initial =
-        context.read<MinerStore>().kwhPrice.toStringAsFixed(3);
+    final initial = context.read<MinerStore>().kwhPrice.toStringAsFixed(3);
     _ctrl = TextEditingController(text: initial);
   }
 
@@ -385,8 +418,7 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
                           fontWeight: FontWeight.w700,
                           color: kc.text)),
                   Text('used to compute cost & net earnings',
-                      style: TextStyle(
-                          fontSize: 11, color: kc.muted)),
+                      style: TextStyle(fontSize: 11, color: kc.muted)),
                 ],
               ),
             ),
@@ -394,8 +426,8 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
               width: 92,
               child: TextField(
                 controller: _ctrl,
-                keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 textAlign: TextAlign.end,
                 style: TextStyle(
                   fontSize: 15,
@@ -417,8 +449,7 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide:
-                        BorderSide(color: kc.accent, width: 2),
+                    borderSide: BorderSide(color: kc.accent, width: 2),
                   ),
                 ),
                 onSubmitted: (v) {
@@ -426,10 +457,8 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
                   if (parsed != null && parsed >= 0) {
                     context.read<MinerStore>().setKwhPrice(parsed);
                   } else {
-                    _ctrl.text = context
-                        .read<MinerStore>()
-                        .kwhPrice
-                        .toStringAsFixed(3);
+                    _ctrl.text =
+                        context.read<MinerStore>().kwhPrice.toStringAsFixed(3);
                   }
                 },
               ),
@@ -458,8 +487,7 @@ class _ToolsSection extends StatelessWidget {
             sub: 'Group miners by breaker, alarm before trip',
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (_) => const CircuitMonitorScreen()),
+              MaterialPageRoute(builder: (_) => const CircuitMonitorScreen()),
             ),
           ),
           Divider(height: 1, color: kc.line),
@@ -473,8 +501,7 @@ class _ToolsSection extends StatelessWidget {
             sub: 'Monitor miners outside your home network',
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                  builder: (_) => const RemoteAccessScreen()),
+              MaterialPageRoute(builder: (_) => const RemoteAccessScreen()),
             ),
           ),
           Divider(height: 1, color: kc.line),
@@ -538,14 +565,11 @@ class _ActionRow extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                           color: kc.text)),
                   SizedBox(height: 2),
-                  Text(sub,
-                      style: TextStyle(
-                          fontSize: 11, color: kc.muted)),
+                  Text(sub, style: TextStyle(fontSize: 11, color: kc.muted)),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded,
-                size: 18, color: kc.muted),
+            Icon(Icons.chevron_right_rounded, size: 18, color: kc.muted),
           ],
         ),
       ),
@@ -581,15 +605,14 @@ class _ExportRowState extends State<_ExportRow> {
       final store = context.read<MinerStore>();
       if (store.miners.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content:
-                Text('No miners in fleet — add one first.')));
+            content: Text('No miners in fleet — add one first.')));
         return;
       }
       await EnergyReportService().exportAndShare(store);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Export failed: $e')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -668,8 +691,8 @@ class _LinkRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final kc = KratosColors.of(context);
     return InkWell(
-      onTap: () => launchUrl(Uri.parse(url),
-          mode: LaunchMode.externalApplication),
+      onTap: () =>
+          launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
@@ -691,8 +714,7 @@ class _LinkRow extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       color: kc.text)),
             ),
-            Icon(Icons.chevron_right_rounded,
-                size: 18, color: kc.muted),
+            Icon(Icons.chevron_right_rounded, size: 18, color: kc.muted),
           ],
         ),
       ),
@@ -719,10 +741,8 @@ class _AboutSection extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'Kratos · Volt — Mining monitor by Mineshop.\nReal data. No fakes. Forge your fleet.',
-                    style: TextStyle(
-                        fontSize: 13,
-                        color: kc.muted,
-                        height: 1.4),
+                    style:
+                        TextStyle(fontSize: 13, color: kc.muted, height: 1.4),
                   ),
                 ),
               ],

@@ -12,9 +12,7 @@ import '../widgets/fleet_summary_bar.dart';
 import '../widgets/klaw.dart';
 import 'add_miner_screen.dart';
 import 'miner_detail_screen.dart';
-import 'fleet_oc_screen.dart';
 import 'hall_of_fame_screen.dart';
-import 'dashboard_settings_screen.dart';
 import '../services/dashboard_prefs.dart';
 import '../services/group_service.dart';
 import '../models/miner_group.dart';
@@ -159,17 +157,6 @@ class _MinersScreenState extends State<MinersScreen> {
               style: TextStyle(
                   fontSize: 20, fontWeight: FontWeight.w800, color: kc.text)),
           actions: [
-            if (context
-                .watch<MinerStore>()
-                .miners
-                .any((m) => m.type.apiType == ApiType.espMinerHttp))
-              IconButton(
-                tooltip: 'Fleet OC',
-                icon: Icon(Icons.bolt, color: kc.accent, size: 22),
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const FleetOCScreen()),
-                ),
-              ),
             IconButton(
               tooltip: 'Hall of Fame',
               icon: Icon(Icons.emoji_events, color: kc.accent, size: 22),
@@ -184,12 +171,6 @@ class _MinersScreenState extends State<MinersScreen> {
                 size: 22,
               ),
               onPressed: _showSortSheet,
-            ),
-            IconButton(
-              tooltip: 'Customize dashboard',
-              icon: Icon(Icons.tune, color: kc.muted, size: 22),
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => const DashboardSettingsScreen())),
             ),
             // Groups view toggle
             IconButton(
