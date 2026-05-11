@@ -50,30 +50,43 @@ class FluMinerAPI {
   FluMinerAPI._();
 
   static const _timeout = Duration(seconds: 8);
-  static const defaultUsername = 'admin';
-  static const defaultPassword = 'admin';
+  static const defaultUsername = 'root';
+  static const defaultPassword = 'root';
+  // Fallback credentials tried when root/root fails
+  static const _fallbackUsername = 'admin';
+  static const _fallbackPassword = '123456';
 
   // ── Auth ──────────────────────────────────────────────────────────────────
 
   Future<String?> login(String ip, int port,
-      {String username = defaultUsername,
-      String password = defaultPassword}) async {
+      {String? username, String? password}) async {
+    // Try credentials in order: root/root → admin/123456
+    final pairs = [
+      [username ?? defaultUsername, password ?? defaultPassword],
+      [_fallbackUsername, _fallbackPassword],
+    ];
+    for (final pair in pairs) {
+      final session = await _tryLogin(ip, port, pair[0], pair[1]);
+      if (session != null) return session;
+    }
+    return null;
+  }
+
+  Future<String?> _tryLogin(String ip, int port, String user, String pass) async {
     try {
       final resp = await http
           .post(
             Uri.parse('http://$ip:$port/api/login'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'username': username, 'password': password}),
+            body: jsonEncode({'username': user, 'password': pass}),
           )
           .timeout(_timeout);
       if (resp.statusCode != 200) return null;
       final data = jsonDecode(resp.body) as Map<String, dynamic>?;
       if (data == null || data['code'] != 0) return null;
-      // Extract session cookie
       final setCookie = resp.headers['set-cookie'] ?? '';
       final match = RegExp(r'session=([^;,\s]+)').firstMatch(setCookie);
       if (match != null) return match.group(1);
-      // Some firmware returns token in body
       final token = data['data']?['token'] as String?;
       return token ?? 'ok';
     } catch (_) {
@@ -131,7 +144,7 @@ class FluMinerAPI {
               PoolInfo(
                 index: 0,
                 url: 'stratum+tcp://$poolHost:$poolPort',
-                user: s['worker'] as String? ?? '',
+                user: s['user'] as String? ?? '',
                 status: poolAlive ? 'Alive' : 'Dead',
                 active: true,
               )
