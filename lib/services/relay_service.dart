@@ -18,12 +18,15 @@ class RelayService extends ChangeNotifier {
   RelayService._();
 
   static const _wsBase = 'wss://kratos.mineshop.eu/relay/app/';
+  static const _fallbackWsBase = 'wss://soloblocks.io/relay/app/';
+  static const _relayConnectTimeout = Duration(seconds: 8);
   static const _prefKey = 'kratos_relay_key';
   // Allow letters, digits, underscore, hyphen, dot, @ and ! — common in user-chosen keys
   static final _keyPattern = RegExp(r'^[A-Za-z0-9_\-@.!#]{8,128}$');
 
   WebSocketChannel? _channel;
   StreamSubscription? _sub;
+  String _currentRelay = _wsBase;
   bool bridgeOnline = false;
   List<Map<String, dynamic>> remoteMinersList = [];
   String? accessKey;
@@ -55,11 +58,9 @@ class RelayService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefKey, accessKey!);
 
-    final uri = Uri.parse('$_wsBase$accessKey');
     try {
-      _channel = WebSocketChannel.connect(uri);
-      await _channel!.ready.catchError((_) {});
-    } catch (e) {
+      _channel = await _connectToRelay(accessKey!);
+    } catch (_) {
       _setState(RelayState.disconnected);
       return;
     }
@@ -68,12 +69,12 @@ class RelayService extends ChangeNotifier {
       _onMessage,
       onError: (e) {
         _setState(RelayState.disconnected);
-        _failPendingCompleters('WebSocket error: $e');
+        _failPendingCompleters('WebSocket error on $_currentRelay: $e');
         _scheduleAutoReconnect();
       },
       onDone: () {
         _setState(RelayState.disconnected);
-        _failPendingCompleters('WebSocket closed');
+        _failPendingCompleters('WebSocket closed on $_currentRelay');
         _scheduleAutoReconnect();
       },
     );
@@ -82,6 +83,25 @@ class RelayService extends ChangeNotifier {
 
     // Start keepalive pings
     _schedulePing();
+  }
+
+  Future<WebSocketChannel> _connectToRelay(String key) async {
+    Object? lastError;
+    for (final relayBase in const [_wsBase, _fallbackWsBase]) {
+      WebSocketChannel? channel;
+      try {
+        _currentRelay = relayBase;
+        channel = WebSocketChannel.connect(Uri.parse('$relayBase$key'));
+        await channel.ready.timeout(_relayConnectTimeout);
+        return channel;
+      } catch (e) {
+        lastError = e;
+        try {
+          await channel?.sink.close();
+        } catch (_) {}
+      }
+    }
+    throw StateError('Unable to connect to relay: $lastError');
   }
 
   /// Load saved key and reconnect if available.
@@ -103,6 +123,7 @@ class RelayService extends ChangeNotifier {
     _sub = null;
     await _channel?.sink.close();
     _channel = null;
+    _currentRelay = _wsBase;
     bridgeOnline = false;
     remoteMinersList = [];
     _failPendingCompleters('Disconnected');

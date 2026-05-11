@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Kratos Link — Home Network Bridge  v1.2
+Kratos Link — Home Network Bridge  v1.4
 Run this on any PC/Mac/Pi on the same network as your miners.
 It discovers ALL miner types (BitAxe, NerdAxe, LuckyMiner, Avalon, Antminer…)
 and bridges them to the Kratos app via secure relay.
@@ -12,20 +12,90 @@ Usage:
 Download: https://kratos.mineshop.eu/link
 """
 
-import asyncio, json, logging, sys, socket, ipaddress, argparse, secrets, ssl
+import asyncio, json, logging, sys, socket, ipaddress, argparse, secrets, ssl, os, ast, tempfile, stat, time
 from typing import Optional
 import aiohttp, websockets
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 log = logging.getLogger('kratos-link')
 
-# Bridge connects to soloblocks.io via WSS (encrypted, Cloudflare-proxied).
+# Bridge connects via WSS (encrypted, Cloudflare-proxied).
 # Uses ssl_no_verify so Python websockets doesn't struggle with CF cert checks.
-RELAY_URL          = 'wss://soloblocks.io'
+BRIDGE_VERSION     = '1.4'
+UPDATE_URL         = 'https://kratos.mineshop.eu/relay/bridge-version.json'
+PRIMARY_RELAY_URL  = 'wss://kratos.mineshop.eu'
+FALLBACK_RELAY_URL = 'wss://soloblocks.io'
+RELAY_URL          = PRIMARY_RELAY_URL
+RELAY_URLS         = [PRIMARY_RELAY_URL, FALLBACK_RELAY_URL]
 DISCOVERY_TIMEOUT  = 2.0   # seconds per host
 CGMINER_TIMEOUT    = 1.5
-RECONNECT_DELAY    = 5
+RECONNECT_DELAYS   = [5, 10, 20, 40, 60]
+PRIMARY_RETRY_EVERY = 600  # seconds
 REDISCOVER_EVERY   = 120   # seconds
+UPDATE_EVERY       = 86400 # seconds
+BRIDGE_CAPABILITIES = ['esp_miner', 'cgminer_tcp', 'avalon_http', 'fluminer_http']
+
+
+def _version_tuple(version: str) -> tuple:
+    parts = []
+    for part in str(version).split('.'):
+        try:
+            parts.append(int(part))
+        except ValueError:
+            parts.append(0)
+    return tuple(parts)
+
+
+async def check_for_update() -> None:
+    """Best-effort self update. Any failure is logged and the bridge continues."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(UPDATE_URL, timeout=aiohttp.ClientTimeout(total=10)) as r:
+                if r.status != 200:
+                    log.warning(f'Update check failed: HTTP {r.status}')
+                    return
+                manifest = await r.json(content_type=None)
+
+            remote_version = str(manifest.get('version', '')).strip()
+            remote_url = str(manifest.get('url', '')).strip()
+            if not remote_version or not remote_url:
+                log.warning('Update check failed: invalid manifest')
+                return
+            if _version_tuple(remote_version) <= _version_tuple(BRIDGE_VERSION):
+                return
+
+            log.info(f'Bridge update available: v{remote_version} (current v{BRIDGE_VERSION})')
+            async with session.get(remote_url, timeout=aiohttp.ClientTimeout(total=30)) as r:
+                if r.status != 200:
+                    log.warning(f'Update download failed: HTTP {r.status}')
+                    return
+                source = await r.text()
+
+        ast.parse(source)
+        current_path = os.path.abspath(__file__)
+        current_mode = stat.S_IMODE(os.stat(current_path).st_mode)
+        fd, tmp_path = tempfile.mkstemp(prefix='kratos_link_', suffix='.py', dir='/tmp')
+        try:
+            with os.fdopen(fd, 'w') as f:
+                f.write(source)
+            os.chmod(tmp_path, current_mode)
+            os.replace(tmp_path, current_path)
+        finally:
+            if os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+        log.info(f'Updated bridge to v{remote_version}; restarting…')
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    except Exception as e:
+        log.warning(f'Update check failed: {e}')
+
+
+async def update_loop() -> None:
+    while True:
+        await asyncio.sleep(UPDATE_EVERY)
+        await check_for_update()
 
 # ── Probe helpers ──────────────────────────────────────────────────────────────
 
@@ -278,56 +348,97 @@ async def forward_command(cmd: dict) -> dict:
 
 # ── Relay bridge loop ─────────────────────────────────────────────────────────
 
+def _relay_sequence(primary_url: str) -> list[str]:
+    urls = [primary_url]
+    for relay_url in RELAY_URLS:
+        if relay_url not in urls:
+            urls.append(relay_url)
+    return urls
+
+
 async def run_bridge(key: str, relay_url: str):
-    ws_url = f'{relay_url}/relay/bridge/{key}'
+    await check_for_update()
+    updater = asyncio.create_task(update_loop())
     # Use SSL without cert verification so WSS works without browser-style handshake
     ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ssl_ctx.check_hostname = False
     ssl_ctx.verify_mode = ssl.CERT_NONE
-    ws_extra = {'ssl': ssl_ctx} if ws_url.startswith('wss://') else {}
     miners = await discover_miners()
+    relay_urls = _relay_sequence(relay_url)
+    active_relay = relay_url
+    primary_failures = 0
+    reconnect_attempt = 0
+    last_primary_try = 0.0
 
-    while True:
-        log.info(f'Connecting → {ws_url}')
-        try:
-            async with websockets.connect(ws_url, ping_interval=20, ping_timeout=10, open_timeout=10, **ws_extra) as ws:
-                log.info('✅ Bridge connected — sending miner list to app…')
-                await ws.send(json.dumps({'type': 'miners', 'miners': miners}))
+    try:
+        while True:
+            if active_relay != relay_url and time.monotonic() - last_primary_try >= PRIMARY_RETRY_EVERY:
+                active_relay = relay_url
+                last_primary_try = time.monotonic()
+                log.info(f'Retrying primary relay → {active_relay}')
 
-                async def rediscover_loop():
-                    nonlocal miners
-                    while True:
-                        await asyncio.sleep(REDISCOVER_EVERY)
-                        miners = await discover_miners()
-                        try:
-                            await ws.send(json.dumps({'type': 'miners', 'miners': miners}))
-                        except Exception:
-                            break
+            ws_url = f'{active_relay}/relay/bridge/{key}'
+            ws_extra = {'ssl': ssl_ctx} if ws_url.startswith('wss://') else {}
+            log.info(f'Connecting → {ws_url}')
+            try:
+                async with websockets.connect(ws_url, ping_interval=20, ping_timeout=10, open_timeout=10, **ws_extra) as ws:
+                    log.info('✅ Bridge connected — sending hello and miner list to app…')
+                    await ws.send(json.dumps({
+                        'type': 'bridge_hello',
+                        'version': BRIDGE_VERSION,
+                        'capabilities': BRIDGE_CAPABILITIES,
+                    }))
+                    await ws.send(json.dumps({'type': 'miners', 'miners': miners}))
+                    reconnect_attempt = 0
+                    if active_relay == relay_url:
+                        primary_failures = 0
 
-                task = asyncio.create_task(rediscover_loop())
-                try:
-                    async for raw in ws:
-                        try:
-                            msg = json.loads(raw)
-                        except Exception:
-                            continue
-                        t = msg.get('type')
-                        if t == 'command':
-                            log.info(f'→ {msg.get("method","?")} {msg.get("path","?")} @ {msg.get("miner_ip","?")}')
-                            resp = await forward_command(msg)
-                            await ws.send(json.dumps(resp))
-                        elif t == 'ping':
-                            await ws.send(json.dumps({'type': 'pong'}))
-                        elif t == 'rediscover':
+                    async def rediscover_loop():
+                        nonlocal miners
+                        while True:
+                            await asyncio.sleep(REDISCOVER_EVERY)
                             miners = await discover_miners()
-                            await ws.send(json.dumps({'type': 'miners', 'miners': miners}))
-                finally:
-                    task.cancel()
-        except websockets.exceptions.ConnectionClosed as e:
-            log.warning(f'Connection closed: {e} — retry in {RECONNECT_DELAY}s')
-        except Exception as e:
-            log.error(f'Error: {e} — retry in {RECONNECT_DELAY}s')
-        await asyncio.sleep(RECONNECT_DELAY)
+                            try:
+                                await ws.send(json.dumps({'type': 'miners', 'miners': miners}))
+                            except Exception:
+                                break
+
+                    task = asyncio.create_task(rediscover_loop())
+                    try:
+                        async for raw in ws:
+                            try:
+                                msg = json.loads(raw)
+                            except Exception:
+                                continue
+                            t = msg.get('type')
+                            if t == 'command':
+                                log.info(f'→ {msg.get("method","?")} {msg.get("path","?")} @ {msg.get("miner_ip","?")}')
+                                resp = await forward_command(msg)
+                                await ws.send(json.dumps(resp))
+                            elif t == 'ping':
+                                await ws.send(json.dumps({'type': 'pong'}))
+                            elif t == 'rediscover':
+                                miners = await discover_miners()
+                                await ws.send(json.dumps({'type': 'miners', 'miners': miners}))
+                    finally:
+                        task.cancel()
+            except websockets.exceptions.ConnectionClosed as e:
+                log.warning(f'Connection closed: {e}')
+            except Exception as e:
+                log.error(f'Error: {e}')
+
+            if active_relay == relay_url:
+                primary_failures += 1
+                if primary_failures >= 3 and len(relay_urls) > 1:
+                    active_relay = relay_urls[1]
+                    last_primary_try = time.monotonic()
+                    log.warning(f'Primary relay failed {primary_failures} times; switching to fallback → {active_relay}')
+            delay = RECONNECT_DELAYS[min(reconnect_attempt, len(RECONNECT_DELAYS) - 1)]
+            reconnect_attempt += 1
+            log.info(f'Retry in {delay}s')
+            await asyncio.sleep(delay)
+    finally:
+        updater.cancel()
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -373,7 +484,7 @@ Examples:
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║         KRATOS LINK  v1.2                ║
+║         KRATOS LINK  v1.4                ║
 ╚══════════════════════════════════════════╝
   Key:   {args.key}
   Relay: {args.relay}
