@@ -17,7 +17,7 @@ class RelayService extends ChangeNotifier {
   static final RelayService instance = RelayService._();
   RelayService._();
 
-  static const _wsBase = 'wss://soloblocks.io/relay/app/';
+  static const _wsBase = 'wss://kratos.mineshop.eu/relay/app/';
   static const _prefKey = 'kratos_relay_key';
   // Allow letters, digits, underscore, hyphen, dot, @ and ! — common in user-chosen keys
   static final _keyPattern = RegExp(r'^[A-Za-z0-9_\-@.!#]{8,128}$');
