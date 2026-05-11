@@ -106,6 +106,16 @@ class FluMinerAPI {
       final summaryResp = results[0];
       final overviewResp = results[1];
 
+      // Try authenticated pool stats for bestDiff (non-blocking, best-effort)
+      Map<String, dynamic>? poolsResp;
+      try {
+        final session = await login(ip, port);
+        if (session != null) {
+          poolsResp = await _getJsonAuthed(
+              'http://$ip:$port/api/getPools', session);
+        }
+      } catch (_) {}
+
       // ── Summary ───────────────────────────────────────────────────────────
       final summaryData = summaryResp?['data'] as Map<String, dynamic>?;
       final summaries = summaryData?['summary'] as List?;
@@ -128,10 +138,18 @@ class FluMinerAPI {
       final accepted = _toInt(s['acc']) ?? 0;
       final rejected = _toInt(s['rej']) ?? 0;
 
-      // Best difficulty — field names vary across firmware versions
+      // Best difficulty — check summary fields at multiple levels,
+      // then fall back to pools endpoint which sometimes carries per-pool bestDiff
       final bestShare = _parseBestDiff(
+          // summary[0] level
           s['bestDiff'] ?? s['best_diff'] ?? s['bestShare'] ??
-          s['best_share'] ?? s['sessionDiff'] ?? s['BestDiff']);
+          s['best_share'] ?? s['sessionDiff'] ?? s['BestDiff'] ??
+          s['maxDiff'] ?? s['topDiff'] ?? s['highestDiff'] ??
+          // data level (parent of summary array)
+          summaryData?['bestDiff'] ?? summaryData?['best_diff'] ??
+          summaryData?['bestShare'] ?? summaryData?['sessionBest'] ??
+          // pools endpoint
+          _poolsBestDiff(poolsResp));
 
       // Frequency & voltage (may or may not be in summary)
       final frequency = _toDouble(s['frequency']) ?? 0.0;
@@ -363,6 +381,51 @@ class FluMinerAPI {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /// Extract best difficulty from pools response (per-pool stats)
+  static dynamic _poolsBestDiff(Map<String, dynamic>? poolsResp) {
+    if (poolsResp == null) return null;
+    final data = poolsResp['data'] as Map<String, dynamic>?;
+    if (data == null) return null;
+    // Check top-level data fields
+    final topLevel = data['bestDiff'] ?? data['best_diff'] ??
+        data['bestShare'] ?? data['sessionBestDiff'];
+    if (topLevel != null) return topLevel;
+    // Check inside each pool entry
+    final pools = data['pools'] as List?;
+    if (pools == null) return null;
+    dynamic best;
+    for (final pool in pools) {
+      if (pool is! Map) continue;
+      final v = pool['bestDiff'] ?? pool['best_diff'] ??
+          pool['bestShare'] ?? pool['best_share'];
+      if (v != null) {
+        final parsed = _parseBestDiff(v);
+        if (best == null || parsed > _parseBestDiff(best)) best = v;
+      }
+    }
+    return best;
+  }
+
+  Future<Map<String, dynamic>?> _getJsonAuthed(
+      String url, String session) async {
+    try {
+      final resp = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Accept': 'application/json',
+          'Cookie': 'session=$session',
+        },
+      ).timeout(_timeout);
+      if (resp.statusCode != 200) return null;
+      final body = resp.body.trim();
+      if (body.isEmpty) return null;
+      final data = jsonDecode(body);
+      return data is Map<String, dynamic> ? data : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<Map<String, dynamic>?> _getJson(String url) async {
     try {

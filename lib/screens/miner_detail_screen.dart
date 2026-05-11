@@ -21,6 +21,7 @@ import '../services/miner_mode_prefs.dart';
 import '../services/klaw_service.dart';
 import '../utils/block_calc.dart';
 import '../services/btc_price.dart';
+import '../services/best_diff_tracker.dart' show formatBestDiff;
 
 class MinerDetailScreen extends StatefulWidget {
   final Miner miner;
@@ -262,10 +263,14 @@ class _MinerDetailScreenState extends State<MinerDetailScreen> {
               const SizedBox(height: 16),
             ],
 
-            // Best share
-            if ((s?.bestShare ?? 0) > 0) ...[
-              _InfoCard('BEST SHARE', s!.bestShare.toStringAsFixed(0),
-                  icon: Icons.emoji_events, color: KratosTheme.orange),
+            // Best share — always show for FluMiner (might be '—' if no data yet)
+            if ((s?.bestShare ?? 0) > 0 ||
+                miner.type == MinerType.fluMinerT3) ...[
+              _InfoCard(
+                  'BEST DIFF',
+                  formatBestDiff(s?.bestShare ?? 0),
+                  icon: Icons.emoji_events,
+                  color: KratosTheme.orange),
               const SizedBox(height: 12),
             ],
 
