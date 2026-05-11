@@ -19,10 +19,9 @@ import aiohttp, websockets
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 log = logging.getLogger('kratos-link')
 
-# Bridge connects to relay.kratos.mineshop.eu directly on origin IP (port 80).
-# Using IP directly bypasses Cloudflare Bot checks on the Python WS library.
-# The app connects via wss://relay.kratos.mineshop.eu (through Cloudflare).
-RELAY_URL          = 'ws://MINESHOP_ORIGIN'  # same origin as relay.kratos.mineshop.eu
+# Bridge connects directly to SoloBlocks origin IP on port 80 (bypasses Cloudflare).
+# App connects via wss://soloblocks.io/relay/ (through Cloudflare).
+RELAY_URL          = 'ws://SOLOBLOCKS_ORIGIN'  # SoloBlocks origin IP
 DISCOVERY_TIMEOUT  = 2.0   # seconds per host
 CGMINER_TIMEOUT    = 1.5
 RECONNECT_DELAY    = 5

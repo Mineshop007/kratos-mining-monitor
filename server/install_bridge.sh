@@ -18,7 +18,7 @@ fi
 OS="$(uname -s)"
 INSTALL_DIR="$HOME/.kratos-link"
 SCRIPT="$INSTALL_DIR/kratos_link.py"
-RELAY_URL="ws://MINESHOP_ORIGIN"
+RELAY_URL="ws://SOLOBLOCKS_ORIGIN"  # SoloBlocks origin IP
 
 echo ""
 echo "╔══════════════════════════════════════════════════╗"

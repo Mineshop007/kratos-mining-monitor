@@ -85,7 +85,7 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
     }
     // One-liner installer — auto-starts bridge at boot (Linux/Mac/Windows)
     Clipboard.setData(ClipboardData(
-        text: 'curl -sL https://mineshop.eu/relay/install.sh | bash -s $key'));
+        text: 'curl -sL https://soloblocks.io/relay/install.sh | bash -s $key'));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Setup command copied to clipboard'),
