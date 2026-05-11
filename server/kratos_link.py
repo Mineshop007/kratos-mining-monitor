@@ -12,16 +12,16 @@ Usage:
 Download: https://kratos.mineshop.eu/link
 """
 
-import asyncio, json, logging, sys, socket, ipaddress, argparse, secrets
+import asyncio, json, logging, sys, socket, ipaddress, argparse, secrets, ssl
 from typing import Optional
 import aiohttp, websockets
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 log = logging.getLogger('kratos-link')
 
-# Bridge connects directly to SoloBlocks origin IP on port 80 (bypasses Cloudflare).
-# App connects via wss://soloblocks.io/relay/ (through Cloudflare).
-RELAY_URL          = 'ws://SOLOBLOCKS_ORIGIN'  # SoloBlocks origin IP
+# Bridge connects to soloblocks.io via WSS (encrypted, Cloudflare-proxied).
+# Uses ssl_no_verify so Python websockets doesn't struggle with CF cert checks.
+RELAY_URL          = 'wss://soloblocks.io'
 DISCOVERY_TIMEOUT  = 2.0   # seconds per host
 CGMINER_TIMEOUT    = 1.5
 RECONNECT_DELAY    = 5
@@ -279,13 +279,18 @@ async def forward_command(cmd: dict) -> dict:
 # ── Relay bridge loop ─────────────────────────────────────────────────────────
 
 async def run_bridge(key: str, relay_url: str):
-    ws_url = f'{relay_url}/bridge/{key}'
+    ws_url = f'{relay_url}/relay/bridge/{key}'
+    # Use SSL without cert verification so WSS works without browser-style handshake
+    ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
+    ws_extra = {'ssl': ssl_ctx} if ws_url.startswith('wss://') else {}
     miners = await discover_miners()
 
     while True:
         log.info(f'Connecting → {ws_url}')
         try:
-            async with websockets.connect(ws_url, ping_interval=20, ping_timeout=10, open_timeout=10) as ws:
+            async with websockets.connect(ws_url, ping_interval=20, ping_timeout=10, open_timeout=10, **ws_extra) as ws:
                 log.info('✅ Bridge connected — sending miner list to app…')
                 await ws.send(json.dumps({'type': 'miners', 'miners': miners}))
 
