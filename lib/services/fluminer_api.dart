@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/miner.dart';
+import 'relay_service.dart';
 
 // ── Run mode enum ─────────────────────────────────────────────────────────────
 
@@ -96,12 +97,18 @@ class FluMinerAPI {
 
   // ── Fetch Stats ───────────────────────────────────────────────────────────
 
-  Future<MinerStats> fetchStats(String ip, {int port = 80}) async {
+  Future<MinerStats> fetchStats(String ip,
+      {int port = 80, bool isRemote = false}) async {
     try {
-      final results = await Future.wait([
-        _getJson('http://$ip:$port/api/summary'),
-        _getJson('http://$ip:$port/api/overview'),
-      ]);
+      final results = isRemote
+          ? await Future.wait([
+              _getJsonRelay(ip, port, '/api/summary'),
+              _getJsonRelay(ip, port, '/api/overview'),
+            ])
+          : await Future.wait([
+              _getJson('http://$ip:$port/api/summary'),
+              _getJson('http://$ip:$port/api/overview'),
+            ]);
 
       final summaryResp = results[0];
       final overviewResp = results[1];
@@ -421,6 +428,23 @@ class FluMinerAPI {
       final body = resp.body.trim();
       if (body.isEmpty) return null;
       final data = jsonDecode(body);
+      return data is Map<String, dynamic> ? data : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Fetch via relay bridge (when isRemote == true)
+  Future<Map<String, dynamic>?> _getJsonRelay(
+      String ip, int port, String path) async {
+    try {
+      final result = await RelayService.instance.command(
+        minerIp: ip,
+        minerPort: port,
+        method: 'GET',
+        path: path,
+      );
+      final data = result['data'];
       return data is Map<String, dynamic> ? data : null;
     } catch (_) {
       return null;
