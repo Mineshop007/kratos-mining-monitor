@@ -38,12 +38,12 @@ class _Banner extends StatelessWidget {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              kc.accent.withOpacity(0.15),
-              kc.accent.withOpacity(0.08),
+              kc.accent.withValues(alpha: 0.15),
+              kc.accent.withValues(alpha: 0.08),
             ],
           ),
           border: Border(
-            bottom: BorderSide(color: kc.accent.withOpacity(0.3)),
+            bottom: BorderSide(color: kc.accent.withValues(alpha: 0.3)),
           ),
         ),
         child: Row(children: [
