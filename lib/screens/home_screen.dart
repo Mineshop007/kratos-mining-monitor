@@ -918,6 +918,7 @@ class _FleetSparklineState extends State<_FleetSparkline> {
           height: 36,
           child: LineChart(
             LineChartData(
+              backgroundColor: Colors.transparent,
               gridData: const FlGridData(show: false),
               titlesData: const FlTitlesData(show: false),
               borderData: FlBorderData(show: false),
@@ -936,7 +937,7 @@ class _FleetSparklineState extends State<_FleetSparkline> {
                   dotData: const FlDotData(show: false),
                   belowBarData: BarAreaData(
                     show: true,
-                    color: kc.accent.withOpacity(0.15),
+                    color: kc.accent.withValues(alpha: 0.15),
                   ),
                 ),
               ],

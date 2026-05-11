@@ -17,12 +17,32 @@ import 'oc_screen.dart';
 import 'schedule_screen.dart';
 import 'apply_preset_sheet.dart';
 import '../services/miner_mode_prefs.dart';
+import '../services/klaw_service.dart';
 import '../utils/block_calc.dart';
 import '../services/btc_price.dart';
 
-class MinerDetailScreen extends StatelessWidget {
+class MinerDetailScreen extends StatefulWidget {
   final Miner miner;
   const MinerDetailScreen({super.key, required this.miner});
+
+  @override
+  State<MinerDetailScreen> createState() => _MinerDetailScreenState();
+}
+
+class _MinerDetailScreenState extends State<MinerDetailScreen> {
+  Miner get miner => widget.miner;
+
+  @override
+  void initState() {
+    super.initState();
+    KlawService.instance.setScreen(KlawScreenContext.minerDetail);
+  }
+
+  @override
+  void dispose() {
+    KlawService.instance.setScreen(KlawScreenContext.miners);
+    super.dispose();
+  }
 
   Future<bool> _restart() async {
     if (miner.type.apiType == ApiType.espMinerHttp) {
@@ -655,8 +675,10 @@ class _HashrateChartState extends State<_HashrateChart> {
     final minY = (center - range / 2).clamp(0, double.infinity).toDouble();
     final maxY = center + range / 2;
 
+    final accentColor = KratosColors.of(context).accent;
     return LineChart(
       LineChartData(
+        backgroundColor: Colors.transparent,
         gridData: FlGridData(
           show: true,
           horizontalInterval: (maxY - minY) / 4,
@@ -706,13 +728,13 @@ class _HashrateChartState extends State<_HashrateChart> {
             spots: spots,
             isCurved: true,
             curveSmoothness: 0.18,
-            color: KratosColors.volt,
+            color: accentColor,
             barWidth: 2.4,
             isStrokeCapRound: true,
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(
               show: true,
-              color: KratosColors.volt.withOpacity(0.1),
+              color: accentColor.withValues(alpha: 0.12),
             ),
           ),
         ],
