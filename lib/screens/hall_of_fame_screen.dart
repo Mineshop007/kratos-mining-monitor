@@ -5,6 +5,7 @@ import '../main.dart';
 import '../models/miner.dart';
 import '../services/best_diff_tracker.dart';
 import '../services/global_leaderboard_service.dart';
+import '../services/klaw_service.dart';
 import '../services/miner_store.dart';
 import '../widgets/miner_icon.dart';
 
@@ -26,6 +27,7 @@ class _HallOfFameState extends State<HallOfFameScreen>
     _tabs = TabController(length: 2, vsync: this);
     _global.addListener(_onGlobal);
     _global.fetchLeaderboard();
+    KlawService.instance.setScreen(KlawScreenContext.hallOfFame);
   }
 
   @override
@@ -75,7 +77,7 @@ class _HallOfFameState extends State<HallOfFameScreen>
             tabs: [
               const Tab(text: 'MY FLEET'),
               Tab(text: _global.stats != null
-                  ? 'GLOBAL  ${_global.stats!.totalMiners}'
+                  ? 'GLOBAL  TOP 100'
                   : 'GLOBAL'),
             ],
           ),
@@ -163,7 +165,7 @@ class _GlobalTab extends StatelessWidget {
     }
     if (service.leaderboard.isEmpty) return const _EmptyState(isGlobal: true);
 
-    final records = service.leaderboard;
+    final records = service.leaderboard.take(100).toList();
     final top = records.first;
 
     return RefreshIndicator(
