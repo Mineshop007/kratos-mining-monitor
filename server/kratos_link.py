@@ -19,10 +19,10 @@ import aiohttp, websockets
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 log = logging.getLogger('kratos-link')
 
-# Direct connection to origin IP on port 80 — bypasses Cloudflare Bot checks.
-# nginx on MINESHOP_ORIGIN proxies /relay/ to the relay server.
-# The app connects via wss://mineshop.eu/relay/ (through Cloudflare).
-RELAY_URL          = 'ws://MINESHOP_ORIGIN'
+# Bridge connects to relay.kratos.mineshop.eu directly on origin IP (port 80).
+# Using IP directly bypasses Cloudflare Bot checks on the Python WS library.
+# The app connects via wss://relay.kratos.mineshop.eu (through Cloudflare).
+RELAY_URL          = 'ws://MINESHOP_ORIGIN'  # same origin as relay.kratos.mineshop.eu
 DISCOVERY_TIMEOUT  = 2.0   # seconds per host
 CGMINER_TIMEOUT    = 1.5
 RECONNECT_DELAY    = 5
