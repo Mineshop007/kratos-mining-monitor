@@ -83,7 +83,9 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
       );
       return;
     }
-    Clipboard.setData(ClipboardData(text: 'python3 kratos_link.py --key $key'));
+    // One-liner installer — auto-starts bridge at boot (Linux/Mac/Windows)
+    Clipboard.setData(ClipboardData(
+        text: 'curl -sL https://mineshop.eu/relay/install.sh | bash -s $key'));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Setup command copied to clipboard'),
@@ -548,11 +550,10 @@ class _HowItWorksSection extends StatelessWidget {
           children: [
             const _SectionLabel('HOW IT WORKS'),
             const SizedBox(height: 12),
-            _Step('1',
-                'Download Kratos Link (Python script) to your home PC / Pi'),
-            _Step('2', 'Run: python3 kratos_link.py --key <your-key>'),
-            _Step('3', 'Copy the key, paste above, tap Connect'),
-            _Step('4', 'Your miners appear — add them to your fleet'),
+            _Step('1', 'Enter your access key above and tap Connect'),
+            _Step('2', 'Tap "Copy Setup Command" — paste it in Terminal on any PC on the same network as your miners'),
+            _Step('3', 'The bridge installs itself and auto-starts at boot — no manual steps after'),
+            _Step('4', 'Your miners appear here — add them to your fleet'),
           ],
         ),
       );
