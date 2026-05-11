@@ -325,7 +325,19 @@ class _MinerDetailScreenState extends State<MinerDetailScreen> {
               ),
               const SizedBox(height: 8),
             ],
-            if (miner.type == MinerType.avalonQ ||
+            if (miner.type == MinerType.fluMinerT3) ...[
+              // FluMiner T3: pool config via its own web UI
+              _ActionBtn(
+                'Pool Config — Open Web UI',
+                Icons.open_in_browser,
+                KratosTheme.orange,
+                () => launchUrl(
+                  Uri.parse('http://${miner.ip}'),
+                  mode: LaunchMode.externalApplication,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ] else if (miner.type == MinerType.avalonQ ||
                 miner.type == MinerType.avalonMini3 ||
                 miner.type == MinerType.avalonNano3s ||
                 miner.type == MinerType.avalonNano3) ...[

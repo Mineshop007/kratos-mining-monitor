@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:multicast_dns/multicast_dns.dart';
 import 'package:network_info_plus/network_info_plus.dart';
 import '../models/miner.dart';
+import 'fluminer_api.dart';
 
 /// LAN miner discovery — three concurrent strategies:
 ///
@@ -167,6 +168,10 @@ class LanDiscoveryService {
         esp ??= await _probeEspMinerHttp(ip, 8080);
         if (esp != null) { _safeAdd(sink, esp); return; }
 
+        // FluMiner T3 probe (GET /api/overview, port 80)
+        final flu = await _probeFluMinerHttp(ip, 80);
+        if (flu != null) { _safeAdd(sink, flu); return; }
+
         // Avalon HTTP probe (port 80, different endpoints)
         final av = await _probeAvalonHttp(ip, 80);
         if (av != null) { _safeAdd(sink, av); return; }
@@ -240,6 +245,25 @@ class LanDiscoveryService {
         hostname: displayName,
         firmware: (body['version'] as String?) ?? '',
         source: DiscoverySource.espMinerHttp,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<DiscoveredMiner?> _probeFluMinerHttp(String ip, int port,
+      {Duration? timeout}) async {
+    try {
+      final result = await FluMinerAPI.probe(ip, port: port)
+          .timeout(timeout ?? _httpProbeTimeout);
+      if (result == null) return null;
+      return DiscoveredMiner(
+        ip: ip,
+        port: port,
+        type: MinerType.fluMinerT3,
+        hostname: result['hostname'] as String? ?? 'FluMiner T3',
+        firmware: result['firmware'] as String? ?? '',
+        source: DiscoverySource.fluMinerHttp,
       );
     } catch (_) {
       return null;
@@ -356,4 +380,4 @@ class DiscoveredMiner {
   );
 }
 
-enum DiscoverySource { mdns, espMinerHttp, avalonHttp, cgminerTcp }
+enum DiscoverySource { mdns, espMinerHttp, avalonHttp, fluMinerHttp, cgminerTcp }

@@ -7,6 +7,7 @@ import '../models/miner.dart';
 import 'cgminer_api.dart';
 import 'esp_miner_api.dart';
 import 'avalon_api.dart';
+import 'fluminer_api.dart';
 import 'relay_service.dart';
 import 'global_leaderboard_service.dart';
 import 'btc_price.dart';
@@ -84,7 +85,10 @@ class MinerStore extends ChangeNotifier {
 
   Future<void> _fetch(Miner miner) async {
     MinerStats rawStats;
-    if (miner.type.apiType == ApiType.espMinerHttp) {
+    if (miner.type.apiType == ApiType.fluMinerHttp) {
+      rawStats = await FluMinerAPI.instance
+          .fetchStats(miner.ip, port: miner.port);
+    } else if (miner.type.apiType == ApiType.espMinerHttp) {
       rawStats = await EspMinerAPI.instance.fetchAll(miner.ip, miner.port,
           remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
     } else if (miner.type.apiType == ApiType.avalonHttp) {

@@ -76,6 +76,7 @@ class _GroupPoolEditorScreenState extends State<GroupPoolEditorScreen> {
       final key = switch (miner.type.apiType) {
         ApiType.espMinerHttp => 'ESP-Miner',
         ApiType.avalonHttp => 'Avalon HTTP',
+        ApiType.fluMinerHttp => 'FluMiner HTTP',
         ApiType.cgminerTcp => 'CGMiner TCP',
       };
       m[key] = (m[key] ?? 0) + 1;
@@ -128,6 +129,8 @@ class _GroupPoolEditorScreenState extends State<GroupPoolEditorScreen> {
       backgroundColor: kc.bg,
       appBar: AppBar(
         backgroundColor: kc.bg,
+        leading: Navigator.canPop(context) ? BackButton(color: kc.text) : null,
+        iconTheme: IconThemeData(color: kc.text),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Apply Pool to Group',
               style: TextStyle(

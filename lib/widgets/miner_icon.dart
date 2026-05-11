@@ -23,6 +23,8 @@ class MinerIcon extends StatelessWidget {
       case MinerType.avalonNano3:
       case MinerType.avalonNano3s:
         return _AvalonPainter(label: t == MinerType.avalonQ ? 'Q' : 'A');
+      case MinerType.fluMinerT3:
+        return const _FluMinerPainter();
       case MinerType.antminer:
       case MinerType.whatsminer:
       case MinerType.goldshell:
@@ -276,4 +278,79 @@ class _AntminerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_AntminerPainter old) => false;
+}
+
+// ── FluMiner T3 — Teal/blue industrial rack-style icon ───────────────────────
+
+class _FluMinerPainter extends CustomPainter {
+  const _FluMinerPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width / 100;
+
+    // Background circle
+    canvas.drawCircle(
+      Offset(50 * s, 50 * s),
+      48 * s,
+      Paint()..color = const Color(0xFF0A2030),
+    );
+
+    // Top face (teal)
+    final topPaint = Paint()..color = const Color(0xFF00BCD4);
+    final topFace = Path()
+      ..moveTo(15 * s, 38 * s)
+      ..lineTo(50 * s, 22 * s)
+      ..lineTo(85 * s, 38 * s)
+      ..lineTo(50 * s, 54 * s)
+      ..close();
+    canvas.drawPath(topFace, topPaint);
+
+    // Left face (darker teal)
+    final leftPaint = Paint()..color = const Color(0xFF00838F);
+    final leftFace = Path()
+      ..moveTo(15 * s, 38 * s)
+      ..lineTo(50 * s, 54 * s)
+      ..lineTo(50 * s, 84 * s)
+      ..lineTo(15 * s, 68 * s)
+      ..close();
+    canvas.drawPath(leftFace, leftPaint);
+
+    // Right face (medium teal)
+    final rightPaint = Paint()..color = const Color(0xFF006064);
+    final rightFace = Path()
+      ..moveTo(50 * s, 54 * s)
+      ..lineTo(85 * s, 38 * s)
+      ..lineTo(85 * s, 68 * s)
+      ..lineTo(50 * s, 84 * s)
+      ..close();
+    canvas.drawPath(rightFace, rightPaint);
+
+    // Blue LED accent
+    final ledPaint = Paint()..color = const Color(0xFF40E0FF).withOpacity(0.8);
+    final ledStrip = Path()
+      ..moveTo(50 * s, 70 * s)
+      ..lineTo(85 * s, 54 * s)
+      ..lineTo(85 * s, 59 * s)
+      ..lineTo(50 * s, 75 * s)
+      ..close();
+    canvas.drawPath(ledStrip, ledPaint);
+
+    // "F" label on top
+    final tp = TextPainter(
+      text: TextSpan(
+        text: 'F',
+        style: TextStyle(
+          color: const Color(0xFF001A20),
+          fontSize: 18 * s,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(43 * s, 30 * s));
+  }
+
+  @override
+  bool shouldRepaint(_FluMinerPainter old) => false;
 }

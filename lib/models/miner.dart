@@ -2,7 +2,7 @@ import 'coin.dart';
 
 // ── Miner model ───────────────────────────────────────────────────────────────
 
-enum ApiType { espMinerHttp, avalonHttp, cgminerTcp }
+enum ApiType { espMinerHttp, avalonHttp, cgminerTcp, fluMinerHttp }
 
 enum MinerStatus { online, offline, warning, unknown }
 
@@ -20,6 +20,7 @@ enum MinerType {
   whatsminer,
   goldshell,
   luckyMiner,
+  fluMinerT3,
   generic;
 
   String get displayName => switch (this) {
@@ -36,6 +37,7 @@ enum MinerType {
         whatsminer => 'Whatsminer',
         goldshell => 'Goldshell',
         luckyMiner => 'Lucky Miner',
+        fluMinerT3 => 'FluMiner T3',
         generic => 'Miner',
       };
 
@@ -50,6 +52,7 @@ enum MinerType {
         nerdoctaxe ||
         luckyMiner =>
           ApiType.espMinerHttp,
+        fluMinerT3 => ApiType.fluMinerHttp,
         // Nano 3S and Nano 3: OpenWrt-based, HTTP REST API available
         avalonNano3s || avalonNano3 => ApiType.avalonHttp,
         // Mini 3 and Q: CGMiner TCP on port 4028 (standard Canaan protocol)
@@ -60,6 +63,7 @@ enum MinerType {
   int get defaultPort => switch (apiType) {
         ApiType.espMinerHttp => 80,
         ApiType.avalonHttp => 80,
+        ApiType.fluMinerHttp => 80,
         ApiType.cgminerTcp => 4028,
       };
 
@@ -94,6 +98,8 @@ enum MinerType {
     if (m.contains('whatsminer') || m.contains('microbt')) return whatsminer;
     if (m.contains('goldshell')) return goldshell;
     if (m.contains('lucky')) return luckyMiner;
+    if (m.contains('fluminer') || m.contains('flu miner') ||
+        (m.contains('flu') && m.contains('t3'))) return fluMinerT3;
     if (m.contains('rev6') || m.contains('nerd') && m.contains('rev'))
       return nerdqaxe;
     return generic;

@@ -6,6 +6,7 @@ import '../models/miner_group.dart';
 import '../services/esp_miner_api.dart';
 import '../services/cgminer_api.dart';
 import '../services/avalon_api.dart';
+import '../services/fluminer_api.dart';
 
 // ── Pool config passed to bulk apply ─────────────────────────────────────────
 
@@ -178,6 +179,16 @@ class GroupService extends ChangeNotifier {
               fallbackUser: config.user2,
               remoteUrl: miner.remoteUrl,
               isRemote: miner.isRemote,
+            );
+          case ApiType.fluMinerHttp:
+            ok = await FluMinerAPI.instance.setPool(
+              miner.ip, miner.port,
+              host: config.host1,
+              poolPort: config.port1,
+              user: config.user1,
+              fallbackHost: config.host2,
+              fallbackPort: config.port2,
+              fallbackUser: config.user2,
             );
           case ApiType.cgminerTcp:
             // Avalon Mini 3, Q, Antminer etc — CGMiner TCP, needs full stratum URL
