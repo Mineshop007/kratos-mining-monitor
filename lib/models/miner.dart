@@ -99,7 +99,8 @@ enum MinerType {
     if (m.contains('goldshell')) return goldshell;
     if (m.contains('lucky')) return luckyMiner;
     if (m.contains('fluminer') || m.contains('flu miner') ||
-        (m.contains('flu') && m.contains('t3'))) return fluMinerT3;
+        (m.contains('flu') && m.contains('t3')) ||
+        m == 'fluminer t3' || m == 't3') return fluMinerT3;
     if (m.contains('rev6') || m.contains('nerd') && m.contains('rev'))
       return nerdqaxe;
     return generic;

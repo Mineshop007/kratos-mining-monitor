@@ -100,7 +100,14 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
     final model = remoteMiner['model'] as String? ?? '';
     if (ip.isEmpty) return;
 
-    final type = MinerType.detect(model);
+    // Also check protocol field for FluMiner (bridge sends 'fluminer_http')
+    final protocol = remoteMiner['protocol'] as String? ?? '';
+    MinerType type;
+    if (protocol == 'fluminer_http') {
+      type = MinerType.fluMinerT3;
+    } else {
+      type = MinerType.detect(model);
+    }
     final miner = Miner(
       name: model.isNotEmpty ? model : 'Remote: $ip',
       ip: ip,
