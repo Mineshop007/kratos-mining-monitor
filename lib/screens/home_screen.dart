@@ -17,6 +17,7 @@ import 'add_miner_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/relay_service.dart';
 import '../widgets/update_banner.dart';
+import '../widgets/bitcoin_node_card.dart';
 import 'hall_of_fame_screen.dart';
 import 'giveaway_screen.dart';
 
@@ -73,10 +74,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   static const _tabs = <_TabSpec>[
-    _TabSpec(label: 'Volt',     icon: Icons.bolt_rounded),
-    _TabSpec(label: 'Miners',   icon: Icons.memory_rounded),
-    _TabSpec(label: 'Pools',    icon: Icons.waves_rounded),
-    _TabSpec(label: 'Chat',     icon: Icons.forum_rounded),
+    _TabSpec(label: 'Volt', icon: Icons.bolt_rounded),
+    _TabSpec(label: 'Miners', icon: Icons.memory_rounded),
+    _TabSpec(label: 'Pools', icon: Icons.waves_rounded),
+    _TabSpec(label: 'Chat', icon: Icons.forum_rounded),
     _TabSpec(label: 'Settings', icon: Icons.settings_rounded),
   ];
 
@@ -95,16 +96,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       backgroundColor: kc.bg,
       body: UpdateBanner(
         child: Stack(
-        children: [
-          IndexedStack(index: _index, children: pages),
-          if (_celebratedMiner != null)
-            FallingBlockOverlay(
-              minerName: _celebratedMiner!.name,
-              coinTicker: 'BTC',
-              onDone: () => setState(() => _celebratedMiner = null),
-            ),
-        ],
-      ),
+          children: [
+            IndexedStack(index: _index, children: pages),
+            if (_celebratedMiner != null)
+              FallingBlockOverlay(
+                minerName: _celebratedMiner!.name,
+                coinTicker: 'BTC',
+                onDone: () => setState(() => _celebratedMiner = null),
+              ),
+          ],
+        ),
       ),
       bottomNavigationBar: _BottomBar(
         index: _index,
@@ -209,9 +210,7 @@ class _TabButton extends StatelessWidget {
               color: color,
               shadows: active
                   ? [
-                      Shadow(
-                          color: kc.accent.withOpacity(0.8),
-                          blurRadius: 8),
+                      Shadow(color: kc.accent.withOpacity(0.8), blurRadius: 8),
                     ]
                   : null,
             ),
@@ -321,7 +320,9 @@ class _OverviewBody extends StatelessWidget {
               avgTempC: _avgTemp(store),
               minerIds: store.miners.map((m) => m.id).toList(),
             ),
-            SizedBox(height: 14),
+            const SizedBox(height: 14),
+            const BitcoinNodeCard(),
+            const SizedBox(height: 14),
             _TileGrid(store: store, onSwitchTab: onSwitchTab),
           ],
         ),
@@ -341,7 +342,8 @@ class _OverviewBody extends StatelessWidget {
 
 class _Logo extends StatefulWidget {
   const _Logo();
-  @override State<_Logo> createState() => _LogoState();
+  @override
+  State<_Logo> createState() => _LogoState();
 }
 
 class _LogoState extends State<_Logo> with SingleTickerProviderStateMixin {
@@ -350,12 +352,16 @@ class _LogoState extends State<_Logo> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _btcCtrl = AnimationController(vsync: this,
-        duration: const Duration(seconds: 3))..repeat();
+    _btcCtrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 3))
+          ..repeat();
   }
 
   @override
-  void dispose() { _btcCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _btcCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -365,33 +371,43 @@ class _LogoState extends State<_Logo> with SingleTickerProviderStateMixin {
       child: Row(children: [
         // Klaw mascot image
         Container(
-          width: 36, height: 36,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(9),
-            boxShadow: [BoxShadow(
-                color: kc.accent.withOpacity(0.45),
-                blurRadius: 12, spreadRadius: 1)],
+            boxShadow: [
+              BoxShadow(
+                  color: kc.accent.withOpacity(0.45),
+                  blurRadius: 12,
+                  spreadRadius: 1)
+            ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(9),
-            child: Image.asset('assets/images/klaw-mascot.png',
-                fit: BoxFit.cover),
+            child:
+                Image.asset('assets/images/klaw-mascot.png', fit: BoxFit.cover),
           ),
         ),
         SizedBox(width: 10),
         // KRATOS text
         Row(children: [
-          Text('KRA', style: TextStyle(fontSize: 26,
-              fontWeight: FontWeight.w900, color: kc.text,
-              letterSpacing: 1.5)),
+          Text('KRA',
+              style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: kc.text,
+                  letterSpacing: 1.5)),
           ShaderMask(
             blendMode: BlendMode.srcIn,
-            shaderCallback: (b) => LinearGradient(
-                colors: [kc.accentBright, kc.accent])
-                .createShader(b),
-            child: Text('TOS', style: TextStyle(fontSize: 26,
-                fontWeight: FontWeight.w900, letterSpacing: 1.5,
-                color: Colors.white)),
+            shaderCallback: (b) =>
+                LinearGradient(colors: [kc.accentBright, kc.accent])
+                    .createShader(b),
+            child: Text('TOS',
+                style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                    color: Colors.white)),
           ),
         ]),
         const Spacer(),
@@ -400,14 +416,18 @@ class _LogoState extends State<_Logo> with SingleTickerProviderStateMixin {
           animation: _btcCtrl,
           builder: (_, __) {
             final angle = _btcCtrl.value * 2 * 3.14159;
-            final scaleX = (0.4 * (1 + (angle % 3.14159 < 1.5708
-                ? angle % 3.14159 / 1.5708
-                : 1 - (angle % 3.14159 - 1.5708) / 1.5708))).clamp(0.08, 1.0);
+            final scaleX = (0.4 *
+                    (1 +
+                        (angle % 3.14159 < 1.5708
+                            ? angle % 3.14159 / 1.5708
+                            : 1 - (angle % 3.14159 - 1.5708) / 1.5708)))
+                .clamp(0.08, 1.0);
             return Transform(
               alignment: Alignment.center,
               transform: Matrix4.identity()..scale(scaleX, 1.0),
               child: Container(
-                width: 36, height: 36,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(colors: [
@@ -415,15 +435,21 @@ class _LogoState extends State<_Logo> with SingleTickerProviderStateMixin {
                     const Color(0xFFF7931A),
                     const Color(0xFFE67300),
                   ]),
-                  boxShadow: [BoxShadow(
-                      color: const Color(0xFFF7931A).withOpacity(0.5),
-                      blurRadius: 10)],
+                  boxShadow: [
+                    BoxShadow(
+                        color: const Color(0xFFF7931A).withOpacity(0.5),
+                        blurRadius: 10)
+                  ],
                 ),
                 alignment: Alignment.center,
-                child: Text('₿', style: TextStyle(
-                    fontSize: 20, fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    shadows: [Shadow(color: Colors.black26, blurRadius: 4)])),
+                child: Text('₿',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        shadows: [
+                          Shadow(color: Colors.black26, blurRadius: 4)
+                        ])),
               ),
             );
           },
@@ -531,18 +557,12 @@ class _HeroCard extends StatelessWidget {
                 value: dailyNetUsd != 0
                     ? '\$${dailyNetUsd.toStringAsFixed(2)}'
                     : '—',
-                color: dailyNetUsd >= 0
-                    ? kc.accentBright
-                    : KratosColors.danger,
+                color: dailyNetUsd >= 0 ? kc.accentBright : KratosColors.danger,
               ),
               _StatCell(
                 label: 'AVG TEMP',
-                value: avgTempC > 0
-                    ? '${avgTempC.toStringAsFixed(0)}°C'
-                    : '—',
-                color: avgTempC > 75
-                    ? KratosColors.warning
-                    : kc.text,
+                value: avgTempC > 0 ? '${avgTempC.toStringAsFixed(0)}°C' : '—',
+                color: avgTempC > 75 ? KratosColors.warning : kc.text,
               ),
               _StatCell(
                 label: 'ONLINE',
@@ -688,7 +708,8 @@ class _TileGrid extends StatelessWidget {
       _Tile(
         icon: Icons.thermostat_rounded,
         title: 'Thermal',
-        subtitle: store.miners.isEmpty ? 'No data' : '${store.miners.length} sensors',
+        subtitle:
+            store.miners.isEmpty ? 'No data' : '${store.miners.length} sensors',
         color: KratosColors.warning,
         onTap: () => onSwitchTab(1),
       ),
@@ -703,7 +724,8 @@ class _TileGrid extends StatelessWidget {
       _Tile(
         icon: Icons.shield_rounded,
         title: 'Status',
-        subtitle: store.offlineCount > 0 ? '${store.offlineCount} offline' : 'All up',
+        subtitle:
+            store.offlineCount > 0 ? '${store.offlineCount} offline' : 'All up',
         color: store.offlineCount > 0 ? KratosColors.danger : kc.accent,
         onTap: () => onSwitchTab(1),
       ),
@@ -712,8 +734,8 @@ class _TileGrid extends StatelessWidget {
         title: 'Giveaway',
         subtitle: 'Win Nano 3S!',
         color: KratosColors.coinBtc, // gold
-        onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const GiveawayScreen())),
+        onTap: () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const GiveawayScreen())),
       ),
       _Tile(
         icon: Icons.forum_rounded,
@@ -894,15 +916,16 @@ class _FleetSparklineState extends State<_FleetSparkline> {
       );
     }
     final spots = _pts
-        .map((p) => FlSpot(
-            p.ts.millisecondsSinceEpoch.toDouble(), p.hashrate / 1000.0))
+        .map((p) =>
+            FlSpot(p.ts.millisecondsSinceEpoch.toDouble(), p.hashrate / 1000.0))
         .toList();
     final minX = spots.first.x;
     final maxX = spots.last.x;
     final ys = spots.map((s) => s.y);
     final minY = ys.reduce((a, b) => a < b ? a : b);
     final maxY = ys.reduce((a, b) => a > b ? a : b);
-    final pad = (maxY - minY).abs() < 1e-6 ? maxY * 0.05 + 0.01 : (maxY - minY) * 0.15;
+    final pad =
+        (maxY - minY).abs() < 1e-6 ? maxY * 0.05 + 0.01 : (maxY - minY) * 0.15;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

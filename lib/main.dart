@@ -19,6 +19,7 @@ import 'services/schedule_service.dart';
 import 'services/pool_preset_service.dart';
 import 'services/miner_mode_prefs.dart';
 import 'services/update_check_service.dart';
+import 'services/bitcoin_node_service.dart';
 import 'screens/home_screen.dart';
 import 'services/group_service.dart';
 import 'theme/volt_theme.dart';
@@ -84,6 +85,9 @@ class KratosApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => GroupService.instance),
         ChangeNotifierProvider(create: (_) => ChatService()),
         ChangeNotifierProvider.value(value: UpdateCheckService.instance),
+        ChangeNotifierProvider(
+          create: (_) => BitcoinNodeService.instance..init(),
+        ),
       ],
       child: Consumer<ThemeService>(
         builder: (ctx, theme, _) {

@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../theme/volt_theme.dart';
+import '../models/bitcoin_node.dart';
+import '../services/bitcoin_node_service.dart';
 import '../services/theme_service.dart';
 import '../services/miner_store.dart';
 import '../services/haptic_service.dart';
@@ -68,6 +70,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _HapticsSection(),
           SizedBox(height: 18),
           _ElectricitySection(),
+          SizedBox(height: 18),
+          _BitcoinNodeSection(),
           SizedBox(height: 18),
           _ToolsSection(),
           SizedBox(height: 18),
@@ -464,6 +468,306 @@ class _ElectricitySectionState extends State<_ElectricitySection> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BitcoinNodeSection extends StatelessWidget {
+  const _BitcoinNodeSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+    return _SectionShell(
+      title: 'Bitcoin Node',
+      child: Consumer<BitcoinNodeService>(
+        builder: (context, service, _) {
+          final config = service.config;
+          final status = service.stats.status;
+          if (config == null) {
+            return _ActionRow(
+              icon: Icons.dns_rounded,
+              color: KratosTheme.orange,
+              label: 'Add Bitcoin Node',
+              sub: 'Connect Bitcoin Core RPC for sync, peers, and fees',
+              onTap: () => _showBitcoinNodeDialog(context),
+            );
+          }
+          return ListTile(
+            leading: _StatusDot(status: status),
+            title: Text(
+              '${config.host}:${config.port}',
+              style: TextStyle(
+                color: kc.text,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: Text(
+              _statusLabel(status),
+              style: TextStyle(color: kc.muted, fontSize: 11),
+            ),
+            trailing: Wrap(
+              spacing: 2,
+              children: [
+                IconButton(
+                  tooltip: 'Edit',
+                  icon: Icon(Icons.edit_rounded, color: kc.accent, size: 20),
+                  onPressed: () =>
+                      _showBitcoinNodeDialog(context, initial: config),
+                ),
+                IconButton(
+                  tooltip: 'Remove',
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: KratosColors.danger,
+                    size: 20,
+                  ),
+                  onPressed: service.clearConfig,
+                ),
+              ],
+            ),
+            onTap: () => _showBitcoinNodeDialog(context, initial: config),
+          );
+        },
+      ),
+    );
+  }
+
+  static String _statusLabel(NodeStatus status) => switch (status) {
+        NodeStatus.online => 'Online',
+        NodeStatus.syncing => 'Syncing',
+        NodeStatus.offline => 'Offline',
+        NodeStatus.unknown => 'Unknown',
+      };
+}
+
+class _StatusDot extends StatelessWidget {
+  final NodeStatus status;
+  const _StatusDot({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+    final color = switch (status) {
+      NodeStatus.online => kc.accent,
+      NodeStatus.syncing => KratosColors.warning,
+      NodeStatus.offline => KratosColors.danger,
+      NodeStatus.unknown => kc.muted,
+    };
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Container(
+        width: 9,
+        height: 9,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+    );
+  }
+}
+
+Future<void> _showBitcoinNodeDialog(
+  BuildContext context, {
+  BitcoinNodeConfig? initial,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: KratosColors.of(context).surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+    ),
+    builder: (_) => _BitcoinNodeConfigSheet(initial: initial),
+  );
+}
+
+class _BitcoinNodeConfigSheet extends StatefulWidget {
+  final BitcoinNodeConfig? initial;
+  const _BitcoinNodeConfigSheet({this.initial});
+
+  @override
+  State<_BitcoinNodeConfigSheet> createState() =>
+      _BitcoinNodeConfigSheetState();
+}
+
+class _BitcoinNodeConfigSheetState extends State<_BitcoinNodeConfigSheet> {
+  late final TextEditingController _hostCtrl;
+  late final TextEditingController _portCtrl;
+  late final TextEditingController _userCtrl;
+  late final TextEditingController _passCtrl;
+  bool _obscure = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    _hostCtrl = TextEditingController(text: initial?.host ?? '192.168.1.1');
+    _portCtrl = TextEditingController(text: '${initial?.port ?? 8332}');
+    _userCtrl = TextEditingController(text: initial?.rpcUser ?? '');
+    _passCtrl = TextEditingController(text: initial?.rpcPass ?? '');
+  }
+
+  @override
+  void dispose() {
+    _hostCtrl.dispose();
+    _portCtrl.dispose();
+    _userCtrl.dispose();
+    _passCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(18, 18, 18, 18 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.dns_rounded, color: KratosTheme.orange),
+              const SizedBox(width: 10),
+              Text(
+                widget.initial == null
+                    ? 'Add Bitcoin Node'
+                    : 'Edit Bitcoin Node',
+                style: TextStyle(
+                  color: kc.text,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _NodeField(
+            controller: _hostCtrl,
+            label: 'Host',
+            keyboardType: TextInputType.url,
+          ),
+          const SizedBox(height: 10),
+          _NodeField(
+            controller: _portCtrl,
+            label: 'Port',
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 10),
+          _NodeField(controller: _userCtrl, label: 'RPC Username'),
+          const SizedBox(height: 10),
+          _NodeField(
+            controller: _passCtrl,
+            label: 'RPC Password',
+            obscureText: _obscure,
+            suffix: IconButton(
+              icon: Icon(
+                _obscure
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
+                color: kc.muted,
+              ),
+              onPressed: () => setState(() => _obscure = !_obscure),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: kc.accent,
+                foregroundColor: kc.bg,
+              ),
+              icon: _saving
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: kc.bg,
+                      ),
+                    )
+                  : const Icon(Icons.save_rounded),
+              label: Text(_saving ? 'Saving...' : 'Save'),
+              onPressed: _saving ? null : _save,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final host = _hostCtrl.text.trim();
+    final port = int.tryParse(_portCtrl.text.trim()) ?? 8332;
+    final user = _userCtrl.text.trim();
+    final pass = _passCtrl.text;
+    if (host.isEmpty || user.isEmpty || pass.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Host, username, and password are required.')),
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    await context.read<BitcoinNodeService>().configure(
+          BitcoinNodeConfig(
+            host: host,
+            port: port,
+            rpcUser: user,
+            rpcPass: pass,
+          ),
+        );
+    if (mounted) Navigator.pop(context);
+  }
+}
+
+class _NodeField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final TextInputType? keyboardType;
+  final bool obscureText;
+  final Widget? suffix;
+
+  const _NodeField({
+    required this.controller,
+    required this.label,
+    this.keyboardType,
+    this.obscureText = false,
+    this.suffix,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+    return TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      obscureText: obscureText,
+      style: TextStyle(color: kc.text, fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: kc.muted),
+        suffixIcon: suffix,
+        filled: true,
+        fillColor: kc.surface2.withValues(alpha: 0.72),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: kc.line),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: kc.accent, width: 2),
         ),
       ),
     );
