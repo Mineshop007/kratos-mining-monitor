@@ -5,7 +5,7 @@
   "packages": [
     {
       "name": "kratos",
-      "version": "2.0.52+117",
+      "version": "2.0.53+118",
       "dependencies": [
         "confetti",
         "dart_ping",

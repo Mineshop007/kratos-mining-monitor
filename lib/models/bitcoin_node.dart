@@ -5,19 +5,32 @@ class BitcoinNodeConfig {
   final int port;
   final String rpcUser;
   final String rpcPass;
+  /// Optional: full proxy URL (e.g. http://ip/node-rpc/TOKEN/)
+  /// When set, host/port/rpcUser/rpcPass are ignored — URL already has auth baked in
+  final String? proxyUrl;
 
   const BitcoinNodeConfig({
     required this.host,
     required this.port,
-    required this.rpcUser,
-    required this.rpcPass,
+    this.rpcUser = '',
+    this.rpcPass = '',
+    this.proxyUrl,
   });
+
+  /// True when using a pre-authenticated proxy URL
+  bool get isProxy => proxyUrl != null && proxyUrl!.isNotEmpty;
+
+  /// The URL to POST JSON-RPC to
+  String get rpcUrl => isProxy
+      ? proxyUrl!
+      : 'http://$host:$port/';
 
   Map<String, dynamic> toJson() => {
         'host': host,
         'port': port,
         'rpcUser': rpcUser,
         'rpcPass': rpcPass,
+        if (proxyUrl != null) 'proxyUrl': proxyUrl,
       };
 
   factory BitcoinNodeConfig.fromJson(Map<String, dynamic> json) =>
@@ -26,6 +39,15 @@ class BitcoinNodeConfig {
         port: (json['port'] as num?)?.toInt() ?? 8332,
         rpcUser: json['rpcUser'] as String? ?? '',
         rpcPass: json['rpcPass'] as String? ?? '',
+        proxyUrl: json['proxyUrl'] as String?,
+      );
+
+  /// Quick constructor for Mineshop pool node via proxy URL
+  factory BitcoinNodeConfig.mineshopPool() => const BitcoinNodeConfig(
+        host: 'POOL_NODE_HOST',
+        port: 80,
+        proxyUrl:
+            'http://POOL_NODE_HOST/node-rpc/5tggCi3QJxzcp6btwlWsk6Mm8YgMTL40/',
       );
 }
 

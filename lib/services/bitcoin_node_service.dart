@@ -168,22 +168,17 @@ class BitcoinNodeService extends ChangeNotifier {
     BitcoinNodeConfig cfg,
     String method,
   ) async {
-    final uri = Uri(
-      scheme: 'http',
-      host: cfg.host,
-      port: cfg.port,
-      userInfo: '${Uri.encodeComponent(cfg.rpcUser)}:'
-          '${Uri.encodeComponent(cfg.rpcPass)}',
-      path: '/',
-    );
-    final auth = base64Encode(utf8.encode('${cfg.rpcUser}:${cfg.rpcPass}'));
+    final uri = Uri.parse(cfg.rpcUrl);
+    final headers = <String, String>{'content-type': 'application/json'};
+    // Only add Basic auth for direct RPC (not proxy URL which has token baked in)
+    if (!cfg.isProxy && cfg.rpcUser.isNotEmpty) {
+      final auth = base64Encode(utf8.encode('${cfg.rpcUser}:${cfg.rpcPass}'));
+      headers['authorization'] = 'Basic $auth';
+    }
     final response = await http
         .post(
           uri,
-          headers: {
-            'content-type': 'application/json',
-            'authorization': 'Basic $auth',
-          },
+          headers: headers,
           body: jsonEncode({
             'jsonrpc': '1.0',
             'id': 'kratos',
