@@ -53,7 +53,7 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-              'Use a fresh Kratos Link key. Old short keys are not accepted.'),
+              'Invalid key. Use letters, numbers, @, _ or - (min 8 chars).'),
           backgroundColor: Color(0xFF5A1E1E),
           duration: Duration(seconds: 3),
         ),
