@@ -39,7 +39,7 @@ const _sweepSteps = [
   (freq: 535, voltage: 2690),
   (freq: 550, voltage: 2705),
 ];
-const _stabSeconds = 45; // seconds to wait after each step
+const _stabSeconds = 1200; // 20 minutes per step — ASIC needs full thermal stabilisation
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -183,9 +183,14 @@ class _FluMinerOCScreenState extends State<FluMinerOCScreen> {
       _autoTimer = Timer.periodic(const Duration(seconds: 1), (t) async {
         if (!mounted) { t.cancel(); return; }
         _autoCountdown--;
+        final _mins = _autoCountdown ~/ 60;
+        final _secs = _autoCountdown % 60;
+        final _timeStr = _mins > 0
+            ? '${_mins}m ${_secs.toString().padLeft(2, '0')}s'
+            : '${_secs}s';
         setState(() => _result =
             '⏱ Step ${_autoStep + 1}/${_sweepSteps.length} — '
-            '${step.freq} MHz: stabilising… $_autoCountdown s');
+            '${step.freq} MHz: stabilising… $_timeStr remaining');
 
         if (_autoCountdown <= 0) {
           t.cancel();
@@ -361,8 +366,9 @@ class _FluMinerOCScreenState extends State<FluMinerOCScreen> {
 
           // ── In-app Autotune ───────────────────────────────────────────────
           _sectionLabel('AUTOTUNE',
-              sub: 'Sweeps ${_sweepSteps.length} frequency steps × ${_stabSeconds}s '
-                  'each (~${(_sweepSteps.length * _stabSeconds / 60).ceil()} min). '
+              sub: 'Sweeps ${_sweepSteps.length} steps × 20 min each '
+                  '(~${(_sweepSteps.length * _stabSeconds / 3600).toStringAsFixed(1)} hrs total). '
+                  'ASIC needs full thermal stabilisation per step. '
                   'Picks peak hashrate = best efficiency.'),
           const SizedBox(height: 10),
 
