@@ -13,6 +13,7 @@ import 'services/coin_price_service.dart';
 import 'services/haptic_service.dart';
 import 'services/circuit_service.dart';
 import 'services/chat_service.dart';
+import 'services/benchmark_service.dart';
 import 'services/history_service.dart';
 import 'services/relay_service.dart';
 import 'services/schedule_service.dart';
@@ -86,6 +87,7 @@ class KratosApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => GroupService.instance),
         ChangeNotifierProvider(create: (_) => ChatService()),
         ChangeNotifierProvider.value(value: UpdateCheckService.instance),
+        ChangeNotifierProvider(create: (_) => BenchmarkService.instance..init()),
         ChangeNotifierProvider(
           create: (_) => BitcoinNodeService.instance..init(),
         ),

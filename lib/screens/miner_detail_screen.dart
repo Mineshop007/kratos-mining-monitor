@@ -15,6 +15,7 @@ import '../services/history_service.dart';
 import 'pool_editor_screen.dart';
 import 'oc_screen.dart';
 import 'fluminer_oc_screen.dart';
+import '../widgets/benchmark_card.dart';
 import 'schedule_screen.dart';
 import 'apply_preset_sheet.dart';
 import '../services/miner_mode_prefs.dart';
@@ -273,6 +274,10 @@ class _MinerDetailScreenState extends State<MinerDetailScreen> {
                   color: KratosTheme.orange),
               const SizedBox(height: 12),
             ],
+
+            // Community Benchmark
+            BenchmarkCard(miner: miner, stats: s),
+            const SizedBox(height: 12),
 
             // Pools
             if (s != null && s.pools.isNotEmpty) ...[

@@ -8,6 +8,8 @@ import '../models/bitcoin_node.dart';
 import '../services/bitcoin_node_service.dart';
 import '../services/theme_service.dart';
 import '../services/miner_store.dart';
+import '../services/benchmark_service.dart';
+import 'benchmark_screen.dart';
 import '../services/haptic_service.dart';
 import '../services/energy_report.dart';
 import 'faq_screen.dart';
@@ -69,6 +71,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _ThemeSection(),
           SizedBox(height: 18),
           _FleetSection(),
+          SizedBox(height: 18),
+          _CommunitySection(),
           SizedBox(height: 18),
           _HapticsSection(),
           SizedBox(height: 18),
@@ -1058,5 +1062,58 @@ class _AboutSection extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ── Community ─────────────────────────────────────────────────────────────────
+
+class _CommunitySection extends StatelessWidget {
+  const _CommunitySection();
+
+  @override
+  Widget build(BuildContext context) {
+    final kc = KratosColors.of(context);
+    final svc = BenchmarkService.instance;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.only(left: 4, bottom: 10),
+        child: Text('COMMUNITY',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800,
+                color: kc.muted, letterSpacing: 1.5)),
+      ),
+      ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        tileColor: kc.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: Icon(Icons.bar_chart_rounded, color: kc.accent),
+        title: Text('Community Benchmarks',
+            style: TextStyle(color: kc.text, fontWeight: FontWeight.w700)),
+        subtitle: Text('OC configs, efficiency rankings, pool stats',
+            style: TextStyle(color: kc.muted, fontSize: 12)),
+        trailing: Icon(Icons.chevron_right, color: kc.muted),
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const BenchmarkScreen())),
+      ),
+      const SizedBox(height: 8),
+      ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        tileColor: kc.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        leading: Icon(Icons.share_rounded,
+            color: svc.enabled ? kc.accent : kc.muted),
+        title: Text('Share anonymous benchmark data',
+            style: TextStyle(color: kc.text, fontWeight: FontWeight.w700)),
+        subtitle: Text(
+            svc.enabled
+                ? 'Auto-collecting OC + performance (anonymous)'
+                : 'Tap to enable community benchmarking',
+            style: TextStyle(color: kc.muted, fontSize: 12)),
+        trailing: Switch(
+          value: svc.enabled,
+          activeColor: kc.accent,
+          onChanged: (v) => svc.setEnabled(v),
+        ),
+      ),
+    ]);
   }
 }
