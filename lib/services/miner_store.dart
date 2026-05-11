@@ -73,10 +73,15 @@ class MinerStore extends ChangeNotifier {
   }
 
   Future<void> refreshAll() async {
+    // Cap at 6s so pull-to-refresh never blocks the UI for longer.
+    // Offline miners hitting their full 8s timeout would otherwise stall everyone.
     await Future.wait([
       _refreshPrice(),
       ...miners.map(_fetch),
-    ]);
+    ]).timeout(
+      const Duration(seconds: 6),
+      onTimeout: () => [],
+    );
   }
 
   void refreshOne(Miner miner) => _fetch(miner);

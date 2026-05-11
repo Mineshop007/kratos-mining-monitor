@@ -153,7 +153,7 @@ class _MinersScreenState extends State<MinersScreen> {
             child: Image.asset('assets/images/klaw-mascot.png',
                 fit: BoxFit.contain, filterQuality: FilterQuality.medium),
           ),
-          title: Text('Miners',
+          title: Text('Kratos',
               style: TextStyle(
                   fontSize: 20, fontWeight: FontWeight.w800, color: kc.text)),
           actions: [
@@ -220,9 +220,6 @@ class _MinersScreenState extends State<MinersScreen> {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
-        SizedBox(height: 12),
-        const _ShareBrandBanner(),
-        SizedBox(height: 12),
         if (DashboardPrefs.instance.showFleetTotals) const FleetSummaryBar(),
         SizedBox(height: 12),
         ..._sorted(store).map((m) {
@@ -274,7 +271,6 @@ class _MinersScreenState extends State<MinersScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Column(
               children: [
-                const _ShareBrandBanner(),
                 if (DashboardPrefs.instance.showFleetTotals) ...[
                   const SizedBox(height: 12),
                   const FleetSummaryBar(),
