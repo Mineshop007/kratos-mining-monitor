@@ -22,6 +22,8 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _activeSlug;
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  String? _lastScrolledSlug;
+  int _lastScrolledMessageCount = -1;
 
   @override
   void initState() {
@@ -34,6 +36,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (svc.channels.isNotEmpty && _activeSlug == null) {
         setState(() => _activeSlug = svc.channels.first.slug);
         await svc.loadHistory(svc.channels.first.slug);
+        _scrollToBottom();
       }
     });
   }
@@ -48,6 +51,23 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _switchChannel(String slug) async {
     setState(() => _activeSlug = slug);
     await context.read<ChatService>().loadHistory(slug);
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom({bool animated = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scroll.hasClients) return;
+      final target = _scroll.position.maxScrollExtent;
+      if (animated) {
+        _scroll.animateTo(
+          target,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scroll.jumpTo(target);
+      }
+    });
   }
 
   Future<void> _send() async {
@@ -84,14 +104,11 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             Text('Chat',
                 style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: kc.text)),
+                    fontSize: 20, fontWeight: FontWeight.w800, color: kc.text)),
             SizedBox(width: 10),
             Consumer<ChatService>(
               builder: (ctx, svc, _) => Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: svc.connected
                       ? kc.accent.withOpacity(0.16)
@@ -108,9 +125,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     Icon(
                       svc.connected ? Icons.link : Icons.link_off,
                       size: 11,
-                      color: svc.connected
-                          ? kc.accent
-                          : kc.muted,
+                      color: svc.connected ? kc.accent : kc.muted,
                     ),
                     SizedBox(width: 4),
                     Text(
@@ -118,9 +133,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w800,
-                          color: svc.connected
-                              ? kc.accentBright
-                              : kc.muted,
+                          color: svc.connected ? kc.accentBright : kc.muted,
                           letterSpacing: 0.4),
                     ),
                   ],
@@ -133,8 +146,7 @@ class _ChatScreenState extends State<ChatScreen> {
           IconButton(
             onPressed: () => launchUrl(Uri.parse(_kDiscordInvite),
                 mode: LaunchMode.externalApplication),
-            icon: Icon(Icons.open_in_new_rounded,
-                color: kc.muted, size: 20),
+            icon: Icon(Icons.open_in_new_rounded, color: kc.muted, size: 20),
             tooltip: 'Open in Discord app',
           ),
         ],
@@ -152,6 +164,14 @@ class _ChatScreenState extends State<ChatScreen> {
           final activeSlug = _activeSlug ?? svc.channels.first.slug;
           final messages = svc.messagesFor(activeSlug);
           final readOnly = svc.readOnly.contains(activeSlug);
+          final channelChanged = _lastScrolledSlug != activeSlug;
+          final messageCountChanged =
+              _lastScrolledMessageCount != messages.length;
+          if (channelChanged || messageCountChanged) {
+            _lastScrolledSlug = activeSlug;
+            _lastScrolledMessageCount = messages.length;
+            _scrollToBottom(animated: !channelChanged);
+          }
           return Column(
             children: [
               _ChannelPills(
@@ -166,8 +186,18 @@ class _ChatScreenState extends State<ChatScreen> {
                         controller: _scroll,
                         padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
                         itemCount: messages.length,
-                        itemBuilder: (ctx, i) =>
-                            _MessageBubble(msg: messages[i]),
+                        itemBuilder: (ctx, i) {
+                          final msg = messages[i];
+                          final previous = i == 0 ? null : messages[i - 1];
+                          final grouped = previous != null &&
+                              previous.authorName == msg.authorName &&
+                              previous.authorIsBot == msg.authorIsBot &&
+                              previous.authorIsWebhook == msg.authorIsWebhook;
+                          return _MessageBubble(
+                            msg: msg,
+                            grouped: grouped,
+                          );
+                        },
                       ),
               ),
               _Composer(
@@ -199,29 +229,38 @@ class _ChannelPills extends StatelessWidget {
   Widget build(BuildContext context) {
     final kc = KratosColors.of(context);
     return SizedBox(
-      height: 44,
+      height: 58,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+        padding: const EdgeInsets.fromLTRB(14, 7, 14, 7),
         itemCount: channels.length,
-        separatorBuilder: (_, __) => SizedBox(width: 6),
+        separatorBuilder: (_, __) => SizedBox(width: 8),
         itemBuilder: (ctx, i) {
           final c = channels[i];
           final isActive = c.slug == active;
           return InkWell(
             onTap: () => onTap(c.slug),
             borderRadius: BorderRadius.circular(99),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              constraints: const BoxConstraints(minHeight: 44),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: isActive
-                    ? kc.accent.withOpacity(0.18)
-                    : kc.surface2,
+                color: isActive ? kc.accent : kc.surface2,
                 borderRadius: BorderRadius.circular(99),
                 border: Border.all(
-                    color: isActive
-                        ? kc.accent.withOpacity(0.5)
-                        : kc.line),
+                    color:
+                        isActive ? kc.accentBright.withOpacity(0.7) : kc.line),
+                boxShadow: isActive
+                    ? [
+                        BoxShadow(
+                          color: kc.accent.withOpacity(0.22),
+                          blurRadius: 14,
+                          offset: const Offset(0, 6),
+                        ),
+                      ]
+                    : null,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -231,19 +270,14 @@ class _ChannelPills extends StatelessWidget {
                       padding: const EdgeInsets.only(right: 4),
                       child: Icon(Icons.bolt_rounded,
                           size: 11,
-                          color: isActive
-                              ? kc.accent
-                              : kc.muted),
+                          color: isActive ? const Color(0xFF001A0E) : kc.muted),
                     ),
                   Text(
                     '#${c.slug}',
                     style: TextStyle(
-                      color: isActive
-                          ? kc.accentBright
-                          : kc.muted,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                      letterSpacing: 0.3,
+                      color: isActive ? const Color(0xFF001A0E) : kc.muted,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
                     ),
                   ),
                 ],
@@ -258,7 +292,11 @@ class _ChannelPills extends StatelessWidget {
 
 class _MessageBubble extends StatelessWidget {
   final ChatMessage msg;
-  const _MessageBubble({required this.msg});
+  final bool grouped;
+  const _MessageBubble({
+    required this.msg,
+    required this.grouped,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -271,75 +309,81 @@ class _MessageBubble extends StatelessWidget {
         .join()
         .toUpperCase();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: EdgeInsets.only(
+        top: grouped ? 1 : 7,
+        bottom: grouped ? 1 : 6,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [
-                kc.accent.withOpacity(0.6),
-                kc.accentDeep,
-              ]),
-              shape: BoxShape.circle,
+          if (grouped)
+            const SizedBox(width: 39)
+          else ...[
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  kc.accent.withOpacity(0.6),
+                  kc.accentDeep,
+                ]),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                initials,
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF001A0E)),
+              ),
             ),
-            alignment: Alignment.center,
-            child: Text(
-              initials,
-              style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF001A0E)),
-            ),
-          ),
-          SizedBox(width: 9),
+            SizedBox(width: 9),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(
-                      msg.authorName,
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: kc.accentBright),
-                    ),
-                    if (msg.authorIsBot || msg.authorIsWebhook)
-                      Container(
-                        margin: const EdgeInsets.only(left: 6),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: kc.muted.withOpacity(0.18),
-                          borderRadius: BorderRadius.circular(99),
-                        ),
-                        child: Text('BOT',
-                            style: TextStyle(
-                                fontSize: 8,
-                                color: kc.muted,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.5)),
+                if (!grouped) ...[
+                  Row(
+                    children: [
+                      Text(
+                        msg.authorName,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: kc.accentBright),
                       ),
-                    SizedBox(width: 6),
-                    Text(
-                      _shortTime(msg.createdAt),
-                      style: TextStyle(
-                          fontSize: 10, color: kc.muted),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 1),
+                      if (msg.authorIsBot || msg.authorIsWebhook)
+                        Container(
+                          margin: const EdgeInsets.only(left: 6),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: kc.muted.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: Text('BOT',
+                              style: TextStyle(
+                                  fontSize: 8,
+                                  color: kc.muted,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.5)),
+                        ),
+                      SizedBox(width: 6),
+                      Text(
+                        _shortTime(msg.createdAt),
+                        style: TextStyle(fontSize: 10, color: kc.muted),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 1),
+                ],
                 if (msg.text.isNotEmpty)
                   Text(
                     msg.text,
-                    style: TextStyle(
-                        fontSize: 13.5,
-                        color: kc.text,
-                        height: 1.4),
+                    style:
+                        TextStyle(fontSize: 13.5, color: kc.text, height: 1.4),
                   ),
               ],
             ),
@@ -376,9 +420,7 @@ class _ChannelEmpty extends StatelessWidget {
             Text(
               '#$slug is quiet.',
               style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: kc.text),
+                  fontSize: 16, fontWeight: FontWeight.w800, color: kc.text),
             ),
             SizedBox(height: 4),
             Text(
@@ -414,14 +456,12 @@ class _Composer extends StatelessWidget {
         color: kc.surface.withOpacity(0.5),
         child: Row(
           children: [
-            Icon(Icons.lock_outline_rounded,
-                size: 14, color: kc.muted),
+            Icon(Icons.lock_outline_rounded, size: 14, color: kc.muted),
             SizedBox(width: 8),
             Expanded(
               child: Text(
                 '#$slug is read-only — populated automatically when blocks are found.',
-                style: TextStyle(
-                    fontSize: 11, color: kc.muted, height: 1.3),
+                style: TextStyle(fontSize: 11, color: kc.muted, height: 1.3),
               ),
             ),
           ],
@@ -445,8 +485,7 @@ class _Composer extends StatelessWidget {
                 onSubmitted: (_) => onSend(),
                 decoration: InputDecoration(
                   hintText: 'Message #$slug',
-                  hintStyle:
-                      TextStyle(color: kc.muted),
+                  hintStyle: TextStyle(color: kc.muted),
                   filled: true,
                   fillColor: kc.surface2,
                   contentPadding:
@@ -497,16 +536,13 @@ class _OfflineHero extends StatelessWidget {
             Text(
               "Can't reach the bridge.",
               style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: kc.text),
+                  fontSize: 18, fontWeight: FontWeight.w800, color: kc.text),
             ),
             SizedBox(height: 6),
             Text(
               error,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 12, color: kc.muted, height: 1.4),
+              style: TextStyle(fontSize: 12, color: kc.muted, height: 1.4),
             ),
             SizedBox(height: 18),
             ElevatedButton.icon(
@@ -520,8 +556,7 @@ class _OfflineHero extends StatelessWidget {
                   mode: LaunchMode.externalApplication),
               icon: Icon(Icons.chat_bubble_outline, size: 16),
               label: Text('Open Discord directly',
-                  style:
-                      TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -537,16 +572,14 @@ Future<String?> _pickDisplayName(BuildContext context) async {
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: kc.surface,
-      title: Text('Pick a display name',
-          style: TextStyle(color: kc.text)),
+      title: Text('Pick a display name', style: TextStyle(color: kc.text)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'This is how you appear in Discord. Anything within reason — 32 chars max.',
-            style:
-                TextStyle(fontSize: 12, color: kc.muted, height: 1.4),
+            style: TextStyle(fontSize: 12, color: kc.muted, height: 1.4),
           ),
           SizedBox(height: 12),
           TextField(
@@ -564,8 +597,7 @@ Future<String?> _pickDisplayName(BuildContext context) async {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: Text('Cancel',
-              style: TextStyle(color: kc.muted)),
+          child: Text('Cancel', style: TextStyle(color: kc.muted)),
         ),
         FilledButton(
           style: FilledButton.styleFrom(
@@ -573,8 +605,8 @@ Future<String?> _pickDisplayName(BuildContext context) async {
             foregroundColor: const Color(0xFF001A0E),
           ),
           onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-          child: Text('Set name',
-              style: TextStyle(fontWeight: FontWeight.w800)),
+          child:
+              Text('Set name', style: TextStyle(fontWeight: FontWeight.w800)),
         ),
       ],
     ),

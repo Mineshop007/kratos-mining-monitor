@@ -24,6 +24,7 @@ import 'screens/home_screen.dart';
 import 'services/group_service.dart';
 import 'theme/volt_theme.dart';
 import 'widgets/klaw.dart';
+import 'widgets/klaw_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -95,6 +96,7 @@ class KratosApp extends StatelessWidget {
             title: 'Kratos',
             debugShowCheckedModeBanner: false,
             theme: kratosThemeData(theme.current),
+            builder: (ctx, child) => KlawGlobalOverlay(child: child!),
             home: theme.loaded ? const HomeScreen() : const KlawSplash(),
           );
         },
