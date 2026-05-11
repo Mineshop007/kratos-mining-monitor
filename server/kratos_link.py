@@ -49,7 +49,8 @@ def _version_tuple(version: str) -> tuple:
 async def check_for_update() -> None:
     """Best-effort self update. Any failure is logged and the bridge continues."""
     try:
-        async with aiohttp.ClientSession() as session:
+        headers = {'User-Agent': f'KratosLink/{BRIDGE_VERSION} (+https://kratos.mineshop.eu)'}
+        async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(UPDATE_URL, timeout=aiohttp.ClientTimeout(total=10)) as r:
                 if r.status != 200:
                     log.warning(f'Update check failed: HTTP {r.status}')
