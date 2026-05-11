@@ -102,11 +102,15 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
     final model = remoteMiner['model'] as String? ?? '';
     if (ip.isEmpty) return;
 
-    // Also check protocol field for FluMiner (bridge sends 'fluminer_http')
+    // Use protocol field from bridge for exact type detection
     final protocol = remoteMiner['protocol'] as String? ?? '';
     MinerType type;
     if (protocol == 'fluminer_http') {
       type = MinerType.fluMinerT3;
+    } else if (protocol == 'avalon_http') {
+      // Bridge detected Avalon HTTP REST (nano3s / nano3)
+      type = MinerType.detect(model);
+      if (type == MinerType.generic) type = MinerType.avalonNano3s;
     } else {
       type = MinerType.detect(model);
     }

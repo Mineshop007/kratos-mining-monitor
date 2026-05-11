@@ -229,11 +229,50 @@ async def probe_fluminer(session: aiohttp.ClientSession, ip: str, port=80) -> Op
         return None
 
 
+async def probe_avalon_http(session: aiohttp.ClientSession, ip: str, port=80) -> Optional[dict]:
+    """Canaan Avalon Nano 3S / Nano 3 — HTTP REST API (not CGMiner TCP)"""
+    endpoints = [
+        '/api/miner/status',
+        '/cgi-bin/luci/admin/miner/api/status',
+        '/api/v1/status',
+    ]
+    for ep in endpoints:
+        try:
+            url = f'http://{ip}:{port}{ep}'
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=DISCOVERY_TIMEOUT)) as r:
+                if r.status != 200:
+                    continue
+                data = await r.json(content_type=None)
+                if not isinstance(data, dict):
+                    continue
+                # Avalon HTTP devices return hashrate / miner fields
+                d = data.get('miner', data)
+                has_avalon = (
+                    any(k in d for k in ('hashrate', 'GHs', 'GHs5s', 'hrt')) or
+                    any(k in data for k in ('hashrate', 'GHs', 'hrt')) or
+                    'nano' in str(d.get('model', '')).lower() or
+                    'avalon' in str(d.get('model', '')).lower()
+                )
+                if not has_avalon:
+                    continue
+                model = str(d.get('model') or data.get('model') or 'Avalon')
+                return {
+                    'ip': ip, 'port': port, 'protocol': 'avalon_http',
+                    'model': model,
+                    'hashrate': 0,
+                    'firmware': str(d.get('version') or data.get('version') or ''),
+                }
+        except Exception:
+            continue
+    return None
+
+
 async def check_host(session: aiohttp.ClientSession, ip: str) -> Optional[dict]:
     """Try all protocols concurrently for a single IP"""
     results = await asyncio.gather(
         probe_esp_miner(session, ip, 80),
         probe_fluminer(session, ip, 80),
+        probe_avalon_http(session, ip, 80),
         probe_cgminer_tcp(ip, 4028),
         return_exceptions=True
     )
