@@ -128,6 +128,11 @@ class FluMinerAPI {
       final accepted = _toInt(s['acc']) ?? 0;
       final rejected = _toInt(s['rej']) ?? 0;
 
+      // Best difficulty — field names vary across firmware versions
+      final bestShare = _parseBestDiff(
+          s['bestDiff'] ?? s['best_diff'] ?? s['bestShare'] ??
+          s['best_share'] ?? s['sessionDiff'] ?? s['BestDiff']);
+
       // Frequency & voltage (may or may not be in summary)
       final frequency = _toDouble(s['frequency']) ?? 0.0;
       final voltageRaw = _toInt(s['voltage']) ?? 0; // mV
@@ -175,8 +180,9 @@ class FluMinerAPI {
         firmware: firmware,
         model: 'FluMiner T3',
         type: MinerType.fluMinerT3,
-        coreVoltage: voltageRaw, // reuse existing field
+        coreVoltage: voltageRaw,
         workMode: runMode.index,  // 0=efficiency 1=normal 2=turbo
+        bestShare: bestShare,
         status: status,
         lastUpdated: DateTime.now(),
       );
@@ -371,6 +377,24 @@ class FluMinerAPI {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Parses best difficulty — handles "2.5G", "890M", "1.2T" or raw number
+  static double _parseBestDiff(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    if (v is! String || v.isEmpty) return 0;
+    final s = v.trim().toUpperCase();
+    const suffixes = <String, double>{
+      'P': 1e15, 'T': 1e12, 'G': 1e9, 'M': 1e6, 'K': 1e3
+    };
+    for (final entry in suffixes.entries) {
+      if (s.endsWith(entry.key)) {
+        final n = double.tryParse(s.substring(0, s.length - 1));
+        if (n != null) return n * entry.value;
+      }
+    }
+    return double.tryParse(s) ?? 0;
   }
 
   static List<double> _splitPipe(String? value) {
