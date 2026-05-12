@@ -113,13 +113,18 @@ class FluMinerAPI {
       final summaryResp = results[0];
       final overviewResp = results[1];
 
-      // Try authenticated pool stats for bestDiff (non-blocking, best-effort)
+      // Try authenticated pool stats + session stats for bestDiff (best-effort)
       Map<String, dynamic>? poolsResp;
+      Map<String, dynamic>? hourResp;
       try {
         final session = await login(ip, port);
         if (session != null) {
-          poolsResp = await _getJsonAuthed(
-              'http://$ip:$port/api/getPools', session);
+          final extras = await Future.wait([
+            _getJsonAuthed('http://$ip:$port/api/getPools', session),
+            _getJsonAuthed('http://$ip:$port/api/getHashAndTempHour', session),
+          ]);
+          poolsResp = extras[0];
+          hourResp  = extras[1];
         }
       } catch (_) {}
 
@@ -145,16 +150,20 @@ class FluMinerAPI {
       final accepted = _toInt(s['acc']) ?? 0;
       final rejected = _toInt(s['rej']) ?? 0;
 
-      // Best difficulty — check summary fields at multiple levels,
-      // then fall back to pools endpoint which sometimes carries per-pool bestDiff
+      // Best difficulty — check all known field names across all endpoints.
+      // FluMiner T3 field name not yet confirmed; we cast a wide net.
       final bestShare = _parseBestDiff(
-          // summary[0] level
+          // summary[0] level (most common location)
           s['bestDiff'] ?? s['best_diff'] ?? s['bestShare'] ??
           s['best_share'] ?? s['sessionDiff'] ?? s['BestDiff'] ??
           s['maxDiff'] ?? s['topDiff'] ?? s['highestDiff'] ??
+          s['best'] ?? s['diffBest'] ?? s['sessionBestDiff'] ??
           // data level (parent of summary array)
           summaryData?['bestDiff'] ?? summaryData?['best_diff'] ??
           summaryData?['bestShare'] ?? summaryData?['sessionBest'] ??
+          summaryData?['best'] ?? summaryData?['highestDiff'] ??
+          // hourly stats endpoint
+          _hourBestDiff(hourResp) ??
           // pools endpoint
           _poolsBestDiff(poolsResp));
 
@@ -388,6 +397,15 @@ class FluMinerAPI {
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+
+  /// Extract best difficulty from hourly stats response
+  static dynamic _hourBestDiff(Map<String, dynamic>? resp) {
+    if (resp == null) return null;
+    final data = resp['data'];
+    if (data is! Map) return null;
+    return data['bestDiff'] ?? data['best_diff'] ?? data['bestShare'] ??
+        data['highestDiff'] ?? data['sessionBest'] ?? data['best'];
+  }
 
   /// Extract best difficulty from pools response (per-pool stats)
   static dynamic _poolsBestDiff(Map<String, dynamic>? poolsResp) {

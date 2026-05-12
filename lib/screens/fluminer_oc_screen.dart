@@ -4,28 +4,8 @@ import '../models/miner.dart';
 import '../services/fluminer_api.dart';
 import '../theme/volt_theme.dart';
 
-// ── Validated presets from live T3 testing ───────────────────────────────────
-// Power is ~constant at 1244W regardless of frequency.
-// Efficiency is entirely driven by hashrate (lower W/TH = better).
-
-class _OcPreset {
-  final String name;
-  final int freq;
-  final int voltage;
-  final double hashTH;   // TH/s measured live
-  final double efficiency; // W/TH — lower is better
-  final bool isOptimal;
-  const _OcPreset(this.name, this.freq, this.voltage, this.hashTH,
-      this.efficiency, {this.isOptimal = false});
-}
-
-const _presets = [
-  _OcPreset('ECO',         475, 2630,  91.8, 13.54),
-  _OcPreset('BALANCED',    505, 2655, 101.4, 12.27),
-  _OcPreset('OPTIMAL ⭐',  520, 2670, 101.6, 12.25, isOptimal: true),
-  _OcPreset('FACTORY',     535, 2690, 101.4, 12.30),
-  _OcPreset('HIGH',        550, 2705,  97.3, 12.80),
-];
+// OC presets removed — values were unverified.
+// Use Autotune to find your device’s best settings, or set Manual OC directly.
 
 // ── Autotune sweep steps ─────────────────────────────────────────────────────
 // The T3 has constant power draw (~1244W). Peak hashrate = best efficiency.
@@ -101,16 +81,6 @@ class _FluMinerOCScreenState extends State<FluMinerOCScreen> {
       _mode = ok ? mode : _mode;
       _result = ok ? '✅ ${mode.label} mode active.' : '❌ Failed — check WiFi.';
     });
-  }
-
-  // ── Preset apply ─────────────────────────────────────────────────────────
-
-  Future<void> _applyPreset(_OcPreset p) async {
-    setState(() {
-      _freq = p.freq.toDouble();
-      _voltage = p.voltage.toDouble();
-    });
-    await _applyOC();
   }
 
   // ── Manual OC ────────────────────────────────────────────────────────────
@@ -311,58 +281,6 @@ class _FluMinerOCScreenState extends State<FluMinerOCScreen> {
 
           const SizedBox(height: 24),
 
-          // ── Quick Presets ─────────────────────────────────────────────────
-          _sectionLabel('QUICK PRESETS',
-              sub: 'Live-tested values from your T3. Power ~1244W constant.'),
-          const SizedBox(height: 10),
-          ...List.generate(_presets.length, (i) {
-            final p = _presets[i];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: GestureDetector(
-                onTap: (_saving || _autoTuning) ? null : () => _applyPreset(p),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: p.isOptimal
-                        ? kc.accent.withValues(alpha: 0.08)
-                        : kc.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: p.isOptimal
-                          ? kc.accent.withValues(alpha: 0.4)
-                          : kc.line,
-                      width: p.isOptimal ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Row(children: [
-                    SizedBox(width: 90, child: Text(p.name,
-                        style: TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w800,
-                            color: p.isOptimal ? kc.accent : kc.text))),
-                    Expanded(child: Text(
-                        '${p.freq} MHz / ${p.voltage} mV',
-                        style: TextStyle(fontSize: 11,
-                            color: kc.muted, fontFamily: 'Courier'))),
-                    Column(crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisSize: MainAxisSize.min, children: [
-                      Text('${p.hashTH.toStringAsFixed(1)} TH/s',
-                          style: TextStyle(fontSize: 12,
-                              fontWeight: FontWeight.w800, color: kc.text,
-                              fontFamily: 'Courier')),
-                      Text('${p.efficiency} W/TH',
-                          style: TextStyle(fontSize: 10, color: kc.muted)),
-                    ]),
-                    const SizedBox(width: 8),
-                    Icon(Icons.chevron_right, color: kc.muted, size: 16),
-                  ]),
-                ),
-              ),
-            );
-          }),
-
-          const SizedBox(height: 24),
 
           // ── In-app Autotune ───────────────────────────────────────────────
           _sectionLabel('AUTOTUNE',
