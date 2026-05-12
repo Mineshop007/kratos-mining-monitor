@@ -58,6 +58,7 @@ class AvalonAPI {
             minerPort: 80,
             method: 'GET',
             path: endpoint,
+            protocol: 'avalon_http',
           );
           // Relay returns {data: {...}} or {response: {...}} or the body directly
           final raw = result['data'] ?? result['response'] ?? result;

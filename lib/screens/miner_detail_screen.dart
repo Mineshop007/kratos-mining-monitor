@@ -707,6 +707,14 @@ class _HashrateChartState extends State<_HashrateChart> {
 
   Widget _buildChart() {
     final spots = _smoothChartSpots(_points);
+    // Need at least 2 distinct spots to draw a line; fewer means not enough
+    // history yet (e.g. miner just came online — all samples in one bucket).
+    if (spots.length < 2) {
+      return Center(
+        child: Text('Collecting data…',
+            style: TextStyle(fontSize: 12, color: KratosColors.of(context).muted)),
+      );
+    }
     final firstMs = spots.first.x;
     final lastMs = spots.last.x;
     final values = spots.map((p) => p.y);
@@ -750,7 +758,7 @@ class _HashrateChartState extends State<_HashrateChart> {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 22,
-              interval: (lastMs - firstMs) / 3,
+              interval: lastMs > firstMs ? (lastMs - firstMs) / 3 : 1,
               getTitlesWidget: (val, _) {
                 final dt = DateTime.fromMillisecondsSinceEpoch(val.toInt());
                 return Padding(
