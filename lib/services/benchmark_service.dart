@@ -260,6 +260,8 @@ class BenchmarkService extends ChangeNotifier {
       if (stats.status != MinerStatus.online && stats.status != MinerStatus.warning) {
         continue;
       }
+      // Require at least 20 minutes of uptime before submitting — ensures data is stable
+      if (stats.uptime < 20 * 60) continue;
       final hashrate = stats.hashrateDisplay;
       final power = stats.powerDraw;
       final efficiency = power > 0 && hashrate > 0 ? power / (hashrate / 1000) : 0;
