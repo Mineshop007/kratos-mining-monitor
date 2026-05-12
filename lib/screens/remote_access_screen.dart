@@ -83,9 +83,9 @@ class _RemoteAccessScreenState extends State<RemoteAccessScreen> {
       );
       return;
     }
-    // One-liner installer — auto-starts bridge at boot (Linux/Mac/Windows)
+    // Manual setup — download script + run with key
     Clipboard.setData(ClipboardData(
-        text: 'curl -sL https://soloblocks.io/relay/install.sh | bash -s $key'));
+        text: 'curl -O https://raw.githubusercontent.com/Mineshop007/kratos-mining-monitor/main/server/kratos_link.py && python3 kratos_link.py --key $key'));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Setup command copied to clipboard'),
@@ -555,8 +555,8 @@ class _HowItWorksSection extends StatelessWidget {
             const _SectionLabel('HOW IT WORKS'),
             const SizedBox(height: 12),
             _Step('1', 'Enter your access key above and tap Connect'),
-            _Step('2', 'Tap "Copy Setup Command" — paste it in Terminal on any PC on the same network as your miners'),
-            _Step('3', 'The bridge installs itself and auto-starts at boot — no manual steps after'),
+            _Step('2', 'Tap "Copy Setup Command" — paste it in Terminal on any Mac/PC/Linux on the same network as your miners'),
+            _Step('3', 'Python 3.9+ required. The command downloads the bridge script and starts it automatically'),
             _Step('4', 'Your miners appear here — add them to your fleet'),
           ],
         ),
