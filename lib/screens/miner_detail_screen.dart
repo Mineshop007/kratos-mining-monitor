@@ -402,7 +402,8 @@ class _MinerDetailScreenState extends State<MinerDetailScreen> {
               ),
               const SizedBox(height: 8),
             ],
-            if (miner.type == MinerType.avalonQ ||
+            if (miner.type == MinerType.fluMinerT3) ...[]
+            else if (miner.type == MinerType.avalonQ ||
                 miner.type == MinerType.avalonMini3 ||
                 miner.type == MinerType.avalonNano3s ||
                 miner.type == MinerType.avalonNano3) ...[
