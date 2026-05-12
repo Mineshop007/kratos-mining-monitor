@@ -443,6 +443,7 @@ class FluMinerAPI {
         minerPort: port,
         method: 'GET',
         path: path,
+        protocol: 'fluminer_http',
       );
       final data = result['data'];
       return data is Map<String, dynamic> ? data : null;

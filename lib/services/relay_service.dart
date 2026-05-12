@@ -228,6 +228,7 @@ class RelayService extends ChangeNotifier {
     required String method,
     required String path,
     Map<String, dynamic>? body,
+    String? protocol,
   }) async {
     if (_channel == null ||
         _state == RelayState.disconnected ||
@@ -248,6 +249,7 @@ class RelayService extends ChangeNotifier {
       'miner_port': minerPort,
     };
     if (body != null) payload['body'] = body;
+    if (protocol != null) payload['protocol'] = protocol;
 
     try {
       _channel!.sink.add(jsonEncode(payload));

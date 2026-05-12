@@ -138,6 +138,10 @@ class MinerStore extends ChangeNotifier {
         if (fallback.status != MinerStatus.offline) {
           rawStats = fallback;
         }
+      } else if (miner.type.apiType == ApiType.fluMinerHttp) {
+        final fallback = await FluMinerAPI.instance
+            .fetchStats(miner.ip, port: miner.port, isRemote: true);
+        if (fallback.status != MinerStatus.offline) rawStats = fallback;
       } else if (miner.type.apiType == ApiType.cgminerTcp) {
         final fallback = await CGMinerAPI.instance
             .fetchAll(miner.ip, miner.port, isRemote: true);
