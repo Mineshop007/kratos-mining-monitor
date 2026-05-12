@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Kratos Link — Home Network Bridge  v1.4
+Kratos Link — Home Network Bridge  v1.5
 Run this on any PC/Mac/Pi on the same network as your miners.
 It discovers ALL miner types (BitAxe, NerdAxe, LuckyMiner, Avalon, Antminer…)
 and bridges them to the Kratos app via secure relay.
@@ -21,7 +21,7 @@ log = logging.getLogger('kratos-link')
 
 # Bridge connects via WSS (encrypted, Cloudflare-proxied).
 # Uses ssl_no_verify so Python websockets doesn't struggle with CF cert checks.
-BRIDGE_VERSION     = '1.4'
+BRIDGE_VERSION     = '1.5'
 UPDATE_URL         = 'https://kratos.mineshop.eu/relay/bridge-version.json'
 PRIMARY_RELAY_URL  = 'wss://kratos.mineshop.eu'
 FALLBACK_RELAY_URL = 'wss://soloblocks.io'
@@ -201,7 +201,7 @@ async def probe_cgminer_tcp(ip: str, port=4028) -> Optional[dict]:
 
 
 async def probe_fluminer(session: aiohttp.ClientSession, ip: str, port=80) -> Optional[dict]:
-    """FluMiner T3 — HTTP REST API on port 80, identified by /api/overview"""
+    """FluMiner T3 — HTTP REST API on port 80, identified by /api/overview returning code=0 + minerInfo"""
     try:
         url = f'http://{ip}:{port}/api/overview'
         async with session.get(url, timeout=aiohttp.ClientTimeout(total=DISCOVERY_TIMEOUT)) as r:
@@ -215,13 +215,14 @@ async def probe_fluminer(session: aiohttp.ClientSession, ip: str, port=80) -> Op
                 return None
             info = inner['minerInfo']
             model = info.get('model', '')
-            mac   = (info.get('macAddress') or info.get('wifiMacAddress') or '').lower()
-            # Positive match: model == 'T3' or MAC starts with 70:69:79
-            if model != 'T3' and not mac.startswith('70:69:79'):
+            if not model:
                 return None
+            # Accept any FluMiner device — don't require exact 'T3' string
+            # (device may return 'FluMiner T3', 't3', 'T3-Pro', etc.)
+            display_model = model if model.lower().startswith('fluminer') else f'FluMiner {model}'
             return {
                 'ip': ip, 'port': port, 'protocol': 'fluminer_http',
-                'model': f'FluMiner {model}' if model else 'FluMiner T3',
+                'model': display_model,
                 'hashrate': 0,
                 'firmware': info.get('minerVersion', ''),
             }
