@@ -283,7 +283,7 @@ async def check_host(session: aiohttp.ClientSession, ip: str) -> Optional[dict]:
     return None
 
 
-_forced_subnet: str | None = None
+_forced_subnet: Optional[str] = None
 
 async def discover_miners() -> list:
     log.info('Scanning local network for miners…')
