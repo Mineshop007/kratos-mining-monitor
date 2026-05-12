@@ -25,6 +25,7 @@ enum FluMinerRunMode {
   static FluMinerRunMode fromApi(String? v) => switch (v) {
         '0' => efficiency,
         '2' => turbo,
+        '3' => turbo, // T3 firmware uses 3 for max/turbo mode
         _ => normal,
       };
 }
@@ -135,7 +136,9 @@ class FluMinerAPI {
           ? summaries[0] as Map<String, dynamic>
           : <String, dynamic>{};
 
-      final hashrateGH = _toDouble(s['hrt']) ?? 0.0;
+      // hrt = real-time hashrate (GH/s), havg = rolling average
+      final hashrateGH     = _toDouble(s['hrt'])  ?? 0.0;
+      final hashrateAvgGH  = _toDouble(s['havg']) ?? hashrateGH;
 
       // temp: "boardTemp|chipTemp" pipe-separated
       final temps = _splitPipe(s['temp'] as String?);
@@ -150,26 +153,19 @@ class FluMinerAPI {
       final accepted = _toInt(s['acc']) ?? 0;
       final rejected = _toInt(s['rej']) ?? 0;
 
-      // Best difficulty — check all known field names across all endpoints.
-      // FluMiner T3 field name not yet confirmed; we cast a wide net.
-      final bestShare = _parseBestDiff(
-          // summary[0] level (most common location)
-          s['bestDiff'] ?? s['best_diff'] ?? s['bestShare'] ??
-          s['best_share'] ?? s['sessionDiff'] ?? s['BestDiff'] ??
-          s['maxDiff'] ?? s['topDiff'] ?? s['highestDiff'] ??
-          s['best'] ?? s['diffBest'] ?? s['sessionBestDiff'] ??
-          // data level (parent of summary array)
-          summaryData?['bestDiff'] ?? summaryData?['best_diff'] ??
-          summaryData?['bestShare'] ?? summaryData?['sessionBest'] ??
-          summaryData?['best'] ?? summaryData?['highestDiff'] ??
-          // hourly stats endpoint
-          _hourBestDiff(hourResp) ??
-          // pools endpoint
-          _poolsBestDiff(poolsResp));
+      // Best difficulty — T3 firmware confirmed to NOT expose this in any
+      // unauthenticated endpoint. 'diff' field is always empty string.
+      // Auth via relay strips cookies so getPools also unavailable remotely.
+      // Keep 0 — best diff is tracked by the app's own best-diff tracker.
+      const bestShare = 0.0;
 
-      // Frequency & voltage (may or may not be in summary)
+      // Frequency — not in summary (needs /api/getPllCfg which relay blocks)
       final frequency = _toDouble(s['frequency']) ?? 0.0;
-      final voltageRaw = _toInt(s['voltage']) ?? 0; // mV
+      // Voltage — API returns Volts as string e.g. "26.70", convert to mV
+      final voltageVolts = _toDouble(s['voltage']) ?? 0.0;
+      final voltageRaw = voltageVolts > 100
+          ? voltageVolts.toInt()          // already in mV
+          : (voltageVolts * 1000).toInt(); // Volts → mV
 
       // Run mode
       final runMode = FluMinerRunMode.fromApi(s['mode']?.toString());
@@ -202,7 +198,7 @@ class FluMinerAPI {
 
       return MinerStats(
         hashrate5s: hashrateGH,
-        hashrateAvg: hashrateGH,
+        hashrateAvg: hashrateAvgGH,
         outTemp: outTemp,
         fanRPM: fanRPM,
         accepted: accepted,

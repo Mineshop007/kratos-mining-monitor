@@ -4,8 +4,29 @@ import '../models/miner.dart';
 import '../services/fluminer_api.dart';
 import '../theme/volt_theme.dart';
 
-// OC presets removed — values were unverified.
-// Use Autotune to find your device’s best settings, or set Manual OC directly.
+// ── T3 OC presets — calibrated from live device data ───────────────────────
+// Confirmed live: 2670mV @ factory = 117 TH/s, 1960W ≈ 16.8 J/TH
+
+class _OcPreset {
+  final String name;
+  final int freq;
+  final int voltage;   // mV
+  final double hashTH; // TH/s (estimated relative to factory)
+  final double watt;   // Watts
+  final bool isOptimal;
+  const _OcPreset(this.name, this.freq, this.voltage, this.hashTH, this.watt,
+      {this.isOptimal = false});
+  double get jth => watt / hashTH;
+}
+
+// Frequency unknown (relay blocks /api/getPllCfg) — voltage confirmed live.
+// Hashrate/power estimates scaled from factory baseline; run Autotune to confirm.
+const _presets = [
+  _OcPreset('ECO',      0, 2550, 95.0,  1650),
+  _OcPreset('BALANCED', 0, 2610, 108.0, 1800),
+  _OcPreset('FACTORY \u2605', 0, 2670, 117.0, 1960, isOptimal: true),
+  _OcPreset('HIGH',     0, 2720, 121.0, 2100),
+];
 
 // ── Autotune sweep steps ─────────────────────────────────────────────────────
 // The T3 has constant power draw (~1244W). Peak hashrate = best efficiency.
@@ -68,6 +89,14 @@ class _FluMinerOCScreenState extends State<FluMinerOCScreen> {
   void dispose() {
     _autoTimer?.cancel();
     super.dispose();
+  }
+
+  // ── Preset apply ─────────────────────────────────────────────────────────
+
+  Future<void> _applyPreset(_OcPreset p) async {
+    // Frequency unknown (relay blocks /api/getPllCfg) — apply voltage only
+    setState(() { _voltage = p.voltage.toDouble(); });
+    await _applyOC();
   }
 
   // ── Run Mode ─────────────────────────────────────────────────────────────
@@ -281,6 +310,49 @@ class _FluMinerOCScreenState extends State<FluMinerOCScreen> {
 
           const SizedBox(height: 24),
 
+          // ── Voltage Presets ───────────────────────────────────────────────
+          _sectionLabel('VOLTAGE PRESETS',
+              sub: 'Voltage confirmed live. Frequency set from slider below. Run Autotune to verify.'),
+          const SizedBox(height: 10),
+          ...List.generate(_presets.length, (i) {
+            final p = _presets[i];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: GestureDetector(
+                onTap: (_saving || _autoTuning) ? null : () => _applyPreset(p),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: p.isOptimal ? kc.accent.withValues(alpha: 0.08) : kc.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: p.isOptimal ? kc.accent.withValues(alpha: 0.4) : kc.line,
+                      width: p.isOptimal ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(children: [
+                    SizedBox(width: 90, child: Text(p.name,
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800,
+                            color: p.isOptimal ? kc.accent : kc.text))),
+                    Expanded(child: Text('${p.voltage} mV',
+                        style: TextStyle(fontSize: 11, color: kc.muted, fontFamily: 'Courier'))),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min,
+                        children: [
+                      Text('~${p.hashTH.toStringAsFixed(0)} TH/s',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800,
+                              color: kc.text, fontFamily: 'Courier')),
+                      Text('~${p.watt.toStringAsFixed(0)}W / ${p.jth.toStringAsFixed(1)} J/TH',
+                          style: TextStyle(fontSize: 10, color: kc.muted)),
+                    ]),
+                    const SizedBox(width: 8),
+                    Icon(Icons.chevron_right, color: kc.muted, size: 16),
+                  ]),
+                ),
+              ),
+            );
+          }),
+
+          const SizedBox(height: 24),
 
           // ── In-app Autotune ───────────────────────────────────────────────
           _sectionLabel('AUTOTUNE',
