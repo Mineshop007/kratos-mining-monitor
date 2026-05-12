@@ -93,18 +93,27 @@ class MinerStore extends ChangeNotifier {
 
   Future<void> _fetch(Miner miner) async {
     MinerStats rawStats;
+    // Smart routing: if miner was added as remote (isRemote=true) but we're
+    // on the same LAN, try direct first — it's faster and more reliable.
+    // Fall back to relay only if direct polling fails.
+    final effectiveRemote = miner.isRemote &&
+        RelayService.instance.state != RelayState.bridgeOnline
+        ? true  // bridge offline — relay won't help, keep isRemote flag
+        : false; // try direct regardless of isRemote flag; relay fallback below handles the rest
+    // Note: effectiveRemote=false means "try direct first". The existing relay
+    // fallback block below catches failures and routes through bridge.
     if (miner.type.apiType == ApiType.fluMinerHttp) {
       rawStats = await FluMinerAPI.instance.fetchStats(
-          miner.ip, port: miner.port, isRemote: miner.isRemote);
+          miner.ip, port: miner.port, isRemote: effectiveRemote);
     } else if (miner.type.apiType == ApiType.espMinerHttp) {
       rawStats = await EspMinerAPI.instance.fetchAll(miner.ip, miner.port,
-          remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
+          remoteUrl: miner.remoteUrl, isRemote: effectiveRemote);
     } else if (miner.type.apiType == ApiType.avalonHttp) {
       // Canaan Avalon devices: HTTP REST first, supplement missing fields from CGMiner
       rawStats = await AvalonAPI.instance.fetchStats(miner.ip, miner.type,
-          remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
+          remoteUrl: miner.remoteUrl, isRemote: effectiveRemote);
       // On LAN: always query CGMiner TCP too — HTTP doesn't return bestShare/pools on all firmware
-      if (!miner.isRemote) {
+      if (!effectiveRemote) {
         final cgStats = await CGMinerAPI.instance
             .fetchAll(miner.ip, 4028, remoteUrl: miner.remoteUrl);
         if (cgStats.status == MinerStatus.offline) {
@@ -124,12 +133,10 @@ class MinerStore extends ChangeNotifier {
           remoteUrl: miner.remoteUrl, isRemote: miner.isRemote);
     }
 
-    // Relay fallback: if direct fetch failed (offline) and this miner was
-    // added locally (isRemote=false), try routing through the relay bridge.
-    // This makes locally-scanned miners work transparently on mobile data
-    // without the user needing to re-add them as remote.
+    // Relay fallback: if direct fetch failed, route through bridge.
+    // Applies to both local miners (isRemote=false, e.g. on mobile data)
+    // AND remote miners (isRemote=true) that we tried directly above but failed.
     if (rawStats.status == MinerStatus.offline &&
-        !miner.isRemote &&
         RelayService.instance.state == RelayState.bridgeOnline) {
       // For Avalon devices via relay: use isRemote=true (relay forwards HTTP)
       if (miner.type.apiType == ApiType.avalonHttp) {
