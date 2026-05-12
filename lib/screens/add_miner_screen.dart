@@ -4,8 +4,10 @@ import '../theme/volt_theme.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 import '../models/miner.dart';
+import '../services/avalon_api.dart';
 import '../services/cgminer_api.dart';
 import '../services/esp_miner_api.dart';
+import '../services/fluminer_api.dart';
 import '../services/miner_store.dart';
 import '../widgets/miner_icon.dart';
 import 'discover_screen.dart';
@@ -85,6 +87,28 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
         detectedName = s.model.isNotEmpty ? s.model : detected.displayName;
         if (port == 8080) _portCtrl.text = '8080';
         break;
+      }
+    }
+
+    // Fallback: FluMiner T3 HTTP API
+    if (detected == MinerType.generic) {
+      final s = await FluMinerAPI.instance.fetchStats(ip, port: 80).timeout(
+          const Duration(seconds: 4),
+          onTimeout: () => MinerStats.offline);
+      if (s.status != MinerStatus.offline) {
+        detected = MinerType.fluMinerT3;
+        detectedName = 'FluMiner T3';
+      }
+    }
+
+    // Fallback: Avalon HTTP
+    if (detected == MinerType.generic) {
+      final s = await AvalonAPI.instance.fetchStats(ip, MinerType.avalonNano3s).timeout(
+          const Duration(seconds: 4),
+          onTimeout: () => MinerStats.offline);
+      if (s.status != MinerStatus.offline) {
+        detected = MinerType.avalonNano3s;
+        detectedName = s.model.isNotEmpty ? s.model : 'Avalon';
       }
     }
 
@@ -497,7 +521,13 @@ class _AddMinerScreenState extends State<AddMinerScreen> {
     MinerStats s;
     MinerType detectedType = _selectedType;
 
-    if (_selectedType.apiType == ApiType.espMinerHttp) {
+    if (_selectedType.apiType == ApiType.fluMinerHttp) {
+      // FluMiner T3 — uses its own HTTP REST API
+      s = await FluMinerAPI.instance.fetchStats(ip, port: port);
+    } else if (_selectedType.apiType == ApiType.avalonHttp) {
+      // Avalon Nano — HTTP REST API
+      s = await AvalonAPI.instance.fetchStats(ip, _selectedType);
+    } else if (_selectedType.apiType == ApiType.espMinerHttp) {
       s = await EspMinerAPI.instance.fetchAll(ip, port);
       if (s.status == MinerStatus.offline) {
         // Fallback: try CGMiner TCP in case user selected wrong type
